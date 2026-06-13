@@ -1,0 +1,83 @@
+[project]
+name = "langup-backend"
+version = "0.1.0"
+description = "LangUp — AI-powered vocabulary learning SaaS backend (layered, async-first)."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # --- web / async core ---
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "python-multipart>=0.0.20",
+    "websockets>=14.0",
+    # --- database / orm / migrations ---
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.15.0",
+    # --- cache / queue / storage ---
+    "redis>=5.2.0",
+    "celery>=5.4.0",
+    "aiokafka>=0.12.0",
+    "aioboto3>=14.0.0",
+    "apscheduler>=3.11.0",
+    # --- auth / security ---
+    "python-jose[cryptography]>=3.3.0",
+    "bcrypt>=4.2.0",
+    "authlib>=1.4.0",          # Google OAuth
+    "pyotp>=2.9.0",            # 2FA TOTP (future)
+    # --- ai ---
+    "anthropic>=0.40.0",
+    "openai>=1.60.0",
+    # --- http / resilience ---
+    "httpx>=0.28.0",
+    "tenacity>=9.0.0",
+    # --- serialization ---
+    "orjson>=3.10.0",
+    "msgspec>=0.19.0",
+    # --- observability ---
+    "structlog>=24.4.0",
+    "loguru>=0.7.3",
+    "sentry-sdk>=2.20.0",
+    "opentelemetry-sdk>=1.29.0",
+    "opentelemetry-instrumentation-fastapi>=0.50b0",
+    "prometheus-client>=0.21.0",
+    # --- payments ---
+    "stripe>=11.0.0",
+    # --- email ---
+    "aiosmtplib>=4.0.0",
+    "jinja2>=3.1.4",
+    # --- di ---
+    "dependency-injector>=4.45.0",
+]
+
+[dependency-groups]
+# uv dev dependencies: `uv sync --group dev`
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "factory-boy>=3.3.0",
+    "faker>=33.0.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+    "pre-commit>=4.0.0",
+]
+
+[tool.ruff]
+line-length = 120
+lint.select = ["B", "C", "E", "F", "W", "I"]
+lint.ignore = ["E501", "B008", "B904"]
+exclude = [".git", "__pycache__", ".venv", "venv", "versions/", "__init__.py"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "F401", "F403", "F405"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
