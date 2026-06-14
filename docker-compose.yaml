@@ -1,0 +1,85 @@
+---
+# Local/dev orchestration. Production deploys via the k8s/ manifests.
+services:
+  app:
+    build:
+      context: .
+    image: langup-app
+    container_name: langup-api
+    env_file: [.env]
+    ports:
+      - "${PORT}:${PORT}"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: langup-postgres
+    env_file: [.env]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: langup-redis
+    env_file: [.env]
+    entrypoint: ["sh", "/entrypoint.sh"]
+    volumes:
+      - ./redis/entrypoint.sh:/entrypoint.sh:ro
+      - redisdata:/data
+    restart: unless-stopped
+
+  # MinIO: S3-compatible object storage for TTS audio and exports.
+  minio:
+    image: minio/minio:latest
+    container_name: langup-minio
+    env_file: [.env]
+    command: server /data --console-address ":9001"
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - miniodata:/data
+    restart: unless-stopped
+
+  # Kafka broker for the event-driven layer (aiokafka producers/consumers).
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: langup-kafka
+    env_file: [.env]
+    restart: unless-stopped
+
+  celery_worker:
+    image: langup-app
+    container_name: langup-celery-worker
+    env_file: [.env]
+    entrypoint: ["uv", "run", "celery", "-A", "app.celery.config:celery_app", "worker", "--loglevel=info"]
+    depends_on: [redis]
+    restart: unless-stopped
+
+  celery_beat:
+    image: langup-app
+    container_name: langup-celery-beat
+    env_file: [.env]
+    entrypoint: ["uv", "run", "celery", "-A", "app.celery.config:celery_app", "beat", "--loglevel=info"]
+    depends_on: [redis]
+    restart: unless-stopped
+
+  event_consumer:
+    image: langup-app
+    container_name: langup-event-consumer
+    env_file: [.env]
+    entrypoint: ["uv", "run", "python", "-m", "app.events.consumer"]
+    depends_on: [kafka]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
