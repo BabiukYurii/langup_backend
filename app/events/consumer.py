@@ -1,1 +1,2 @@
-# Async consumer worker: routes incoming events to registered handlers.
+# Async consumer worker (Redis Streams consumer group): reads events via
+# XREADGROUP, routes them to registered handlers, and XACKs on success.

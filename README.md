@@ -11,7 +11,7 @@ spaced-repetition learning system with subscriptions and payments.
 ## Stack
 
 FastAPI · SQLAlchemy 2.0 (async) · Pydantic v2 · Alembic · PostgreSQL · Redis ·
-Celery · aiokafka (event bus) · S3/MinIO · Anthropic/OpenAI · Stripe/PayPal/BLIK ·
+Celery · Redis Streams (event bus) · S3/MinIO · Anthropic/OpenAI · Stripe/PayPal/BLIK ·
 structlog/loguru · OpenTelemetry/Sentry/Prometheus · Docker/K8s. Managed with **uv**.
 
 ## Layered architecture
@@ -25,7 +25,7 @@ services/       business logic (auth, vocabulary, learning, ai, payments)
 repositories/   data access over SQLAlchemy async
 models/         ORM tables (mocked here with field comments)
 schemas/        Pydantic v2 DTOs
-events/         event-driven layer (Kafka producers/consumers/handlers)
+events/         event-driven layer (Redis Streams producers/consumers/handlers)
 celery/         background jobs (AI generation, SRS, billing, email)
 core/           config, security, exceptions, logging
 middlewares/    request-id, rate limit, security headers, audit

@@ -48,13 +48,6 @@ services:
       - miniodata:/data
     restart: unless-stopped
 
-  # Kafka broker for the event-driven layer (aiokafka producers/consumers).
-  kafka:
-    image: bitnami/kafka:latest
-    container_name: langup-kafka
-    env_file: [.env]
-    restart: unless-stopped
-
   celery_worker:
     image: langup-app
     container_name: langup-celery-worker
@@ -76,7 +69,7 @@ services:
     container_name: langup-event-consumer
     env_file: [.env]
     entrypoint: ["uv", "run", "python", "-m", "app.events.consumer"]
-    depends_on: [kafka]
+    depends_on: [redis]
     restart: unless-stopped
 
 volumes:

@@ -30,8 +30,8 @@ between domains goes through **services** and the **event bus**, never across re
    │   models    │       │ external systems
    └──────┬──────┘       │
    ┌──────▼──────────────▼───────┐
-   │ PostgreSQL · Redis · S3 · Kafka │
-   └─────────────────────────────────┘
+   │  PostgreSQL · Redis · S3   │
+   └────────────────────────────┘
 ```
 
 Cross-cutting: `core/` (config, security, exceptions, logging), `middlewares/`
@@ -70,7 +70,7 @@ container helps).
 
 ## Event-driven layer
 
-Domain events (`events/topics.py`) are published to Kafka (`events/producer.py`) and
+Domain events (`events/topics.py`) are published to Redis Streams (`events/producer.py`) and
 consumed by `events/consumer.py`, which dispatches to handlers. This decouples slow/optional
 work (AI generation, receipts, analytics rollups) from the request path and keeps domains
 loosely coupled. Idempotency is enforced for payment webhooks via the `webhook_events` table.
