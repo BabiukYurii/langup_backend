@@ -1,2 +1,3 @@
-# MessageQueueConfig: Kafka bootstrap servers / RabbitMQ url, topic prefixes,
-# consumer group ids, producer acks. Backs the event-driven layer.
+# EventBusConfig: Redis Streams settings for the event-driven layer —
+# stream key prefix, consumer group id, block/batch sizes, max stream length.
+# (Reuses the Redis connection from RedisConfig.)

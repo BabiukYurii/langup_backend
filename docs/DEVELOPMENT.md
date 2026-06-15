@@ -25,7 +25,7 @@ main
 Make the skeleton boot, connect to Postgres/Redis, and run migrations.
 
 - `chore/project-bootstrap` — uv project, pyproject, ruff/mypy/pre-commit, `.env.sample`.
-- `chore/docker-compose` — Postgres, Redis, MinIO, Kafka, app, worker, beat.
+- `chore/docker-compose` — Postgres, Redis, MinIO, app, worker, beat.
 - `feat/core-config` — `core/config/*` settings aggregator.
 - `feat/core-exceptions-logging` — exception hierarchy + handlers, structlog/loguru.
 - `feat/db-foundation` — async engine/session, `models/base.py`, base repository.
@@ -100,7 +100,7 @@ Make the skeleton boot, connect to Postgres/Redis, and run migrations.
 ## Phase 6 — Hardening & production
 
 - `feat/observability` — OpenTelemetry traces, Prometheus metrics, Sentry.
-- `feat/event-bus-kafka` — promote in-process events to aiokafka topics + consumer service.
+- `feat/event-bus-redis` — promote in-process events to Redis Streams + consumer service.
 - `feat/feature-flags` — runtime toggles.
 - `chore/k8s-manifests` — deployments, HPA, ingress, migration job.
 - `chore/ci-cd` — lint/type/test + image build + deploy pipeline.

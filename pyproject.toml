@@ -19,7 +19,6 @@ dependencies = [
     # --- cache / queue / storage ---
     "redis>=5.2.0",
     "celery>=5.4.0",
-    "aiokafka>=0.12.0",
     "aioboto3>=14.0.0",
     "apscheduler>=3.11.0",
     # --- auth / security ---
@@ -76,6 +75,7 @@ exclude = [".git", "__pycache__", ".venv", "venv", "versions/", "__init__.py"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.mypy]
 python_version = "3.13"

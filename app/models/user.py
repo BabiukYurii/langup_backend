@@ -1,10 +1,14 @@
 from sqlalchemy import (
-    Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    String,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.base import Base, TimestampMixin
 
 
 class User(Base, TimestampMixin):
