@@ -1,2 +1,7 @@
-# Central FastAPI dependency aliases (Annotated[Service, Depends(get_service)]).
-# Imported by routers so endpoints stay thin. Mirrors helix/app/dependencies.py.
+from typing import Annotated
+
+from fastapi import Depends
+
+from app.services.user import UserService, get_user_service
+
+UserServiceDep = Annotated[UserService, Depends(get_user_service)]
