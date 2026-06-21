@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Особистий кабінет</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="brand">
+        <span class="brand__logo">L</span>
+        <span class="brand__name">LangUp</span>
+      </header>
+
+      <!-- LOGIN -->
+      <section id="login-view" class="card hidden">
+        <h1 class="card__title">Вхід до кабінету</h1>
+        <p class="card__subtitle">Створи акаунт або увійди за допомогою Google.</p>
+
+        <div id="google-btn" class="google-btn"></div>
+        <p id="google-missing" class="notice hidden">
+          Google Sign-In вимкнено: додай <code>GOOGLE_CLIENT_ID</code> у
+          <code>frontend/config.js</code>.
+        </p>
+      </section>
+
+      <!-- PROFILE -->
+      <section id="profile-view" class="card hidden">
+        <div class="profile__head">
+          <div id="avatar" class="avatar">?</div>
+          <div class="profile__id">
+            <h1 id="p-name" class="card__title">—</h1>
+            <p id="p-email" class="card__subtitle">—</p>
+            <div class="badges">
+              <span id="p-role" class="badge">USER</span>
+              <span id="p-verified" class="badge badge--muted">не підтверджено</span>
+            </div>
+          </div>
+          <button id="logout-btn" class="btn btn--ghost" type="button">Вийти</button>
+        </div>
+
+        <form id="profile-form" class="form">
+          <label class="field">
+            <span>Ім'я</span>
+            <input id="f-full_name" type="text" placeholder="Ваше ім'я" />
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>Рідна мова</span>
+              <input id="f-native_language" type="text" maxlength="8" placeholder="uk" />
+            </label>
+            <label class="field">
+              <span>Вивчаю</span>
+              <input id="f-target_language" type="text" maxlength="8" placeholder="en" />
+            </label>
+          </div>
+          <div class="form__actions">
+            <span id="p-created" class="meta">—</span>
+            <button class="btn btn--primary" type="submit">Зберегти</button>
+          </div>
+        </form>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
+    </main>
+
+    <script src="https://accounts.google.com/gsi/client" async></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
