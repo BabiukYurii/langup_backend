@@ -1,7 +1,10 @@
 # FastAPI application factory: wires routers, middleware and exception handlers.
+from pathlib import Path
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core import settings
 from app.core.exc import (
@@ -14,6 +17,8 @@ from app.core.exc import (
     handlers,
 )
 from app.routers import router
+
+_FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 
 def _add_handlers(app: FastAPI) -> None:
@@ -36,6 +41,11 @@ def create_app() -> FastAPI:
     )
     app.include_router(router)
     _add_handlers(app)
+
+    # Serve the small profile frontend at /app (same origin as the API).
+    if _FRONTEND_DIR.is_dir():
+        app.mount("/app", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
+
     return app
 
 
