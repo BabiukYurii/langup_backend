@@ -8,6 +8,10 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    # The test suite uses its own in-memory sqlite (sessions are overridden),
+    # but importing settings requires DATABASE_URL — provide a dummy one in CI.
+    env:
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
     steps:
       - uses: actions/checkout@v5
       - name: Install uv
