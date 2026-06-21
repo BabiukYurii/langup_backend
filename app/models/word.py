@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    JSON,
     Column,
     Integer,
     Numeric,
@@ -8,6 +9,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+
+# JSONB on Postgres, generic JSON on sqlite (so the test suite can run on sqlite).
+JSONType = JSONB().with_variant(JSON(), "sqlite")
 
 
 class Word(Base, UUIDMixin, TimestampMixin):
@@ -19,6 +23,6 @@ class Word(Base, UUIDMixin, TimestampMixin):
     language = Column(String(8), nullable=False, index=True)  # LanguageCode
     part_of_speech = Column(String(32), nullable=True)  # PartOfSpeech
     phonetic = Column(String(128), nullable=True)  # IPA transcription
-    definitions = Column(JSONB, nullable=True)  # list of senses/translations
+    definitions = Column(JSONType, nullable=True)  # list of senses/translations
     frequency_rank = Column(Integer, nullable=True)  # corpus frequency (difficulty signal)
     base_difficulty = Column(Numeric(4, 2), nullable=True)  # AI/heuristic base difficulty 0..10
