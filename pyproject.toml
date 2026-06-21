@@ -24,7 +24,8 @@ dependencies = [
     # --- auth / security ---
     "python-jose[cryptography]>=3.3.0",
     "bcrypt>=4.2.0",
-    "authlib>=1.4.0",          # Google OAuth
+    "authlib>=1.4.0",          # Google OAuth (server flow)
+    "google-auth>=2.30.0",     # verify Google ID tokens
     "pyotp>=2.9.0",            # 2FA TOTP (future)
     # --- ai ---
     "anthropic>=0.40.0",
