@@ -6,6 +6,10 @@ from sqlalchemy.pool import StaticPool
 from app.database.postgres import get_session
 from app.main import create_app
 from app.models.user import User
+from app.models.word import Word
+
+# Tables the test suite needs (created on the in-memory sqlite engine).
+TEST_TABLES = [User.__table__, Word.__table__]
 
 
 @pytest_asyncio.fixture
@@ -17,8 +21,8 @@ async def engine():
         connect_args={"check_same_thread": False},
     )
     async with eng.begin() as conn:
-        # Only the users table is needed for this vertical.
-        await conn.run_sync(User.__table__.create)
+        for table in TEST_TABLES:
+            await conn.run_sync(table.create)
     yield eng
     await eng.dispose()
 
