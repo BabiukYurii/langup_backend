@@ -1,2 +1,12 @@
-# OAuthProvider (GOOGLE). TokenType (ACCESS, REFRESH, EMAIL_VERIFY, RESET).
-# DeviceType, TwoFactorMethod (TOTP, EMAIL).
+from app.enums.base import BaseStrEnum
+
+
+class OAuthProvider(BaseStrEnum):
+    GOOGLE = "GOOGLE"
+
+
+class TokenType(BaseStrEnum):
+    ACCESS = "access"
+    REFRESH = "refresh"
+    EMAIL_VERIFY = "email_verify"
+    RESET = "reset"
