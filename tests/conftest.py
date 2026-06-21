@@ -5,11 +5,12 @@ from sqlalchemy.pool import StaticPool
 
 from app.database.postgres import get_session
 from app.main import create_app
+from app.models.auth import OAuthAccount
 from app.models.user import User
 from app.models.word import Word
 
 # Tables the test suite needs (created on the in-memory sqlite engine).
-TEST_TABLES = [User.__table__, Word.__table__]
+TEST_TABLES = [User.__table__, Word.__table__, OAuthAccount.__table__]
 
 
 @pytest_asyncio.fixture
@@ -28,22 +29,29 @@ async def engine():
 
 
 @pytest_asyncio.fixture
-async def session(engine) -> AsyncSession:
-    maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with maker() as s:
+async def sessionmaker(engine):
+    return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+
+@pytest_asyncio.fixture
+async def session(sessionmaker) -> AsyncSession:
+    async with sessionmaker() as s:
         yield s
 
 
 @pytest_asyncio.fixture
-async def client(engine) -> AsyncClient:
-    maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
+async def app(sessionmaker):
     async def _override_session():
-        async with maker() as s:
+        async with sessionmaker() as s:
             yield s
 
-    app = create_app()
-    app.dependency_overrides[get_session] = _override_session
+    application = create_app()
+    application.dependency_overrides[get_session] = _override_session
+    return application
+
+
+@pytest_asyncio.fixture
+async def client(app) -> AsyncClient:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
