@@ -8,7 +8,7 @@ dependencies = [
     # --- web / async core ---
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
-    "pydantic>=2.10.0",
+    "pydantic[email]>=2.10.0",
     "pydantic-settings>=2.7.0",
     "python-multipart>=0.0.20",
     "websockets>=14.0",
@@ -24,7 +24,8 @@ dependencies = [
     # --- auth / security ---
     "python-jose[cryptography]>=3.3.0",
     "bcrypt>=4.2.0",
-    "authlib>=1.4.0",          # Google OAuth
+    "authlib>=1.4.0",          # Google OAuth (server flow)
+    "google-auth>=2.30.0",     # verify Google ID tokens
     "pyotp>=2.9.0",            # 2FA TOTP (future)
     # --- ai ---
     "anthropic>=0.40.0",
@@ -56,6 +57,7 @@ dependencies = [
 dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.25.0",
+    "aiosqlite>=0.20.0",
     "factory-boy>=3.3.0",
     "faker>=33.0.0",
     "ruff>=0.9.0",

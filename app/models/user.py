@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -9,6 +10,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from app.models.base import Base, TimestampMixin
+
+# JSONB on Postgres, generic JSON on sqlite (so the test suite can run on sqlite).
+JSONType = JSONB().with_variant(JSON(), "sqlite")
 
 
 class User(Base, TimestampMixin):
@@ -24,7 +28,7 @@ class User(Base, TimestampMixin):
     is_2fa_enabled = Column(Boolean, nullable=False, server_default="false")
     native_language = Column(String(8), nullable=True)  # LanguageCode the user speaks
     target_language = Column(String(8), nullable=True)  # language being learned
-    preferences = Column(JSONB, nullable=True)  # UI/learning preferences blob
+    preferences = Column(JSONType, nullable=True)  # UI/learning preferences blob
     last_login_at = Column(DateTime, nullable=True)
 
     # relationships

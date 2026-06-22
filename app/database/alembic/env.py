@@ -1,7 +1,7 @@
 # Alembic async migration environment.
 # Imports Base.metadata from app.models so --autogenerate sees every table,
-# and pulls the DB URL from application settings. Revision ids are zero-padded
-# to 5 digits (00001, 00002, ...) via process_revision_directives.
+# and builds the engine from application settings (with SSL connect_args for
+# managed Postgres like Neon). Revision ids are zero-padded to 5 digits.
 import asyncio
 from logging.config import fileConfig
 
@@ -9,7 +9,7 @@ from alembic import context
 from alembic.script import ScriptDirectory
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core import settings
 from app.models import Base  # noqa: F401  (ensures all models are imported)
@@ -24,7 +24,6 @@ target_metadata = Base.metadata
 
 
 def process_revision_directives(context, revision, directives):
-    # Auto-number revisions as 00001, 00002, ... based on current head.
     migration_script = directives[0]
     head_revision = ScriptDirectory.from_config(context.config).get_current_head()
     if head_revision is None:
@@ -45,10 +44,10 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_async_engine(
+        settings.db.url,
         poolclass=pool.NullPool,
+        connect_args=settings.db.connect_args,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
