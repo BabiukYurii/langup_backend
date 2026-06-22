@@ -49,5 +49,9 @@ def create_app() -> FastAPI:
     return app
 
 
+# Module-level ASGI app for production servers (e.g. `uvicorn app.main:app`).
+app = create_app()
+
+
 if __name__ == "__main__":
-    uvicorn.run("app.main:create_app", host=settings.app.HOST, port=settings.app.PORT, factory=True)
+    uvicorn.run("app.main:app", host=settings.app.HOST, port=settings.app.PORT)
