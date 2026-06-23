@@ -60,6 +60,16 @@
             <button class="btn btn--primary" type="submit">Зберегти</button>
           </div>
         </form>
+
+        <div class="dict">
+          <div class="dict__head">
+            <h2 class="dict__title">Словник</h2>
+            <span id="dict-count" class="meta"></span>
+          </div>
+          <input id="dict-search" class="dict__search" type="text" placeholder="Пошук слова…" />
+          <ul id="dict-list" class="dict__list"></ul>
+          <p id="dict-empty" class="meta hidden">Поки порожньо — додай перше слово через розширення.</p>
+        </div>
       </section>
 
       <div id="toast" class="toast hidden"></div>

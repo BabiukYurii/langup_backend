@@ -82,6 +82,39 @@ function renderProfile(user) {
 
   hide($("login-view"));
   show($("profile-view"));
+  loadWords();
+}
+
+let dictTimer = null;
+
+async function loadWords(query = "") {
+  const list = $("dict-list");
+  const path = "/words?limit=50" + (query ? "&query=" + encodeURIComponent(query) : "");
+  const resp = await apiFetch(path);
+  if (!resp.ok) {
+    $("dict-count").textContent = "";
+    return;
+  }
+  const page = await resp.json();
+  $("dict-count").textContent = "(" + page.total + ")";
+  $("dict-empty").classList.toggle("hidden", page.items.length > 0);
+
+  list.innerHTML = "";
+  for (const w of page.items) {
+    const li = document.createElement("li");
+    li.className = "dict__item";
+
+    const lemma = document.createElement("span");
+    lemma.className = "dict__lemma";
+    lemma.textContent = w.lemma;
+
+    const lang = document.createElement("span");
+    lang.className = "dict__lang";
+    lang.textContent = w.language;
+
+    li.append(lemma, lang);
+    list.appendChild(li);
+  }
 }
 
 function showLogin() {
@@ -175,6 +208,11 @@ function initGoogle() {
 document.addEventListener("DOMContentLoaded", () => {
   $("profile-form").addEventListener("submit", saveProfile);
   $("logout-btn").addEventListener("click", logout);
+  $("dict-search").addEventListener("input", (e) => {
+    clearTimeout(dictTimer);
+    const q = e.target.value.trim();
+    dictTimer = setTimeout(() => loadWords(q), 250);
+  });
   initGoogle();
   loadProfile();
 });
