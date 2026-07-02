@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import contains_eager
 
 from app.models import UserWord, Word
@@ -13,6 +14,30 @@ class UserWordRepository(BaseRepository[UserWord]):
 
     async def get_by_user_word(self, user_id: int, word_uuid: UUID) -> UserWord | None:
         return await self.get_one(user_id=user_id, word_uuid=word_uuid)
+
+    async def get_for_user(self, user_id: int, uuid: UUID) -> UserWord | None:
+        stmt = (
+            select(UserWord)
+            .join(Word, UserWord.word_uuid == Word.uuid)
+            .options(contains_eager(UserWord.word))
+            .where(UserWord.user_id == user_id, UserWord.uuid == uuid)
+        )
+        result = await self.session.execute(stmt)
+        return result.unique().scalar_one_or_none()
+
+    async def list_due(self, user_id: int, now: datetime, limit: int = 20) -> list[UserWord]:
+        # New words (due_at IS NULL) and words whose due date has passed, soonest first.
+        stmt = (
+            select(UserWord)
+            .join(Word, UserWord.word_uuid == Word.uuid)
+            .options(contains_eager(UserWord.word))
+            .where(UserWord.user_id == user_id)
+            .where(or_(UserWord.due_at.is_(None), UserWord.due_at <= now))
+            .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc())
+            .limit(limit)
+        )
+        rows = (await self.session.execute(stmt)).unique().scalars().all()
+        return list(rows)
 
     async def get_with_word(self, uuid: UUID) -> UserWord | None:
         stmt = (
