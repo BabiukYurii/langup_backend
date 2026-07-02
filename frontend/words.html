@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Словник</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="brand">
+        <span class="brand__logo">L</span>
+        <span class="brand__name">LangUp</span>
+      </header>
+
+      <section class="card">
+        <div class="words-bar">
+          <a href="index.html" class="btn btn--ghost">← Профіль</a>
+          <div class="dict__head">
+            <h1 class="card__title">Словник</h1>
+            <span id="dict-count" class="meta"></span>
+          </div>
+        </div>
+
+        <input id="dict-search" class="dict__search" type="text" placeholder="Пошук слова…" />
+        <ul id="dict-list" class="dict__list"></ul>
+        <p id="dict-empty" class="meta hidden">Поки порожньо — додай перше слово через розширення.</p>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="api.js"></script>
+    <script src="words.js"></script>
+  </body>
+</html>

@@ -1,26 +1,8 @@
 "use strict";
 
-const CFG = window.LANGUP_CONFIG || { API_BASE: "/api", GOOGLE_CLIENT_ID: "" };
-const TOKENS = {
-  get access() {
-    return localStorage.getItem("langup_access");
-  },
-  get refresh() {
-    return localStorage.getItem("langup_refresh");
-  },
-  set({ access_token, refresh_token }) {
-    localStorage.setItem("langup_access", access_token);
-    localStorage.setItem("langup_refresh", refresh_token);
-  },
-  clear() {
-    localStorage.removeItem("langup_access");
-    localStorage.removeItem("langup_refresh");
-  },
-};
-
+// Profile page. Shared CFG/TOKENS/apiFetch come from api.js.
 let currentUser = null;
 
-// ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
 const show = (el) => el.classList.remove("hidden");
 const hide = (el) => el.classList.add("hidden");
@@ -32,35 +14,6 @@ function toast(message, kind = "ok") {
   show(el);
   clearTimeout(toast._t);
   toast._t = setTimeout(() => hide(el), 2600);
-}
-
-// ---------- API ----------
-async function apiFetch(path, options = {}, retry = true) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-  if (TOKENS.access) headers.Authorization = `Bearer ${TOKENS.access}`;
-
-  const resp = await fetch(`${CFG.API_BASE}${path}`, { ...options, headers });
-
-  if (resp.status === 401 && retry && TOKENS.refresh) {
-    const refreshed = await tryRefresh();
-    if (refreshed) return apiFetch(path, options, false);
-  }
-  return resp;
-}
-
-async function tryRefresh() {
-  try {
-    const resp = await fetch(`${CFG.API_BASE}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: TOKENS.refresh }),
-    });
-    if (!resp.ok) return false;
-    TOKENS.set(await resp.json());
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 // ---------- views ----------
@@ -82,39 +35,6 @@ function renderProfile(user) {
 
   hide($("login-view"));
   show($("profile-view"));
-  loadWords();
-}
-
-let dictTimer = null;
-
-async function loadWords(query = "") {
-  const list = $("dict-list");
-  const path = "/words?limit=50" + (query ? "&query=" + encodeURIComponent(query) : "");
-  const resp = await apiFetch(path);
-  if (!resp.ok) {
-    $("dict-count").textContent = "";
-    return;
-  }
-  const page = await resp.json();
-  $("dict-count").textContent = "(" + page.total + ")";
-  $("dict-empty").classList.toggle("hidden", page.items.length > 0);
-
-  list.innerHTML = "";
-  for (const w of page.items) {
-    const li = document.createElement("li");
-    li.className = "dict__item";
-
-    const lemma = document.createElement("span");
-    lemma.className = "dict__lemma";
-    lemma.textContent = w.lemma;
-
-    const lang = document.createElement("span");
-    lang.className = "dict__lang";
-    lang.textContent = w.language;
-
-    li.append(lemma, lang);
-    list.appendChild(li);
-  }
 }
 
 function showLogin() {
@@ -188,7 +108,6 @@ function initGoogle() {
     return;
   }
   if (!window.google?.accounts?.id) {
-    // GIS script not ready yet — retry shortly.
     return setTimeout(initGoogle, 200);
   }
   window.google.accounts.id.initialize({
@@ -208,11 +127,6 @@ function initGoogle() {
 document.addEventListener("DOMContentLoaded", () => {
   $("profile-form").addEventListener("submit", saveProfile);
   $("logout-btn").addEventListener("click", logout);
-  $("dict-search").addEventListener("input", (e) => {
-    clearTimeout(dictTimer);
-    const q = e.target.value.trim();
-    dictTimer = setTimeout(() => loadWords(q), 250);
-  });
   initGoogle();
   loadProfile();
 });
