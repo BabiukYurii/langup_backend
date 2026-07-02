@@ -6,11 +6,22 @@ from sqlalchemy.pool import StaticPool
 from app.database.postgres import get_session
 from app.main import create_app
 from app.models.auth import OAuthAccount
+from app.models.source import Source
 from app.models.user import User
+from app.models.user_word import UserWord
 from app.models.word import Word
+from app.models.word_context import WordContext
 
 # Tables the test suite needs (created on the in-memory sqlite engine).
-TEST_TABLES = [User.__table__, Word.__table__, OAuthAccount.__table__]
+# Order matters for FKs: sources before word_contexts.
+TEST_TABLES = [
+    User.__table__,
+    Word.__table__,
+    OAuthAccount.__table__,
+    Source.__table__,
+    WordContext.__table__,
+    UserWord.__table__,
+]
 
 
 @pytest_asyncio.fixture
