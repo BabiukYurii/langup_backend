@@ -310,11 +310,23 @@ a.btn {
   border-radius: 10px;
 }
 .dict__lemma {
+  flex: 1;
   font-size: 15px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.dict__mastery {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--muted);
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px;
 }
 .dict__lang {
   flex: 0 0 auto;

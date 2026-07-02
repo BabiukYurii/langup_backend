@@ -6,7 +6,7 @@ let dictTimer = null;
 
 async function loadWords(query = "") {
   const list = $("dict-list");
-  const path = "/words?limit=100" + (query ? "&query=" + encodeURIComponent(query) : "");
+  const path = "/vocabulary?limit=100" + (query ? "&query=" + encodeURIComponent(query) : "");
   const resp = await apiFetch(path);
 
   if (resp.status === 401) {
@@ -35,7 +35,11 @@ async function loadWords(query = "") {
     lang.className = "dict__lang";
     lang.textContent = w.language;
 
-    li.append(lemma, lang);
+    const mastery = document.createElement("span");
+    mastery.className = "dict__mastery";
+    mastery.textContent = (w.mastery_level || "NEW").toLowerCase();
+
+    li.append(lemma, lang, mastery);
     list.appendChild(li);
   }
 }
