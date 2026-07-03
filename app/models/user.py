@@ -24,8 +24,10 @@ class User(Base, TimestampMixin):
     full_name = Column(String(255), nullable=True)
     role = Column(String(32), nullable=False, server_default="USER", index=True)  # RoleEnum
     status = Column(String(32), nullable=False, server_default="ACTIVE")  # UserStatus
-    is_email_verified = Column(Boolean, nullable=False, server_default="false")
-    is_2fa_enabled = Column(Boolean, nullable=False, server_default="false")
+    # default=False keeps sqlite correct too: its server_default "false" is a
+    # non-empty string, which sqlite would happily store as truthy.
+    is_email_verified = Column(Boolean, nullable=False, default=False, server_default="false")
+    is_2fa_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
     native_language = Column(String(8), nullable=True)  # LanguageCode the user speaks
     target_language = Column(String(8), nullable=True)  # language being learned
     preferences = Column(JSONType, nullable=True)  # UI/learning preferences blob
