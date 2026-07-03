@@ -1,10 +1,22 @@
 from fastapi import APIRouter
 
 from app.dependencies import AuthServiceDep, CurrentUserDep
-from app.schemas.auth import GoogleLoginRequest, RefreshRequest, TokenPair
+from app.schemas.auth import GoogleLoginRequest, LoginRequest, RefreshRequest, RegisterRequest, TokenPair
 from app.schemas.user import UserOut
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+@router.post("/register", response_model=TokenPair, status_code=201)
+async def register(data: RegisterRequest, auth_service: AuthServiceDep) -> TokenPair:
+    """Create an account with email + password; returns our JWT pair."""
+    return await auth_service.register(data)
+
+
+@router.post("/login", response_model=TokenPair)
+async def login(data: LoginRequest, auth_service: AuthServiceDep) -> TokenPair:
+    """Sign in with email + password."""
+    return await auth_service.login(data)
 
 
 @router.post("/google", response_model=TokenPair)

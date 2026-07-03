@@ -2,13 +2,14 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import settings
-from app.core.exc import UnauthorizedException
+from app.core.exc import ObjectAlreadyExistsException, UnauthorizedException
+from app.core.security.password import hash_password, verify_password
 from app.core.security.tokens import create_access_token, create_refresh_token, decode_token
 from app.database.postgres import get_session
 from app.enums.auth import OAuthProvider, TokenType
 from app.repositories.auth import OAuthAccountRepository
 from app.repositories.user import UserRepository
-from app.schemas.auth import TokenPair
+from app.schemas.auth import LoginRequest, RegisterRequest, TokenPair
 from app.services.auth.oauth_google import GoogleVerifier, get_google_verifier
 
 
@@ -17,6 +18,27 @@ class AuthService:
         self.users = UserRepository(session)
         self.oauth = OAuthAccountRepository(session)
         self.verify_google = verifier
+
+    async def register(self, data: RegisterRequest) -> TokenPair:
+        """Create a password-based account and sign the user in."""
+        if await self.users.get_by_email(data.email):
+            raise ObjectAlreadyExistsException(data.email, "User")
+        user = await self.users.create_one(
+            {
+                "email": data.email,
+                "hashed_password": hash_password(data.password),
+                "full_name": data.full_name,
+            }
+        )
+        return self._issue_tokens(user.id)
+
+    async def login(self, data: LoginRequest) -> TokenPair:
+        """Password sign-in. One generic 401 for unknown email, OAuth-only
+        accounts, and wrong password — no account enumeration."""
+        user = await self.users.get_by_email(data.email)
+        if not user or not user.hashed_password or not verify_password(data.password, user.hashed_password):
+            raise UnauthorizedException("Invalid email or password")
+        return self._issue_tokens(user.id)
 
     async def google_login(self, id_token: str) -> TokenPair:
         """Sign in or sign up a user from a verified Google ID token."""
