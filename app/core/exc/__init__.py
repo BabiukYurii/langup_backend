@@ -1,3 +1,4 @@
+from app.core.exc.ai import AIProviderError, AIResponseValidationError
 from app.core.exc.base import (
     BadRequestException,
     ForbiddenException,
@@ -8,6 +9,8 @@ from app.core.exc.base import (
 )
 
 __all__ = [
+    "AIProviderError",
+    "AIResponseValidationError",
     "BadRequestException",
     "ForbiddenException",
     "ObjectAlreadyExistsException",

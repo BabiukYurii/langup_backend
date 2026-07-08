@@ -1,6 +1,7 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
+from app.core.exc.ai import AIProviderError, AIResponseValidationError
 from app.core.exc.base import (
     BadRequestException,
     ForbiddenException,
@@ -37,3 +38,11 @@ async def handle_forbidden(_: Request, exc: ForbiddenException) -> JSONResponse:
 
 async def handle_server_error(_: Request, exc: ServerErrorException) -> JSONResponse:
     return _json(500, exc.message)
+
+
+async def handle_ai_provider_error(_: Request, exc: AIProviderError) -> JSONResponse:
+    return _json(503, exc.message)
+
+
+async def handle_ai_response_validation(_: Request, exc: AIResponseValidationError) -> JSONResponse:
+    return _json(502, exc.message)
