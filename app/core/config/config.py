@@ -1,3 +1,4 @@
+from app.core.config.ai import AIConfig
 from app.core.config.app import AppBaseConfig
 from app.core.config.auth import AuthConfig
 from app.core.config.base import BaseConfig
@@ -15,6 +16,7 @@ class Settings(BaseConfig):
     db: DbBaseConfig = DbBaseConfig()
     jwt: JwtConfig = JwtConfig()
     auth: AuthConfig = AuthConfig()
+    ai: AIConfig = AIConfig()
 
 
 settings = Settings()
