@@ -3,6 +3,7 @@ from app.core.config.app import AppBaseConfig
 from app.core.config.auth import AuthConfig
 from app.core.config.base import BaseConfig
 from app.core.config.db import DbBaseConfig
+from app.core.config.exercises import ExerciseConfig
 from app.core.config.jwt import JwtConfig
 
 __all__ = ["Settings", "settings"]
@@ -17,6 +18,7 @@ class Settings(BaseConfig):
     jwt: JwtConfig = JwtConfig()
     auth: AuthConfig = AuthConfig()
     ai: AIConfig = AIConfig()
+    exercises: ExerciseConfig = ExerciseConfig()
 
 
 settings = Settings()
