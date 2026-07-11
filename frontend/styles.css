@@ -283,6 +283,10 @@ body {
   margin-top: 20px;
   text-decoration: none;
 }
+.links-row {
+  display: flex;
+  gap: 12px;
+}
 a.btn {
   text-decoration: none;
 }
@@ -339,6 +343,67 @@ a.btn {
   border: 1px solid rgba(108, 140, 255, 0.35);
   border-radius: 999px;
   padding: 3px 9px;
+}
+
+/* practice page */
+.ex__text {
+  margin: 18px 0;
+  font-size: 17px;
+  line-height: 1.7;
+}
+.ex__blank {
+  display: inline-block;
+  min-width: 72px;
+  text-align: center;
+  padding: 1px 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--primary);
+  background: rgba(108, 140, 255, 0.12);
+  color: var(--primary);
+  font-weight: 600;
+}
+.ex__options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.opt {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 16px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.opt:hover {
+  border-color: var(--primary);
+}
+.opt--selected {
+  background: rgba(108, 140, 255, 0.2);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.ex__result {
+  margin: 18px 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+.ex__result--ok {
+  border-color: rgba(56, 193, 114, 0.5);
+  color: var(--ok);
+}
+.ex__result--err {
+  border-color: rgba(255, 99, 99, 0.5);
+  color: #ff8a8a;
 }
 
 .hidden {

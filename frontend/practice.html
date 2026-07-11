@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Практика</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="brand">
+        <span class="brand__logo">L</span>
+        <span class="brand__name">LangUp</span>
+      </header>
+
+      <section class="card">
+        <div class="words-bar">
+          <a href="index.html" class="btn btn--ghost">← Профіль</a>
+          <div class="dict__head">
+            <h1 class="card__title">Практика</h1>
+          </div>
+        </div>
+
+        <!-- exercise -->
+        <div id="ex-view" class="hidden">
+          <p id="ex-prompt" class="card__subtitle"></p>
+          <p id="ex-text" class="ex__text"></p>
+          <div id="ex-blanks"></div>
+          <div class="form__actions">
+            <span id="ex-status" class="meta"></span>
+            <button id="ex-submit" class="btn btn--primary" type="button" disabled>Відповісти</button>
+          </div>
+        </div>
+
+        <!-- result -->
+        <div id="res-view" class="hidden">
+          <div id="res-banner" class="ex__result"></div>
+          <div class="form__actions">
+            <span id="res-mastery" class="meta"></span>
+            <button id="res-next" class="btn btn--primary" type="button">Наступна вправа →</button>
+          </div>
+        </div>
+
+        <!-- empty pool -->
+        <div id="empty-view" class="hidden">
+          <p class="card__subtitle">
+            Поки що немає готових вправ. Вони генеруються автоматично після того, як ти
+            додаєш нові слова через розширення — зазвичай це займає до хвилини.
+          </p>
+          <div class="form__actions">
+            <span class="meta"></span>
+            <button id="empty-retry" class="btn btn--primary" type="button">Оновити</button>
+          </div>
+        </div>
+
+        <p id="loading" class="meta">Завантаження…</p>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="api.js"></script>
+    <script src="practice.js"></script>
+  </body>
+</html>
