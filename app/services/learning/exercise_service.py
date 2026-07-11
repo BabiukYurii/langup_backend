@@ -103,8 +103,8 @@ class ExercisePoolService:
             )
             try:
                 generated = await self.generator.generate_fill_in_blank(params)
-            except (AIProviderError, AIResponseValidationError):
-                logger.warning("Skipping exercise for %r: generation failed", uw.word.lemma)
+            except (AIProviderError, AIResponseValidationError) as e:
+                logger.warning("Skipping exercise for %r: %s: %s", uw.word.lemma, type(e).__name__, e)
                 continue
             await self._store(user_id, uw.word_uuid, generated)
             created += 1
