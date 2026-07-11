@@ -5,20 +5,18 @@ from sqlalchemy import (
     Numeric,
     String,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.base import Base, JSONType, TimestampMixin, UUIDMixin, UUIDType
 
 
 class ExerciseAttempt(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "exercise_attempts"
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
-    exercise_uuid = Column(
-        UUID(as_uuid=True), ForeignKey("exercises.uuid", ondelete="CASCADE"), index=True, nullable=False
-    )
-    session_uuid = Column(UUID(as_uuid=True), ForeignKey("learning_sessions.uuid", ondelete="SET NULL"), nullable=True)
-    submitted_answer = Column(JSONB, nullable=True)
+    exercise_uuid = Column(UUIDType, ForeignKey("exercises.uuid", ondelete="CASCADE"), index=True, nullable=False)
+    # Links to a learning_sessions row; plain column until that table is migrated.
+    session_uuid = Column(UUIDType, nullable=True)
+    submitted_answer = Column(JSONType, nullable=True)
     result = Column(String(16), nullable=False)  # AttemptResult (CORRECT/INCORRECT/SKIPPED)
     score = Column(Numeric(5, 2), nullable=True)
     quality = Column(Integer, nullable=True)  # 0..5 grade fed into SM-2
