@@ -1,7 +1,8 @@
 # SQLAlchemy 2.0 declarative base + reusable mixins.
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, Uuid, func
+from sqlalchemy import JSON, Column, DateTime, Uuid, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import declarative_base
 
@@ -11,6 +12,9 @@ Base = declarative_base()
 # run the same models on sqlite. The Postgres server-side gen_random_uuid()
 # default is applied in migrations; the ORM always sets it client-side too.
 UUIDType = PGUUID(as_uuid=True).with_variant(Uuid(), "sqlite")
+
+# JSONB on Postgres, generic JSON on sqlite (so the test suite can run on sqlite).
+JSONType = JSONB().with_variant(JSON(), "sqlite")
 
 
 class UUIDMixin:

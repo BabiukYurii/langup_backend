@@ -1,5 +1,4 @@
 from sqlalchemy import (
-    JSON,
     Column,
     ForeignKey,
     Integer,
@@ -7,11 +6,8 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 
-from app.models.base import Base, TimestampMixin, UUIDMixin, UUIDType
-
-JSONType = JSONB().with_variant(JSON(), "sqlite")
+from app.models.base import Base, JSONType, TimestampMixin, UUIDMixin, UUIDType
 
 
 class WordContext(Base, UUIDMixin, TimestampMixin):

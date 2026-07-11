@@ -1,17 +1,12 @@
 from sqlalchemy import (
-    JSON,
     Column,
     Integer,
     Numeric,
     String,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
-
-# JSONB on Postgres, generic JSON on sqlite (so the test suite can run on sqlite).
-JSONType = JSONB().with_variant(JSON(), "sqlite")
+from app.models.base import Base, JSONType, TimestampMixin, UUIDMixin
 
 
 class Word(Base, UUIDMixin, TimestampMixin):

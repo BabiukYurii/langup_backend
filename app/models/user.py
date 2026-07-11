@@ -1,18 +1,13 @@
 from sqlalchemy import (
-    JSON,
     Boolean,
     Column,
     DateTime,
     Integer,
     String,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from app.models.base import Base, TimestampMixin
-
-# JSONB on Postgres, generic JSON on sqlite (so the test suite can run on sqlite).
-JSONType = JSONB().with_variant(JSON(), "sqlite")
+from app.models.base import Base, JSONType, TimestampMixin
 
 
 class User(Base, TimestampMixin):
