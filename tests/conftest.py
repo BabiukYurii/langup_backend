@@ -6,6 +6,8 @@ from sqlalchemy.pool import StaticPool
 from app.database.postgres import get_session
 from app.main import create_app
 from app.models.auth import OAuthAccount
+from app.models.exercise import Exercise
+from app.models.exercise_attempt import ExerciseAttempt
 from app.models.source import Source
 from app.models.user import User
 from app.models.user_word import UserWord
@@ -13,7 +15,7 @@ from app.models.word import Word
 from app.models.word_context import WordContext
 
 # Tables the test suite needs (created on the in-memory sqlite engine).
-# Order matters for FKs: sources before word_contexts.
+# Order matters for FKs: sources before word_contexts; exercises before attempts.
 TEST_TABLES = [
     User.__table__,
     Word.__table__,
@@ -21,6 +23,8 @@ TEST_TABLES = [
     Source.__table__,
     WordContext.__table__,
     UserWord.__table__,
+    Exercise.__table__,
+    ExerciseAttempt.__table__,
 ]
 
 
