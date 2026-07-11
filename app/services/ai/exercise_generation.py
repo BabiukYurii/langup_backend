@@ -9,6 +9,9 @@ from app.schemas.ai import Blank, FillInBlankParams, GeneratedFillInBlank
 from app.services.ai.client import AIClient, get_ai_client
 from app.services.ai.prompts import FILL_IN_BLANK_SYSTEM, build_fill_in_blank_prompt
 
+# Low temperature: exercises need format compliance, not creative writing.
+_GENERATION_TEMPERATURE = 0.4
+
 
 class ExerciseGenerationService:
     def __init__(self, ai: AIClient) -> None:
@@ -16,7 +19,7 @@ class ExerciseGenerationService:
 
     async def generate_fill_in_blank(self, params: FillInBlankParams) -> GeneratedFillInBlank:
         user_prompt = build_fill_in_blank_prompt(params.words, params.level, params.language)
-        reply = await self.ai.chat_json(FILL_IN_BLANK_SYSTEM, user_prompt)
+        reply = await self.ai.chat_json(FILL_IN_BLANK_SYSTEM, user_prompt, temperature=_GENERATION_TEMPERATURE)
         return self._parse(reply, params.words)
 
     @staticmethod
@@ -37,26 +40,35 @@ def _normalize(result: GeneratedFillInBlank, words: list[str]) -> GeneratedFillI
       to be among the blank answers (the model sometimes blanks random words).
     - If a declared blank is absent from the text, blank out the first
       occurrence of the answer word ourselves.
+    - Extra blanks the model invented on top of the requested words are kept if
+      they are repairable, silently dropped otherwise — only problems with the
+      requested words reject the whole exercise.
     - Make sure the correct answer is always present among the options.
     """
+    requested = {w.lower() for w in words}
     answers = {b.answer.lower() for b in result.blanks}
     missing = [w for w in words if w.lower() not in answers]
     if missing:
         raise AIResponseValidationError(f"Requested words not blanked: {missing}")
 
+    kept: list[Blank] = []
     for blank in result.blanks:
         placeholder = f"___{blank.index}___"
         if placeholder not in result.text:
             pattern = re.compile(rf"\b{re.escape(blank.answer)}\b", re.IGNORECASE)
             new_text, replaced = pattern.subn(placeholder, result.text, count=1)
             if not replaced:
-                raise AIResponseValidationError(
-                    f"Blank ___{blank.index}___: neither placeholder nor answer {blank.answer!r} found in text"
-                )
+                if blank.answer.lower() in requested:
+                    raise AIResponseValidationError(
+                        f"Blank ___{blank.index}___: neither placeholder nor answer {blank.answer!r} found in text"
+                    )
+                continue  # hallucinated extra blank — drop it, keep the exercise
             result.text = new_text
 
         if blank.options and not any(o.lower() == blank.answer.lower() for o in blank.options):
             blank.options.append(blank.answer)
+        kept.append(blank)
+    result.blanks = kept
     return result
 
 

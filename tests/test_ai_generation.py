@@ -70,11 +70,48 @@ async def test_generate_repairs_unblanked_text():
 
 
 async def test_generate_rejects_blank_missing_from_text():
-    # neither the placeholder nor the answer word appears in the text — unrepairable
-    bad = json.dumps({"text": "No placeholders here.", "blanks": [{"index": 1, "answer": "x", "options": []}]})
+    # the REQUESTED word's blank has neither placeholder nor answer in the text — unrepairable
+    bad = json.dumps({"text": "No placeholders here.", "blanks": [{"index": 1, "answer": "resilient", "options": []}]})
     service = ExerciseGenerationService(FakeAIClient(content=bad))
     with pytest.raises(AIResponseValidationError):
         await service.generate_fill_in_blank(PARAMS)
+
+
+async def test_generate_drops_unplaceable_extra_blank():
+    # the model invented a second blank ("student") that appears nowhere in the
+    # text — drop it and keep the exercise for the requested word
+    raw = json.dumps(
+        {
+            "text": "She stayed ___1___ despite the setback.",
+            "blanks": [
+                {"index": 1, "answer": "resilient", "options": ["resilient", "fragile", "angry"]},
+                {"index": 2, "answer": "student", "options": ["student", "teacher", "doctor"]},
+            ],
+        }
+    )
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    result = await service.generate_fill_in_blank(PARAMS)
+
+    assert [b.answer for b in result.blanks] == ["resilient"]
+    assert "___2___" not in result.text
+
+
+async def test_generate_keeps_repairable_extra_blank():
+    # the extra blank's word is present in the text — repair and keep both blanks
+    raw = json.dumps(
+        {
+            "text": "The student stayed ___1___ despite the setback.",
+            "blanks": [
+                {"index": 1, "answer": "resilient", "options": ["resilient", "fragile", "angry"]},
+                {"index": 2, "answer": "student", "options": ["student", "teacher", "doctor"]},
+            ],
+        }
+    )
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    result = await service.generate_fill_in_blank(PARAMS)
+
+    assert [b.answer for b in result.blanks] == ["resilient", "student"]
+    assert "___2___" in result.text and "student" not in result.text
 
 
 async def test_generate_rejects_blanks_of_wrong_words():
