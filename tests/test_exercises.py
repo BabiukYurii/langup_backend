@@ -58,9 +58,19 @@ async def test_replenish_fills_pool_up_to_target(session):
 
     created = await service.replenish(user_id)
     assert created == settings.exercises.EXERCISE_POOL_TARGET
-    assert await service.exercises.count_ready(user_id) == settings.exercises.EXERCISE_POOL_TARGET
+    assert await service.exercises.count_pending(user_id) == settings.exercises.EXERCISE_POOL_TARGET
 
     # already at target -> nothing added
+    assert await service.replenish(user_id) == 0
+
+
+async def test_served_exercises_still_count_toward_pool_target(session):
+    # serving without answering must not trigger extra generation
+    user_id = await _seed_vocab(session, "a2@x.com", ["resilient", "eloquent", "serene", "candid", "prudent"])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.replenish(user_id)
+
+    await service.get_next(user_id)
     assert await service.replenish(user_id) == 0
 
 
@@ -69,23 +79,30 @@ async def test_replenish_swallows_ai_failure(session):
     service = ExercisePoolService(session, FailingGenerator())
 
     assert await service.replenish(user_id) == 0
-    assert await service.exercises.count_ready(user_id) == 0
+    assert await service.exercises.count_pending(user_id) == 0
 
 
 # --- serving from the pool -------------------------------------------------
 
 
-async def test_get_next_serves_each_exercise_once(session):
+async def test_get_next_reserves_unanswered_then_moves_on(session):
     user_id = await _seed_vocab(session, "c@x.com", ["resilient", "eloquent"])
     service = ExercisePoolService(session, StubGenerator())
     await service.replenish(user_id)
 
     first = await service.get_next(user_id)
     assert "___1___" in first.payload["text"]
-    # the served item is not handed out again
+    # unanswered exercise is re-served (page refresh must not burn the pool)
+    again = await service.get_next(user_id)
+    assert again.uuid == first.uuid
+
+    # once answered, the next (different) exercise is served
+    await service.submit_attempt(user_id, first.uuid, SubmitAttemptRequest(answers={"1": "resilient"}))
     second = await service.get_next(user_id)
     assert second.uuid != first.uuid
-    # pool is now empty
+
+    # answering the last one empties the pool
+    await service.submit_attempt(user_id, second.uuid, SubmitAttemptRequest(answers={"1": "eloquent"}))
     with pytest.raises(ObjectNotFoundException):
         await service.get_next(user_id)
 

@@ -14,20 +14,24 @@ class ExerciseRepository(BaseRepository[Exercise]):
     async def get_for_user(self, user_id: int, uuid: UUID) -> Exercise | None:
         return await self.get_one(user_id=user_id, uuid=uuid)
 
-    async def next_ready(self, user_id: int) -> Exercise | None:
-        # Oldest unseen exercise from the user's pool.
+    _PENDING = (ExerciseStatus.READY.value, ExerciseStatus.SERVED.value)
+
+    async def next_pending(self, user_id: int) -> Exercise | None:
+        # Served-but-unanswered first (so a page refresh re-serves the same
+        # exercise instead of burning a new one), then the oldest READY item.
         stmt = (
             select(Exercise)
-            .where(Exercise.user_id == user_id, Exercise.status == ExerciseStatus.READY.value)
-            .order_by(Exercise.created_at.asc())
+            .where(Exercise.user_id == user_id, Exercise.status.in_(self._PENDING))
+            .order_by((Exercise.status == ExerciseStatus.READY.value).asc(), Exercise.created_at.asc())
             .limit(1)
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
-    async def count_ready(self, user_id: int) -> int:
+    async def count_pending(self, user_id: int) -> int:
+        # Unanswered inventory (READY + SERVED) — what replenish tops up to target.
         stmt = (
             select(func.count())
             .select_from(Exercise)
-            .where(Exercise.user_id == user_id, Exercise.status == ExerciseStatus.READY.value)
+            .where(Exercise.user_id == user_id, Exercise.status.in_(self._PENDING))
         )
         return (await self.session.execute(stmt)).scalar() or 0

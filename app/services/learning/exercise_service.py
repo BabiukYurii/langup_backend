@@ -40,11 +40,12 @@ class ExercisePoolService:
         self.generator = generator
 
     async def get_next(self, user_id: int) -> ExerciseOut:
-        """Hand out the oldest READY exercise and mark it SERVED."""
-        ex = await self.exercises.next_ready(user_id)
+        """Hand out the next pending exercise (re-serving an unanswered one first)."""
+        ex = await self.exercises.next_pending(user_id)
         if not ex:
             raise ObjectNotFoundException(None, "Exercise")
-        await self.exercises.update_one(ex, {"status": ExerciseStatus.SERVED.value})
+        if ex.status != ExerciseStatus.SERVED.value:
+            await self.exercises.update_one(ex, {"status": ExerciseStatus.SERVED.value})
         return ExerciseOut.from_exercise(ex)
 
     async def submit_attempt(self, user_id: int, exercise_uuid: UUID, data: SubmitAttemptRequest) -> AttemptResultOut:
@@ -81,12 +82,12 @@ class ExercisePoolService:
         )
 
     async def replenish(self, user_id: int) -> int:
-        """Top the pool back up to EXERCISE_POOL_TARGET READY exercises.
+        """Top the pool back up to EXERCISE_POOL_TARGET unanswered exercises.
 
         Best-effort: words the AI service can't turn into a valid exercise are
         skipped rather than failing the whole refill. Returns how many were added.
         """
-        need = settings.exercises.EXERCISE_POOL_TARGET - await self.exercises.count_ready(user_id)
+        need = settings.exercises.EXERCISE_POOL_TARGET - await self.exercises.count_pending(user_id)
         if need <= 0:
             return 0
 
