@@ -39,11 +39,34 @@ async function loadNext() {
 }
 
 function renderExercise(ex) {
-  $("ex-prompt").textContent = ex.prompt || "Заповни пропуски правильним словом.";
+  $("ex-prompt").textContent = promptText(ex);
+  $("ex-text").innerHTML = "";
+  $("ex-blanks").innerHTML = "";
+  $("ex-status").textContent = "";
+  $("ex-submit").disabled = true;
+  $("ex-submit").classList.remove("hidden");
 
+  if (ex.exercise_type === "MULTIPLE_CHOICE") {
+    renderMultipleChoice(ex);
+  } else if (ex.exercise_type === "FLASHCARD") {
+    renderFlashcard(ex);
+  } else {
+    renderFillInBlanks(ex);
+  }
+}
+
+function promptText(ex) {
+  const uk = {
+    FILL_IN_BLANKS: "Заповни пропуски правильним словом.",
+    MULTIPLE_CHOICE: "Вибери правильне значення слова.",
+    FLASHCARD: "Чи пам'ятаєш ти це слово?",
+  };
+  return uk[ex.exercise_type] || ex.prompt || "";
+}
+
+function renderFillInBlanks(ex) {
   // Text with ___N___ placeholders turned into visual blanks.
   const textEl = $("ex-text");
-  textEl.innerHTML = "";
   const parts = ex.payload.text.split(/___(\d+)___/g);
   // split() gives [text, "1", text, "2", ...] — odd positions are blank indexes.
   parts.forEach((part, i) => {
@@ -60,7 +83,6 @@ function renderExercise(ex) {
 
   // One options row per blank (multiple blanks are possible).
   const blanksEl = $("ex-blanks");
-  blanksEl.innerHTML = "";
   for (const blank of ex.payload.blanks) {
     const row = document.createElement("div");
     row.className = "ex__options";
@@ -80,9 +102,76 @@ function renderExercise(ex) {
     }
     blanksEl.appendChild(row);
   }
+}
 
-  $("ex-status").textContent = "";
-  $("ex-submit").disabled = true;
+function renderMultipleChoice(ex) {
+  const word = document.createElement("span");
+  word.className = "ex__word";
+  word.textContent = ex.payload.word;
+  $("ex-text").appendChild(word);
+
+  const row = document.createElement("div");
+  row.className = "ex__options ex__options--column";
+  for (const option of shuffle([...ex.payload.options])) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "opt";
+    btn.textContent = option;
+    btn.addEventListener("click", () => pick(1, option, btn, row));
+    row.appendChild(btn);
+  }
+  $("ex-blanks").appendChild(row);
+}
+
+function renderFlashcard(ex) {
+  const word = document.createElement("span");
+  word.className = "ex__word";
+  word.textContent = ex.payload.front;
+  $("ex-text").appendChild(word);
+
+  $("ex-submit").classList.add("hidden"); // flashcard has its own buttons
+
+  const area = $("ex-blanks");
+  const reveal = document.createElement("button");
+  reveal.type = "button";
+  reveal.className = "btn btn--primary";
+  reveal.textContent = "Показати відповідь";
+  reveal.addEventListener("click", () => {
+    reveal.remove();
+
+    const back = document.createElement("p");
+    back.className = "ex__back";
+    back.textContent = ex.payload.back;
+    area.appendChild(back);
+    if (ex.payload.example) {
+      const example = document.createElement("p");
+      example.className = "meta";
+      example.textContent = ex.payload.example;
+      area.appendChild(example);
+    }
+
+    const row = document.createElement("div");
+    row.className = "ex__options";
+    const knew = document.createElement("button");
+    knew.type = "button";
+    knew.className = "opt opt--know";
+    knew.textContent = "Знав ✓";
+    knew.addEventListener("click", () => {
+      chosen = { 1: "know" };
+      submit();
+    });
+    const forgot = document.createElement("button");
+    forgot.type = "button";
+    forgot.className = "opt opt--forgot";
+    forgot.textContent = "Не знав ✗";
+    forgot.addEventListener("click", () => {
+      chosen = { 1: "dont_know" };
+      submit();
+    });
+    row.append(knew, forgot);
+    area.appendChild(row);
+  });
+  area.appendChild(reveal);
 }
 
 function pick(index, option, btn, row) {
@@ -94,7 +183,8 @@ function pick(index, option, btn, row) {
   const blank = document.querySelector('.ex__blank[data-index="' + index + '"]');
   if (blank) blank.textContent = option;
 
-  const total = currentExercise.payload.blanks.length;
+  const total =
+    currentExercise.exercise_type === "FILL_IN_BLANKS" ? currentExercise.payload.blanks.length : 1;
   $("ex-submit").disabled = Object.keys(chosen).length < total;
 }
 
@@ -118,7 +208,12 @@ function renderResult(result) {
   const banner = $("res-banner");
   banner.className = "ex__result " + (result.is_correct ? "ex__result--ok" : "ex__result--err");
 
-  if (result.is_correct) {
+  if (currentExercise.exercise_type === "FLASHCARD") {
+    // self-graded: no "correct answer" to reveal
+    banner.textContent = result.is_correct
+      ? "✓ Чудово, слово засвоюється!"
+      : "✗ Нічого страшного — повторимо його пізніше.";
+  } else if (result.is_correct) {
     banner.textContent = "✓ Правильно!";
   } else {
     const correct = Object.entries(result.correct_answers)

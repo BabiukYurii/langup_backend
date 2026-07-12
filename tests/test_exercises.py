@@ -5,9 +5,9 @@ from sqlalchemy import select
 
 from app.core import settings
 from app.core.exc import AIProviderError, BadRequestException, ObjectNotFoundException
-from app.enums.learning import AttemptResult
+from app.enums.learning import AttemptResult, ExerciseStatus, ExerciseType
 from app.models import User, UserWord, Word
-from app.schemas.ai import Blank, GeneratedFillInBlank
+from app.schemas.ai import Blank, GeneratedFillInBlank, GeneratedFlashcard, GeneratedMultipleChoice
 from app.schemas.exercise import SubmitAttemptRequest
 from app.services.auth.oauth_google import get_google_verifier
 from app.services.learning.exercise_service import ExercisePoolService
@@ -16,7 +16,7 @@ PROFILE = {"sub": "ex-sub-1", "email": "ex@gmail.com", "email_verified": True, "
 
 
 class StubGenerator:
-    """Deterministic fill-in-blank for the requested word — no AI, no network."""
+    """Deterministic generations for every exercise type — no AI, no network."""
 
     def __init__(self) -> None:
         self.calls = 0
@@ -30,10 +30,29 @@ class StubGenerator:
             model="stub",
         )
 
+    async def generate_multiple_choice(self, params):
+        self.calls += 1
+        return GeneratedMultipleChoice(
+            definition=f"true meaning of {params.word}",
+            distractors=["wrong one", "wrong two", "wrong three"],
+            model="stub",
+        )
+
+    async def generate_flashcard(self, params):
+        self.calls += 1
+        return GeneratedFlashcard(
+            definition=f"true meaning of {params.word}",
+            example=f"A sentence with {params.word}.",
+            model="stub",
+        )
+
 
 class FailingGenerator:
     async def generate_fill_in_blank(self, params):
         raise AIProviderError("gateway down")
+
+    generate_multiple_choice = generate_fill_in_blank
+    generate_flashcard = generate_fill_in_blank
 
 
 async def _seed_vocab(session, email: str, words: list[str]) -> int:
@@ -80,6 +99,26 @@ async def test_replenish_swallows_ai_failure(session):
 
     assert await service.replenish(user_id) == 0
     assert await service.exercises.count_pending(user_id) == 0
+
+
+async def test_replenish_rotates_exercise_types(session):
+    user_id = await _seed_vocab(session, "b2@x.com", ["resilient", "eloquent", "serene"])
+    service = ExercisePoolService(session, StubGenerator())
+
+    assert await service.replenish(user_id) == 3
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    assert {r.exercise_type for r in rows} == {"FILL_IN_BLANKS", "MULTIPLE_CHOICE", "FLASHCARD"}
+
+    # multiple-choice: the correct definition is among the client-facing options
+    mc = next(r for r in rows if r.exercise_type == "MULTIPLE_CHOICE")
+    assert mc.answer["1"] in mc.payload["options"]
+    assert len(mc.payload["options"]) == 4
+
+    # flashcard: card faces in payload, self-grade key as the answer
+    fc = next(r for r in rows if r.exercise_type == "FLASHCARD")
+    assert fc.payload["front"] in ("resilient", "eloquent", "serene")
+    assert fc.payload["back"].startswith("true meaning")
+    assert fc.answer == {"1": "know"}
 
 
 # --- serving from the pool -------------------------------------------------
@@ -168,6 +207,54 @@ async def test_submit_unknown_exercise_raises(session):
     service = ExercisePoolService(session, StubGenerator())
     with pytest.raises(ObjectNotFoundException):
         await service.submit_attempt(user_id, uuid4(), SubmitAttemptRequest(answers={}))
+
+
+async def _make_exercise(service, user_id, ex_type: ExerciseType, payload: dict, answer: dict):
+    row = await service.exercises.create_one(
+        {
+            "user_id": user_id,
+            "exercise_type": ex_type.value,
+            "status": ExerciseStatus.READY.value,
+            "payload": payload,
+            "answer": answer,
+            "is_ai_generated": True,
+        }
+    )
+    return row.uuid
+
+
+async def test_multiple_choice_grading(session):
+    user_id = await _seed_vocab(session, "i@x.com", [])
+    service = ExercisePoolService(session, StubGenerator())
+    payload = {"word": "resilient", "options": ["wrong", "able to recover quickly", "also wrong"]}
+    answer = {"1": "able to recover quickly"}
+
+    ok_uuid = await _make_exercise(service, user_id, ExerciseType.MULTIPLE_CHOICE, payload, answer)
+    result = await service.submit_attempt(
+        user_id, ok_uuid, SubmitAttemptRequest(answers={"1": "able to recover quickly"})
+    )
+    assert result.is_correct is True
+
+    bad_uuid = await _make_exercise(service, user_id, ExerciseType.MULTIPLE_CHOICE, payload, answer)
+    result = await service.submit_attempt(user_id, bad_uuid, SubmitAttemptRequest(answers={"1": "wrong"}))
+    assert result.is_correct is False
+    assert result.correct_answers == answer
+
+
+async def test_flashcard_self_grading(session):
+    user_id = await _seed_vocab(session, "j@x.com", [])
+    service = ExercisePoolService(session, StubGenerator())
+    payload = {"front": "resilient", "back": "able to recover quickly", "example": None}
+    answer = {"1": "know"}
+
+    knew = await _make_exercise(service, user_id, ExerciseType.FLASHCARD, payload, answer)
+    result = await service.submit_attempt(user_id, knew, SubmitAttemptRequest(answers={"1": "know"}))
+    assert result.is_correct is True
+    assert result.result == AttemptResult.CORRECT
+
+    forgot = await _make_exercise(service, user_id, ExerciseType.FLASHCARD, payload, answer)
+    result = await service.submit_attempt(user_id, forgot, SubmitAttemptRequest(answers={"1": "dont_know"}))
+    assert result.is_correct is False
 
 
 # --- HTTP wiring -----------------------------------------------------------

@@ -405,6 +405,33 @@ a.btn {
   border-color: rgba(255, 99, 99, 0.5);
   color: #ff8a8a;
 }
+.ex__word {
+  display: inline-block;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--primary);
+}
+.ex__options--column {
+  flex-direction: column;
+  align-items: stretch;
+}
+.ex__options--column .opt {
+  text-align: left;
+}
+.ex__back {
+  margin: 4px 0 10px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.opt--know {
+  border-color: rgba(56, 193, 114, 0.5);
+  color: var(--ok);
+}
+.opt--forgot {
+  border-color: rgba(255, 99, 99, 0.5);
+  color: #ff8a8a;
+}
 
 .hidden {
   display: none !important;

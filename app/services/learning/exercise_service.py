@@ -1,6 +1,7 @@
 # ExerciseService: serve exercises from a per-user pool, grade attempts (feeding
 # the result into SM-2), and refill the pool via the AI generation service.
 import logging
+import random
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -11,10 +12,11 @@ from app.core import settings
 from app.core.exc import AIProviderError, AIResponseValidationError, BadRequestException, ObjectNotFoundException
 from app.database.postgres import get_session
 from app.enums.learning import AttemptResult, ExerciseStatus, ExerciseType
+from app.models import UserWord
 from app.repositories.exercise import ExerciseRepository
 from app.repositories.exercise_attempt import ExerciseAttemptRepository
 from app.repositories.user_word import UserWordRepository
-from app.schemas.ai import FillInBlankParams, GeneratedFillInBlank
+from app.schemas.ai import FillInBlankParams, WordExerciseParams
 from app.schemas.exercise import AttemptResultOut, ExerciseOut, SubmitAttemptRequest
 from app.services.ai.exercise_generation import ExerciseGenerationService, get_exercise_generation_service
 from app.services.learning.spaced_repetition import SpacedRepetitionService
@@ -24,6 +26,13 @@ logger = logging.getLogger(__name__)
 # Recall quality fed into SM-2 when an exercise is answered.
 _QUALITY_CORRECT = 5
 _QUALITY_INCORRECT = 2
+
+# Exercise types the pool rotates through when replenishing.
+_TYPE_CYCLE = [ExerciseType.FILL_IN_BLANKS, ExerciseType.MULTIPLE_CHOICE, ExerciseType.FLASHCARD]
+
+# A flashcard is self-graded: the client submits whether the user knew the word.
+FLASHCARD_KNOWN = "know"
+FLASHCARD_UNKNOWN = "dont_know"
 
 
 def _utcnow() -> datetime:
@@ -95,35 +104,61 @@ class ExercisePoolService:
         if not candidates:
             candidates, _ = await self.user_words.list_for_user(user_id, page=1, limit=need)
 
+        # Rotate exercise types; offset by the user's total so the same word
+        # gets different types across refills.
+        _, total_ever = await self.exercises.get_many(user_id=user_id, limit=1)
+
         created = 0
-        for uw in candidates:
-            params = FillInBlankParams(
-                words=[uw.word.lemma],
-                level=settings.exercises.EXERCISE_DEFAULT_LEVEL,
-                language=uw.word.language,
-            )
+        for i, uw in enumerate(candidates):
+            ex_type = _TYPE_CYCLE[(total_ever + i) % len(_TYPE_CYCLE)]
             try:
-                generated = await self.generator.generate_fill_in_blank(params)
+                await self._generate_and_store(user_id, uw, ex_type)
             except (AIProviderError, AIResponseValidationError) as e:
-                logger.warning("Skipping exercise for %r: %s: %s", uw.word.lemma, type(e).__name__, e)
+                logger.warning("Skipping %s exercise for %r: %s: %s", ex_type.value, uw.word.lemma, type(e).__name__, e)
                 continue
-            await self._store(user_id, uw.word_uuid, generated)
             created += 1
         return created
 
-    async def _store(self, user_id: int, word_uuid: UUID | None, generated: GeneratedFillInBlank) -> None:
-        payload = {
-            "text": generated.text,
-            "blanks": [{"index": b.index, "options": b.options} for b in generated.blanks],
-        }
-        answer = {str(b.index): b.answer for b in generated.blanks}
+    async def _generate_and_store(self, user_id: int, uw: UserWord, ex_type: ExerciseType) -> None:
+        level = settings.exercises.EXERCISE_DEFAULT_LEVEL
+        lemma, language = uw.word.lemma, uw.word.language
+
+        if ex_type == ExerciseType.FILL_IN_BLANKS:
+            generated = await self.generator.generate_fill_in_blank(
+                FillInBlankParams(words=[lemma], level=level, language=language)
+            )
+            prompt = "Fill in the blanks with the correct word."
+            payload = {
+                "text": generated.text,
+                "blanks": [{"index": b.index, "options": b.options} for b in generated.blanks],
+            }
+            answer = {str(b.index): b.answer for b in generated.blanks}
+        elif ex_type == ExerciseType.MULTIPLE_CHOICE:
+            generated = await self.generator.generate_multiple_choice(
+                WordExerciseParams(word=lemma, level=level, language=language)
+            )
+            prompt = "Choose the correct meaning of the word."
+            options = [generated.definition, *generated.distractors]
+            random.shuffle(options)  # stored payload is client-facing — don't leak the answer position
+            payload = {"word": lemma, "options": options}
+            answer = {"1": generated.definition}
+        elif ex_type == ExerciseType.FLASHCARD:
+            generated = await self.generator.generate_flashcard(
+                WordExerciseParams(word=lemma, level=level, language=language)
+            )
+            prompt = "Do you remember this word?"
+            payload = {"front": lemma, "back": generated.definition, "example": generated.example}
+            answer = {"1": FLASHCARD_KNOWN}
+        else:  # pragma: no cover — cycle only contains the types above
+            raise AIResponseValidationError(f"Unsupported exercise type {ex_type}")
+
         await self.exercises.create_one(
             {
                 "user_id": user_id,
-                "word_uuid": word_uuid,
-                "exercise_type": ExerciseType.FILL_IN_BLANKS.value,
+                "word_uuid": uw.word_uuid,
+                "exercise_type": ex_type.value,
                 "status": ExerciseStatus.READY.value,
-                "prompt": "Fill in the blanks with the correct word.",
+                "prompt": prompt,
                 "payload": payload,
                 "answer": answer,
                 "is_ai_generated": True,
