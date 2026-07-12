@@ -23,3 +23,22 @@ class GeneratedFillInBlank(BaseModel):
     text: str  # text with ___N___ placeholders
     blanks: list[Blank]
     model: str  # which LLM produced it (for auditing/quality tracking)
+
+
+class WordExerciseParams(BaseModel):
+    # Single-word exercise generation (multiple-choice, flashcard).
+    word: str = Field(min_length=1, max_length=128)
+    level: CEFRLevel = "B1"
+    language: str = "en"
+
+
+class GeneratedMultipleChoice(BaseModel):
+    definition: str  # the correct meaning, concise
+    distractors: list[str] = Field(min_length=1)  # plausible but wrong meanings
+    model: str
+
+
+class GeneratedFlashcard(BaseModel):
+    definition: str  # back side of the card
+    example: str | None = None  # example sentence using the word
+    model: str

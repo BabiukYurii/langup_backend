@@ -3,7 +3,7 @@ import json
 import pytest
 
 from app.core.exc import AIResponseValidationError
-from app.schemas.ai import FillInBlankParams
+from app.schemas.ai import FillInBlankParams, WordExerciseParams
 from app.services.ai.client import AIClient
 from app.services.ai.exercise_generation import ExerciseGenerationService
 
@@ -132,3 +132,75 @@ async def test_generate_rejects_malformed_blanks():
     service = ExerciseGenerationService(FakeAIClient(content=bad))
     with pytest.raises(AIResponseValidationError):
         await service.generate_fill_in_blank(PARAMS)
+
+
+# --- multiple choice ---------------------------------------------------------
+
+WORD_PARAMS = WordExerciseParams(word="resilient", level="B1", language="en")
+
+
+def _mc(definition, distractors) -> str:
+    return json.dumps({"definition": definition, "distractors": distractors})
+
+
+async def test_multiple_choice_parses_valid_output():
+    raw = _mc("able to recover quickly from difficulties", ["easy to break", "very loud", "full of light"])
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    result = await service.generate_multiple_choice(WORD_PARAMS)
+
+    assert result.definition == "able to recover quickly from difficulties"
+    assert len(result.distractors) == 3
+    assert result.model == "fake-model"
+
+
+async def test_multiple_choice_rejects_definition_leaking_word():
+    raw = _mc("being resilient in hard times", ["easy to break", "very loud", "full of light"])
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    with pytest.raises(AIResponseValidationError):
+        await service.generate_multiple_choice(WORD_PARAMS)
+
+
+async def test_multiple_choice_filters_bad_distractors():
+    # one distractor duplicates the definition, one leaks the word — both dropped
+    raw = _mc(
+        "able to recover quickly",
+        ["ABLE TO RECOVER QUICKLY", "like a resilient person", "easy to break", "very loud"],
+    )
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    result = await service.generate_multiple_choice(WORD_PARAMS)
+
+    assert result.distractors == ["easy to break", "very loud"]
+
+
+async def test_multiple_choice_rejects_when_too_few_distractors_survive():
+    raw = _mc("able to recover quickly", ["able to recover quickly", "resilient thing"])
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    with pytest.raises(AIResponseValidationError):
+        await service.generate_multiple_choice(WORD_PARAMS)
+
+
+# --- flashcard ---------------------------------------------------------------
+
+
+async def test_flashcard_parses_valid_output():
+    raw = json.dumps({"definition": "able to recover quickly", "example": "She proved resilient after the storm."})
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    result = await service.generate_flashcard(WORD_PARAMS)
+
+    assert result.definition == "able to recover quickly"
+    assert "resilient" in result.example
+
+
+async def test_flashcard_drops_example_without_the_word():
+    raw = json.dumps({"definition": "able to recover quickly", "example": "A sentence about nothing."})
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    result = await service.generate_flashcard(WORD_PARAMS)
+
+    assert result.example is None  # useless example dropped, card kept
+
+
+async def test_flashcard_rejects_definition_leaking_word():
+    raw = json.dumps({"definition": "resilient means strong", "example": "He is resilient."})
+    service = ExerciseGenerationService(FakeAIClient(content=raw))
+    with pytest.raises(AIResponseValidationError):
+        await service.generate_flashcard(WORD_PARAMS)
