@@ -12,6 +12,15 @@ class ExerciseType(BaseStrEnum):
     AI_CONTEXTUAL = "AI_CONTEXTUAL"
 
 
+# Types the AI layer can actually produce today; the rest of ExerciseType is
+# planned surface. The pool rotates through these and the API only accepts these.
+SUPPORTED_EXERCISE_TYPES = (
+    ExerciseType.FILL_IN_BLANKS,
+    ExerciseType.MULTIPLE_CHOICE,
+    ExerciseType.FLASHCARD,
+)
+
+
 class ExerciseStatus(BaseStrEnum):
     # Pool lifecycle: pre-generated -> served to the user -> answered.
     READY = "READY"
