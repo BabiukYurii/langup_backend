@@ -7,11 +7,66 @@ const $ = (id) => document.getElementById(id);
 let currentExercise = null;
 let chosen = {}; // blank index (string) -> chosen word
 let shownAt = 0; // for response_time_ms
+let enabledTypes = []; // exercise types the pool may generate for me
+
+const TYPE_LABELS = {
+  FILL_IN_BLANKS: "Пропуски",
+  MULTIPLE_CHOICE: "Значення",
+  FLASHCARD: "Картки",
+};
 
 function show(viewId) {
   for (const id of ["ex-view", "res-view", "empty-view", "loading"]) {
     $(id).classList.toggle("hidden", id !== viewId);
   }
+}
+
+// --- exercise type preferences ---------------------------------------------
+
+async function loadTypes() {
+  const resp = await apiFetch("/exercises/preferences");
+  if (!resp.ok) return;
+  enabledTypes = (await resp.json()).exercise_types;
+  renderTypes();
+  $("types-bar").classList.remove("hidden");
+}
+
+function renderTypes() {
+  const list = $("types-list");
+  list.innerHTML = "";
+  for (const [type, label] of Object.entries(TYPE_LABELS)) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip" + (enabledTypes.includes(type) ? " chip--on" : "");
+    btn.textContent = label;
+    btn.addEventListener("click", () => toggleType(type));
+    list.appendChild(btn);
+  }
+}
+
+async function toggleType(type) {
+  const next = enabledTypes.includes(type)
+    ? enabledTypes.filter((t) => t !== type)
+    : [...enabledTypes, type];
+
+  if (!next.length) {
+    $("types-status").textContent = "Хоча б один тип має лишитись";
+    return;
+  }
+
+  const resp = await apiFetch("/exercises/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ exercise_types: next }),
+  });
+  if (!resp.ok) {
+    $("types-status").textContent = "Не вдалося зберегти";
+    return;
+  }
+
+  enabledTypes = (await resp.json()).exercise_types;
+  renderTypes();
+  $("types-status").textContent = "Збережено";
+  setTimeout(() => ($("types-status").textContent = ""), 1500);
 }
 
 async function loadNext() {
@@ -243,5 +298,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("ex-submit").addEventListener("click", submit);
   $("res-next").addEventListener("click", loadNext);
   $("empty-retry").addEventListener("click", loadNext);
+  loadTypes();
   loadNext();
 });
