@@ -30,4 +30,10 @@ class DbBaseConfig(BaseConfig):
     @property
     def connect_args(self) -> dict:
         # Neon (and other managed Postgres) require TLS; asyncpg takes ssl here.
-        return {"ssl": True} if self.url.startswith("postgresql+asyncpg") else {}
+        # A local Postgres (docker compose) has no TLS — opt out with the
+        # standard libpq flag in DATABASE_URL: "...?sslmode=disable".
+        if not self.url.startswith("postgresql+asyncpg"):
+            return {}
+        if "sslmode=disable" in self.DATABASE_URL:
+            return {}
+        return {"ssl": True}
