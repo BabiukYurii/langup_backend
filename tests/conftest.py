@@ -1,8 +1,10 @@
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core import settings
 from app.database.postgres import get_session
 from app.main import create_app
 from app.models.auth import OAuthAccount
@@ -26,6 +28,17 @@ TEST_TABLES = [
     Exercise.__table__,
     ExerciseAttempt.__table__,
 ]
+
+
+@pytest.fixture(autouse=True)
+def _disable_pool_autofill():
+    # The pool refill runs as a BackgroundTask that opens its OWN session and AI
+    # client, so it bypasses the sqlite override and would hit the real database
+    # and the real gateway. Force it off no matter what the developer's .env says.
+    original = settings.exercises.EXERCISE_POOL_AUTOFILL
+    settings.exercises.EXERCISE_POOL_AUTOFILL = False
+    yield
+    settings.exercises.EXERCISE_POOL_AUTOFILL = original
 
 
 @pytest_asyncio.fixture
