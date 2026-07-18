@@ -1,14 +1,15 @@
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.core import settings
 from app.core.exc import AIProviderError, BadRequestException, ObjectNotFoundException
-from app.enums.learning import AttemptResult, ExerciseStatus, ExerciseType
+from app.enums.learning import SUPPORTED_EXERCISE_TYPES, AttemptResult, ExerciseStatus, ExerciseType
 from app.models import User, UserWord, Word
 from app.schemas.ai import Blank, GeneratedFillInBlank, GeneratedFlashcard, GeneratedMultipleChoice
-from app.schemas.exercise import SubmitAttemptRequest
+from app.schemas.exercise import ExercisePreferences, SubmitAttemptRequest
 from app.services.auth.oauth_google import get_google_verifier
 from app.services.learning.exercise_service import ExercisePoolService
 
@@ -121,6 +122,82 @@ async def test_replenish_rotates_exercise_types(session):
     assert fc.answer == {"1": "know"}
 
 
+# --- choosing exercise types -----------------------------------------------
+
+
+async def test_all_types_enabled_by_default(session):
+    user_id = await _seed_vocab(session, "p1@x.com", [])
+    service = ExercisePoolService(session, StubGenerator())
+
+    prefs = await service.get_preferences(user_id)
+    assert set(prefs.exercise_types) == set(SUPPORTED_EXERCISE_TYPES)
+
+
+async def test_preferences_round_trip(session):
+    user_id = await _seed_vocab(session, "p2@x.com", [])
+    service = ExercisePoolService(session, StubGenerator())
+
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+    assert (await service.get_preferences(user_id)).exercise_types == [ExerciseType.FLASHCARD]
+
+
+async def test_replenish_only_generates_enabled_types(session):
+    user_id = await _seed_vocab(session, "p3@x.com", ["resilient", "eloquent", "serene"])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+
+    assert await service.replenish(user_id) == 3
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    assert {r.exercise_type for r in rows} == {"FLASHCARD"}
+
+
+async def test_disabling_a_type_clears_it_from_the_pool(session):
+    user_id = await _seed_vocab(session, "p4@x.com", ["resilient", "eloquent", "serene"])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.replenish(user_id)  # one of each type
+    assert await service.exercises.count_pending(user_id) == 3
+
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    assert {r.exercise_type for r in rows} == {"FLASHCARD"}
+    # the freed slots can be refilled again instead of being blocked
+    assert await service.exercises.count_pending(user_id) == 1
+
+
+async def test_disabling_a_type_keeps_an_already_served_exercise(session):
+    # it is on the user's screen right now — dropping it would break the page
+    user_id = await _seed_vocab(session, "p5@x.com", ["resilient"])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.replenish(user_id)
+    served = await service.get_next(user_id)
+
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+
+    assert await service.exercises.get_for_user(user_id, served.uuid) is not None
+
+
+async def test_preferences_reject_an_empty_list():
+    with pytest.raises(ValidationError):
+        ExercisePreferences(exercise_types=[])
+
+
+async def test_preferences_reject_types_the_generator_cannot_produce():
+    # accepting these would stall the pool: every generation attempt would fail
+    with pytest.raises(ValidationError):
+        ExercisePreferences(exercise_types=[ExerciseType.LISTENING])
+
+
+async def test_stale_stored_preference_falls_back_to_defaults(session):
+    # a type dropped from the supported set must not leave the user stuck
+    user_id = await _seed_vocab(session, "p6@x.com", [])
+    service = ExercisePoolService(session, StubGenerator())
+    user = await service.users.get_by_id(user_id)
+    await service.users.update_one(user, {"preferences": {"exercise_types": ["LISTENING"]}})
+
+    assert set((await service.get_preferences(user_id)).exercise_types) == set(SUPPORTED_EXERCISE_TYPES)
+
+
 # --- serving from the pool -------------------------------------------------
 
 
@@ -144,6 +221,29 @@ async def test_get_next_reserves_unanswered_then_moves_on(session):
     await service.submit_attempt(user_id, second.uuid, SubmitAttemptRequest(answers={"1": "eloquent"}))
     with pytest.raises(ObjectNotFoundException):
         await service.get_next(user_id)
+
+
+async def test_get_next_can_filter_by_type(session):
+    user_id = await _seed_vocab(session, "c2@x.com", ["resilient", "eloquent", "serene"])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.replenish(user_id)  # one of each type
+
+    ex = await service.get_next(user_id, ExerciseType.FLASHCARD)
+    assert ex.exercise_type == ExerciseType.FLASHCARD
+
+    # only one flashcard in the pool, and it is already served & unanswered ->
+    # asking again re-serves the same one rather than a different type
+    assert (await service.get_next(user_id, ExerciseType.FLASHCARD)).uuid == ex.uuid
+
+
+async def test_get_next_filter_404s_when_that_type_is_absent(session):
+    user_id = await _seed_vocab(session, "c3@x.com", ["resilient"])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FILL_IN_BLANKS]))
+    await service.replenish(user_id)
+
+    with pytest.raises(ObjectNotFoundException):
+        await service.get_next(user_id, ExerciseType.FLASHCARD)
 
 
 async def test_get_next_empty_pool_raises(session):
@@ -274,6 +374,39 @@ async def test_exercises_require_auth(client):
 async def test_next_empty_pool_returns_404(app, client):
     headers = await _login(app, client)
     assert (await client.get("/api/exercises/next", headers=headers)).status_code == 404
+
+
+async def test_preferences_endpoints(app, client):
+    headers = await _login(app, client)
+
+    default = await client.get("/api/exercises/preferences", headers=headers)
+    assert default.status_code == 200
+    assert set(default.json()["exercise_types"]) == {t.value for t in SUPPORTED_EXERCISE_TYPES}
+
+    saved = await client.put(
+        "/api/exercises/preferences",
+        json={"exercise_types": ["FLASHCARD", "MULTIPLE_CHOICE"]},
+        headers=headers,
+    )
+    assert saved.status_code == 200
+    assert saved.json()["exercise_types"] == ["FLASHCARD", "MULTIPLE_CHOICE"]
+
+    again = await client.get("/api/exercises/preferences", headers=headers)
+    assert again.json()["exercise_types"] == ["FLASHCARD", "MULTIPLE_CHOICE"]
+
+
+async def test_preferences_reject_empty_and_unknown_types(app, client):
+    headers = await _login(app, client)
+    assert (
+        await client.put("/api/exercises/preferences", json={"exercise_types": []}, headers=headers)
+    ).status_code == 422
+    assert (
+        await client.put("/api/exercises/preferences", json={"exercise_types": ["NOPE"]}, headers=headers)
+    ).status_code == 422
+
+
+async def test_preferences_require_auth(client):
+    assert (await client.get("/api/exercises/preferences")).status_code == 401
 
 
 async def test_http_serve_and_answer_flow(app, client, sessionmaker):

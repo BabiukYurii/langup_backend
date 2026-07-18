@@ -11,13 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import settings
 from app.core.exc import AIProviderError, AIResponseValidationError, BadRequestException, ObjectNotFoundException
 from app.database.postgres import get_session
-from app.enums.learning import AttemptResult, ExerciseStatus, ExerciseType
+from app.enums.learning import SUPPORTED_EXERCISE_TYPES, AttemptResult, ExerciseStatus, ExerciseType
 from app.models import UserWord
 from app.repositories.exercise import ExerciseRepository
 from app.repositories.exercise_attempt import ExerciseAttemptRepository
+from app.repositories.user import UserRepository
 from app.repositories.user_word import UserWordRepository
 from app.schemas.ai import FillInBlankParams, WordExerciseParams
-from app.schemas.exercise import AttemptResultOut, ExerciseOut, SubmitAttemptRequest
+from app.schemas.exercise import AttemptResultOut, ExerciseOut, ExercisePreferences, SubmitAttemptRequest
 from app.services.ai.exercise_generation import ExerciseGenerationService, get_exercise_generation_service
 from app.services.learning.spaced_repetition import SpacedRepetitionService
 
@@ -27,8 +28,12 @@ logger = logging.getLogger(__name__)
 _QUALITY_CORRECT = 5
 _QUALITY_INCORRECT = 2
 
-# Exercise types the pool rotates through when replenishing.
-_TYPE_CYCLE = [ExerciseType.FILL_IN_BLANKS, ExerciseType.MULTIPLE_CHOICE, ExerciseType.FLASHCARD]
+# Types the pool rotates through when replenishing, unless the user narrowed
+# the list in their preferences.
+_TYPE_CYCLE = list(SUPPORTED_EXERCISE_TYPES)
+
+# Key under which the enabled types live in User.preferences.
+_PREF_KEY = "exercise_types"
 
 # A flashcard is self-graded: the client submits whether the user knew the word.
 FLASHCARD_KNOWN = "know"
@@ -46,11 +51,38 @@ class ExercisePoolService:
         self.exercises = ExerciseRepository(session)
         self.attempts = ExerciseAttemptRepository(session)
         self.user_words = UserWordRepository(session)
+        self.users = UserRepository(session)
         self.generator = generator
 
-    async def get_next(self, user_id: int) -> ExerciseOut:
+    async def get_preferences(self, user_id: int) -> ExercisePreferences:
+        """Enabled exercise types; every type is on until the user says otherwise."""
+        user = await self.users.get_by_id(user_id)
+        if not user:
+            raise ObjectNotFoundException(user_id, "User")
+        stored = (user.preferences or {}).get(_PREF_KEY)
+        # Drop anything stale (a type that was dropped from the supported set)
+        # so an old preference can never stall the pool.
+        valid = [t for t in stored or [] if t in SUPPORTED_EXERCISE_TYPES]
+        return ExercisePreferences(exercise_types=valid or _TYPE_CYCLE)
+
+    async def set_preferences(self, user_id: int, prefs: ExercisePreferences) -> ExercisePreferences:
+        user = await self.users.get_by_id(user_id)
+        if not user:
+            raise ObjectNotFoundException(user_id, "User")
+
+        enabled = [t.value for t in prefs.exercise_types]
+        # JSON column: rebind a new dict so SQLAlchemy sees the change.
+        await self.users.update_one(user, {"preferences": {**(user.preferences or {}), _PREF_KEY: enabled}})
+
+        # Pooled-but-unserved exercises of now-disabled types would occupy the
+        # pool without ever being handed out — drop them so refills can work.
+        disabled = [t for t in ExerciseType.list() if t not in enabled]
+        await self.exercises.drop_ready_of_types(user_id, disabled)
+        return ExercisePreferences(exercise_types=prefs.exercise_types)
+
+    async def get_next(self, user_id: int, exercise_type: ExerciseType | None = None) -> ExerciseOut:
         """Hand out the next pending exercise (re-serving an unanswered one first)."""
-        ex = await self.exercises.next_pending(user_id)
+        ex = await self.exercises.next_pending(user_id, exercise_type.value if exercise_type else None)
         if not ex:
             raise ObjectNotFoundException(None, "Exercise")
         if ex.status != ExerciseStatus.SERVED.value:
@@ -104,13 +136,14 @@ class ExercisePoolService:
         if not candidates:
             candidates, _ = await self.user_words.list_for_user(user_id, page=1, limit=need)
 
-        # Rotate exercise types; offset by the user's total so the same word
-        # gets different types across refills.
+        # Rotate the types the user enabled; offset by their total so the same
+        # word gets different types across refills.
+        cycle = (await self.get_preferences(user_id)).exercise_types
         _, total_ever = await self.exercises.get_many(user_id=user_id, limit=1)
 
         created = 0
         for i, uw in enumerate(candidates):
-            ex_type = _TYPE_CYCLE[(total_ever + i) % len(_TYPE_CYCLE)]
+            ex_type = cycle[(total_ever + i) % len(cycle)]
             try:
                 await self._generate_and_store(user_id, uw, ex_type)
             except (AIProviderError, AIResponseValidationError) as e:

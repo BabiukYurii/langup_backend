@@ -1,9 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from app.enums.learning import AttemptResult, ExerciseType
+from app.enums.learning import SUPPORTED_EXERCISE_TYPES, AttemptResult, ExerciseType
 
 
 class ExerciseOut(BaseModel):
@@ -39,3 +39,20 @@ class AttemptResultOut(BaseModel):
     is_correct: bool
     correct_answers: dict[str, str]  # index -> correct word (revealed after answering)
     mastery_level: str | None = None  # updated SM-2 mastery, if the word was in the user's vocabulary
+
+
+class ExercisePreferences(BaseModel):
+    # Which exercise types the pool is allowed to generate for this user.
+    exercise_types: list[ExerciseType] = Field(min_length=1)
+
+    @field_validator("exercise_types")
+    @classmethod
+    def _supported_only(cls, value: list[ExerciseType]) -> list[ExerciseType]:
+        # Keep the caller's order but drop repeats — the pool rotates through this list.
+        unique = list(dict.fromkeys(value))
+        # Accepting a planned-but-unimplemented type would silently stall the
+        # pool: every generation attempt would fail and be skipped.
+        unsupported = [t for t in unique if t not in SUPPORTED_EXERCISE_TYPES]
+        if unsupported:
+            raise ValueError(f"Unsupported exercise types: {', '.join(unsupported)}")
+        return unique
