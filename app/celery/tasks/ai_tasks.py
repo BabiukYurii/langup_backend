@@ -3,6 +3,10 @@
 Generation is CPU-bound and slow, and Ollama serves one inference at a time, so
 these run on a worker with a single concurrent slot. Failures retry: the model
 is not deterministic, and a word it refused once usually works on a second try.
+
+Tasks bind to our Celery app explicitly rather than via @shared_task: the web
+process never loads the worker's entry point, so "the current app" there is
+Celery's default one — pointing at an amqp broker that does not exist.
 """
 
 import asyncio
@@ -11,9 +15,9 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from celery import shared_task
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.celery.config import celery_app
 from app.core import settings
 from app.enums.learning import ExerciseType
 
@@ -63,7 +67,7 @@ def _pool_service(session: AsyncSession):
     return ExercisePoolService(session, ExerciseGenerationService(AIClient()))
 
 
-@shared_task(name="ai.translate_word", **_RETRY_KWARGS)
+@celery_app.task(name="ai.translate_word", **_RETRY_KWARGS)
 def translate_word(user_id: int, word_uuid: str) -> int:
     """Translate one captured word, so exercises can later be built from cache."""
 
@@ -85,7 +89,7 @@ def translate_word(user_id: int, word_uuid: str) -> int:
     return _run(job)
 
 
-@shared_task(name="ai.refill_pool", **_RETRY_KWARGS)
+@celery_app.task(name="ai.refill_pool", **_RETRY_KWARGS)
 def refill_pool(user_id: int, exercise_type: str | None = None) -> int:
     """Top a user's exercise pool back up; returns how many were added."""
 

@@ -37,6 +37,21 @@ def celery_on():
     settings.celery.CELERY_ENABLED = original
 
 
+def test_tasks_are_bound_to_our_broker_not_celery_default():
+    """Importing a task the way the web process does must reach OUR broker.
+
+    With @shared_task the binding follows "the current app", and the web
+    process never loads the worker's entry point — so tasks silently pointed at
+    Celery's default amqp broker and every enqueue died with a refused
+    connection while the worker itself looked perfectly healthy.
+    """
+    from app.celery.tasks.ai_tasks import refill_pool, translate_word
+
+    for task in (refill_pool, translate_word):
+        assert task.app.conf.broker_url == settings.redis.url
+        assert "amqp" not in task.app.conf.broker_url
+
+
 def test_nothing_is_enqueued_while_celery_is_off():
     task = FakeTask()
     assert background._enqueue(task, 1) is None
