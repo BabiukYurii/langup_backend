@@ -14,6 +14,7 @@ const TYPE_LABELS = {
   MULTIPLE_CHOICE: "Значення",
   FLASHCARD: "Картки",
   MATCH_PAIRS: "Пари",
+  TYPING: "Впиши",
 };
 
 function show(viewId) {
