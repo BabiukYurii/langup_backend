@@ -344,9 +344,17 @@ class ExercisePoolService:
             text, blanked = _blank_word(sentence, lemma)
             if not blanked:
                 raise AIResponseValidationError(f"{lemma!r} not found in its sentence")
+            translation = await self.translations.translate_word(uw.word, await self._translation_language(user_id))
+            if not translation:
+                # The translation is the prompt ("type the word that means X"),
+                # so without it there is nothing to answer from — skip.
+                raise AIResponseValidationError(f"No translation for {lemma!r}")
             payload = {
                 "text": text,
-                "hint": await self.translations.translate_word(uw.word, await self._translation_language(user_id)),
+                "hint": translation,
+                # The client sizes the blank to the word — the length is a hint,
+                # but the word itself must not leak, so send only the count.
+                "length": len(lemma),
             }
             answer = {"1": lemma}
         else:  # pragma: no cover — cycle only contains the types above

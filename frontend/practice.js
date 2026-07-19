@@ -127,6 +127,10 @@ function renderTyping(ex) {
     input.autocomplete = "off";
     input.spellcheck = false;
     input.setAttribute("aria-label", "пропущене слово");
+    // Sized to the word: the blank fits exactly its letters, a length hint.
+    const len = ex.payload.length || 8;
+    input.size = Math.max(len, 2);
+    input.maxLength = len;
     input.addEventListener("input", () => {
       chosen = { 1: input.value.trim() };
       $("ex-submit").disabled = !input.value.trim();
@@ -138,15 +142,12 @@ function renderTyping(ex) {
   });
   setTimeout(() => textEl.querySelector("input")?.focus(), 0);
 
+  // The translation is the prompt — it's what tells the learner which word to
+  // type — so it is shown straight away, not hidden behind a button.
   if (ex.payload.hint) {
-    const hint = document.createElement("button");
-    hint.type = "button";
-    hint.className = "ex__hint";
-    hint.textContent = "Показати підказку";
-    hint.addEventListener("click", () => {
-      hint.textContent = "Підказка: " + ex.payload.hint;
-      hint.disabled = true;
-    });
+    const hint = document.createElement("p");
+    hint.className = "ex__prompt-word";
+    hint.textContent = ex.payload.hint;
     $("ex-blanks").appendChild(hint);
   }
 }

@@ -435,7 +435,8 @@ async def test_typing_blanks_the_word_in_its_own_sentence(session):
     ex = next(r for r in rows if r.exercise_type == "TYPING")
 
     assert ex.payload["text"] == "The research was ___1___ by a team."
-    assert ex.payload["hint"] == "проведено"
+    assert ex.payload["hint"] == "проведено"  # the translation prompts what to type
+    assert ex.payload["length"] == len("conducted")  # blank is sized to the word
     assert ex.answer == {"1": "conducted"}  # the word itself is the answer
     assert ex.word_uuid is not None  # single word -> feeds SM-2
 
