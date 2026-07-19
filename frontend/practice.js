@@ -132,7 +132,8 @@ function renderTyping(ex) {
     // so a too-short answer leaves a visibly empty cell.
     const len = ex.payload.length || 8;
     input.maxLength = len;
-    input.style.width = `calc(${Math.max(len, 2)}ch + 18px)`;
+    // content = exactly the word (len ch), plus the 8px of horizontal padding
+    input.style.width = `calc(${Math.max(len, 2)}ch + 8px)`;
     input.setAttribute("enterkeyhint", "done");
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") submit();
