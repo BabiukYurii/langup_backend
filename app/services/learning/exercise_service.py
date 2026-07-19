@@ -18,11 +18,12 @@ from app.repositories.exercise_attempt import ExerciseAttemptRepository
 from app.repositories.user import UserRepository
 from app.repositories.user_word import UserWordRepository
 from app.repositories.word import WordRepository
+from app.repositories.word_context import WordContextRepository
 from app.schemas.ai import FillInBlankParams, WordExerciseParams
 from app.schemas.exercise import AttemptResultOut, ExerciseOut, ExercisePreferences, SubmitAttemptRequest
 from app.services.ai.exercise_generation import ExerciseGenerationService, get_exercise_generation_service
 from app.services.learning.spaced_repetition import SpacedRepetitionService
-from app.services.vocabulary.translation_service import TranslationService, cached_translation
+from app.services.vocabulary.translation_service import TranslationService
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ class ExercisePoolService:
         self.generator = generator
         self.translations = TranslationService(session, generator)
         self.words_repo = WordRepository(session)
+        self.word_contexts = WordContextRepository(session)
 
     async def get_preferences(self, user_id: int) -> ExercisePreferences:
         """Enabled exercise types; every type is on until the user says otherwise."""
@@ -306,19 +308,18 @@ class ExercisePoolService:
             payload = {"word": lemma, "options": options}
             answer = {"1": generated.definition}
         elif ex_type == ExerciseType.FLASHCARD:
+            # A card is pure review: the sentence the learner met the word in
+            # (word shown in bold), with its translation as the answer. Both are
+            # already stored, so building a card needs no inference at all.
             prompt = "Do you remember this word?"
             answer = {"1": FLASHCARD_KNOWN}
-            # A translation is already cached for most words, and a word/translation
-            # card is the classic flashcard anyway — so build it for free and keep
-            # inference for the types that genuinely need it.
-            translation = cached_translation(uw.word, await self._translation_language(user_id))
-            if translation:
-                payload = {"front": lemma, "back": translation, "example": None}
-            else:
-                generated = await self.generator.generate_flashcard(
-                    WordExerciseParams(word=lemma, level=level, language=language)
-                )
-                payload = {"front": lemma, "back": generated.definition, "example": generated.example}
+            translation = await self.translations.translate_word(uw.word, await self._translation_language(user_id))
+            if not translation:
+                # Without a translation there is nothing to reveal; skip and let
+                # another type take the slot (translation is normally cached).
+                raise AIResponseValidationError(f"No translation for {lemma!r}")
+            sentence = await self.word_contexts.latest_sentence(uw.word_uuid)
+            payload = {"word": lemma, "sentence": sentence, "translation": translation}
         else:  # pragma: no cover — cycle only contains the types above
             raise AIResponseValidationError(f"Unsupported exercise type {ex_type}")
 

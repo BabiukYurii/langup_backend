@@ -126,10 +126,10 @@ async def test_replenish_rotates_exercise_types(session):
     assert mc.answer["1"] in mc.payload["options"]
     assert len(mc.payload["options"]) == 4
 
-    # flashcard: card faces in payload, self-grade key as the answer
+    # flashcard: the word and its translation, self-grade key as the answer
     fc = next(r for r in rows if r.exercise_type == "FLASHCARD")
-    assert fc.payload["front"] in ("resilient", "eloquent", "serene")
-    assert fc.payload["back"].startswith("true meaning")
+    assert fc.payload["word"] in ("resilient", "eloquent", "serene")
+    assert fc.payload["translation"].endswith("-переклад")
     assert fc.answer == {"1": "know"}
 
 
@@ -346,20 +346,42 @@ async def test_flashcard_uses_a_cached_translation_without_calling_the_ai(sessio
     assert service.generator.calls == calls_before  # no inference at all
     rows, _ = await service.exercises.get_many(user_id=user_id)
     card = next(r for r in rows if r.exercise_type == "FLASHCARD")
-    assert card.payload == {"front": "resilient", "back": "стійкий", "example": None}
+    assert card.payload == {"word": "resilient", "sentence": None, "translation": "стійкий"}
 
 
-async def test_flashcard_falls_back_to_the_ai_without_a_translation(session):
+async def test_flashcard_shows_the_captured_sentence(session):
+    # the card is the sentence the learner met the word in, plus its translation
     user_id = await _seed_vocab(session, "f2@x.com", ["resilient"])
     service = ExercisePoolService(session, StubGenerator())
+    word = await service.words_repo.get_by_lemma_language("resilient", "en")
+    await service.words_repo.update_one(word, {"definitions": [{"lang": "uk", "translation": "стійкий"}]})
+    sentence = "The team stayed resilient after the setback."
+    await service.word_contexts.create_one(
+        {"user_id": user_id, "word_uuid": word.uuid, "surface_form": "resilient", "sentence": sentence}
+    )
     await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
 
     await service.replenish(user_id)
 
     rows, _ = await service.exercises.get_many(user_id=user_id)
     card = next(r for r in rows if r.exercise_type == "FLASHCARD")
-    assert card.payload["back"].startswith("true meaning")
-    assert card.payload["example"]
+    assert card.payload == {"word": "resilient", "sentence": sentence, "translation": "стійкий"}
+
+
+async def test_flashcard_is_skipped_without_a_translation(session):
+    # nothing to reveal, so the slot goes to another type instead
+    user_id = await _seed_vocab(session, "f3@x.com", ["resilient"])
+
+    class NoTranslation(StubGenerator):
+        async def generate_translation(self, params):
+            from app.core.exc import AIResponseValidationError
+
+            raise AIResponseValidationError("no translation")
+
+    service = ExercisePoolService(session, NoTranslation())
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+
+    assert await service.replenish(user_id) == 0
 
 
 # --- choosing exercise types -----------------------------------------------
@@ -584,7 +606,7 @@ async def test_multiple_choice_grading(session):
 async def test_flashcard_self_grading(session):
     user_id = await _seed_vocab(session, "j@x.com", [])
     service = ExercisePoolService(session, StubGenerator())
-    payload = {"front": "resilient", "back": "able to recover quickly", "example": None}
+    payload = {"word": "resilient", "sentence": "She stayed resilient.", "translation": "стійкий"}
     answer = {"1": "know"}
 
     knew = await _make_exercise(service, user_id, ExerciseType.FLASHCARD, payload, answer)
