@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -46,7 +47,17 @@ class AttemptResultOut(BaseModel):
 
 
 class RefillResultOut(BaseModel):
-    created: int  # how many exercises the on-demand refill added
+    # "queued" when a worker took the job and the client should poll, "done"
+    # when it was generated inline (no worker available).
+    status: Literal["queued", "done"]
+    task_id: str | None = None
+    created: int | None = None
+
+
+class RefillStatusOut(BaseModel):
+    # Celery states, narrowed to what the UI acts on.
+    status: Literal["pending", "running", "done", "failed"]
+    created: int | None = None
 
 
 class ExercisePreferences(BaseModel):

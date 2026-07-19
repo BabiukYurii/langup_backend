@@ -9,8 +9,10 @@ from app.schemas.exercise import (
     ExerciseOut,
     ExercisePreferences,
     RefillResultOut,
+    RefillStatusOut,
     SubmitAttemptRequest,
 )
+from app.services.learning.background import enqueue_refill, refill_task_status
 
 router = APIRouter(prefix="/exercises", tags=["Exercises"])
 
@@ -47,7 +49,19 @@ async def refill_pool(
     `exercise_type` to get that specific kind. Generation is CPU-bound, so the
     request can take a while.
     """
-    return RefillResultOut(created=await exercise_service.replenish(current_user.id, exercise_type))
+    task_id = enqueue_refill(current_user.id, exercise_type)
+    if task_id:
+        return RefillResultOut(status="queued", task_id=task_id)
+    # No worker: generating inline keeps the button working, at the cost of a
+    # request that can run for a while.
+    created = await exercise_service.replenish(current_user.id, exercise_type)
+    return RefillResultOut(status="done", created=created)
+
+
+@router.get("/refill/{task_id}", response_model=RefillStatusOut)
+async def refill_status(task_id: str, current_user: CurrentUserDep) -> RefillStatusOut:
+    """Progress of a queued refill, so the UI can poll instead of waiting."""
+    return refill_task_status(task_id)
 
 
 @router.get("/next", response_model=ExerciseOut)
