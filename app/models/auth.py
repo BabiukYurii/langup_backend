@@ -8,10 +8,9 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.base import Base, JSONType, TimestampMixin, UUIDMixin, UUIDType
 
 # Authentication-related tables: refresh tokens, sessions/devices, oauth links,
 # email-verification & password-reset tokens, and 2FA secrets.
@@ -22,10 +21,11 @@ class RefreshToken(Base, UUIDMixin, TimestampMixin):
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
     token_hash = Column(String(255), unique=True, index=True, nullable=False)  # hashed, never store raw
-    session_uuid = Column(UUID(as_uuid=True), ForeignKey("user_sessions.uuid", ondelete="CASCADE"), nullable=True)
+    # Links to a user_sessions row; plain column until that table is migrated.
+    session_uuid = Column(UUIDType, nullable=True)
     expires_at = Column(DateTime, nullable=False)
     revoked_at = Column(DateTime, nullable=True)  # set on logout / rotation
-    replaced_by = Column(UUID(as_uuid=True), nullable=True)  # rotation chain
+    replaced_by = Column(UUIDType, nullable=True)  # rotation chain
 
 
 class UserSession(Base, UUIDMixin, TimestampMixin):
@@ -79,5 +79,5 @@ class TwoFactorSecret(Base, UUIDMixin, TimestampMixin):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
     method = Column(String(16), nullable=False, server_default="TOTP")  # TwoFactorMethod
     secret_encrypted = Column(Text, nullable=False)  # encrypted TOTP seed
-    backup_codes = Column(JSONB, nullable=True)  # hashed one-time recovery codes
+    backup_codes = Column(JSONType, nullable=True)  # hashed one-time recovery codes
     confirmed_at = Column(DateTime, nullable=True)

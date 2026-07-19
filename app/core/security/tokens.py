@@ -1,5 +1,6 @@
 # JWT encode/decode helpers (python-jose).
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from jose import JWTError, jwt
 
@@ -15,6 +16,9 @@ def _encode(subject: str | int, secret: str, expires: timedelta, token_type: Tok
         "type": token_type.value,
         "iat": now,
         "exp": now + expires,
+        # Without this, two tokens minted for the same user in the same second
+        # are byte-identical — and refresh tokens are stored by hash.
+        "jti": str(uuid4()),
     }
     return jwt.encode(payload, secret, algorithm=settings.jwt.ALGORITHM)
 

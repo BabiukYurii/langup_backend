@@ -1,3 +1,7 @@
+import hashlib
+import logging
+from datetime import UTC, datetime, timedelta
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,16 +11,33 @@ from app.core.security.password import hash_password, verify_password
 from app.core.security.tokens import create_access_token, create_refresh_token, decode_token
 from app.database.postgres import get_session
 from app.enums.auth import OAuthProvider, TokenType
-from app.repositories.auth import OAuthAccountRepository
+from app.repositories.auth import OAuthAccountRepository, RefreshTokenRepository
 from app.repositories.user import UserRepository
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenPair
 from app.services.auth.oauth_google import GoogleVerifier, get_google_verifier
+
+logger = logging.getLogger(__name__)
+
+
+def _utcnow() -> datetime:
+    # Naive UTC to match the DB's timezone-less DateTime columns.
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _fingerprint(token: str) -> str:
+    """What we store instead of the token itself.
+
+    A plain SHA-256 is right here, unlike for passwords: the token already has
+    full entropy, and we must look it up by value on every refresh.
+    """
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 class AuthService:
     def __init__(self, session: AsyncSession, verifier: GoogleVerifier) -> None:
         self.users = UserRepository(session)
         self.oauth = OAuthAccountRepository(session)
+        self.refresh_tokens = RefreshTokenRepository(session)
         self.verify_google = verifier
 
     async def register(self, data: RegisterRequest) -> TokenPair:
@@ -30,7 +51,7 @@ class AuthService:
                 "full_name": data.full_name,
             }
         )
-        return self._issue_tokens(user.id)
+        return await self._issue_tokens(user.id)
 
     async def login(self, data: LoginRequest) -> TokenPair:
         """Password sign-in. One generic 401 for unknown email, OAuth-only
@@ -38,7 +59,7 @@ class AuthService:
         user = await self.users.get_by_email(data.email)
         if not user or not user.hashed_password or not verify_password(data.password, user.hashed_password):
             raise UnauthorizedException("Invalid email or password")
-        return self._issue_tokens(user.id)
+        return await self._issue_tokens(user.id)
 
     async def google_login(self, id_token: str) -> TokenPair:
         """Sign in or sign up a user from a verified Google ID token."""
@@ -72,21 +93,62 @@ class AuthService:
 
         if not user:
             raise UnauthorizedException("Linked user no longer exists")
-        return self._issue_tokens(user.id)
+        return await self._issue_tokens(user.id)
 
     async def refresh(self, refresh_token: str) -> TokenPair:
+        """Exchange a refresh token for a new pair, retiring the old one.
+
+        A valid signature is not enough: the token must still be live in the
+        database, which is what makes logout and revocation real.
+        """
         payload = decode_token(refresh_token, settings.jwt.REFRESH_SECRET_KEY, TokenType.REFRESH)
+        stored = await self.refresh_tokens.get_by_hash(_fingerprint(refresh_token))
+        if not stored:
+            raise UnauthorizedException("Refresh token is not recognised")
+
+        if stored.revoked_at is not None:
+            # This token was already spent. Either it leaked and someone is
+            # replaying it, or the real owner's is stolen — either way, end
+            # every session of that user rather than guess which.
+            logger.warning("Reuse of a revoked refresh token for user %s", stored.user_id)
+            await self.refresh_tokens.revoke_all_for_user(stored.user_id, _utcnow())
+            raise UnauthorizedException("Refresh token has been revoked")
+
+        if stored.expires_at <= _utcnow():
+            raise UnauthorizedException("Refresh token has expired")
+
         user = await self.users.get_by_id(int(payload["sub"]))
         if not user:
             raise UnauthorizedException("User not found")
-        return self._issue_tokens(user.id)
 
-    @staticmethod
-    def _issue_tokens(user_id: int) -> TokenPair:
-        return TokenPair(
-            access_token=create_access_token(user_id),
-            refresh_token=create_refresh_token(user_id),
+        tokens = await self._issue_tokens(user.id)
+        issued = await self.refresh_tokens.get_by_hash(_fingerprint(tokens.refresh_token))
+        await self.refresh_tokens.update_one(
+            stored, {"revoked_at": _utcnow(), "replaced_by": issued.uuid if issued else None}
         )
+        return tokens
+
+    async def logout(self, refresh_token: str) -> None:
+        """Retire one session. Unknown or already-dead tokens pass quietly:
+        the caller wanted them gone, and they are."""
+        stored = await self.refresh_tokens.get_by_hash(_fingerprint(refresh_token))
+        if stored and stored.revoked_at is None:
+            await self.refresh_tokens.update_one(stored, {"revoked_at": _utcnow()})
+
+    async def logout_everywhere(self, user_id: int) -> int:
+        """Retire every session of a user; returns how many were live."""
+        return await self.refresh_tokens.revoke_all_for_user(user_id, _utcnow())
+
+    async def _issue_tokens(self, user_id: int) -> TokenPair:
+        refresh_token = create_refresh_token(user_id)
+        await self.refresh_tokens.create_one(
+            {
+                "user_id": user_id,
+                "token_hash": _fingerprint(refresh_token),
+                "expires_at": _utcnow() + timedelta(days=settings.jwt.REFRESH_EXPIRE_DAYS),
+            }
+        )
+        return TokenPair(access_token=create_access_token(user_id), refresh_token=refresh_token)
 
 
 async def get_auth_service(

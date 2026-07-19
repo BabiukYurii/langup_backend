@@ -133,3 +133,89 @@ async def test_refresh_rejects_access_token(app, client):
     # passing an access token where a refresh token is expected must fail
     resp = await client.post("/api/auth/refresh", json={"refresh_token": tokens["access_token"]})
     assert resp.status_code == 401
+
+
+# --- refresh token lifecycle -------------------------------------------------
+#
+# A signature alone must not be enough: without a server-side record a stolen
+# refresh token stays valid for its full 30 days and logout cannot stop it.
+
+
+async def _register(client, email: str = "rt@gmail.com") -> dict:
+    resp = await client.post("/api/auth/register", json={"email": email, "password": "rt-password-123"})
+    return resp.json()
+
+
+async def test_refresh_rotates_and_retires_the_old_token(client):
+    tokens = await _register(client)
+
+    refreshed = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert refreshed.status_code == 200
+    assert refreshed.json()["refresh_token"] != tokens["refresh_token"]
+
+    # the spent token is dead even though its signature is still valid
+    replayed = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert replayed.status_code == 401
+
+
+async def test_replaying_a_spent_token_kills_every_session(client):
+    # replay means the token leaked; which copy is the thief's is unknowable,
+    # so every session of that user ends
+    tokens = await _register(client, "reuse@gmail.com")
+    current = (await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})).json()
+
+    await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})  # replay
+
+    assert (await client.post("/api/auth/refresh", json={"refresh_token": current["refresh_token"]})).status_code == 401
+
+
+async def test_logout_makes_the_refresh_token_unusable(client):
+    tokens = await _register(client, "logout@gmail.com")
+
+    assert (await client.post("/api/auth/logout", json={"refresh_token": tokens["refresh_token"]})).status_code == 204
+    assert (
+        await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    ).status_code == 401
+
+
+async def test_logout_of_an_unknown_token_is_not_an_error(client):
+    # the caller wanted it gone, and it is
+    resp = await client.post("/api/auth/logout", json={"refresh_token": "not-a-real-token"})
+    assert resp.status_code == 204
+
+
+async def test_logout_everywhere_ends_all_sessions(client):
+    first = await _register(client, "everywhere@gmail.com")
+    second = (
+        await client.post("/api/auth/login", json={"email": "everywhere@gmail.com", "password": "rt-password-123"})
+    ).json()
+
+    headers = {"Authorization": f"Bearer {first['access_token']}"}
+    assert (await client.post("/api/auth/logout-all", headers=headers)).status_code == 204
+
+    for tokens in (first, second):
+        assert (
+            await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+        ).status_code == 401
+
+
+async def test_a_forged_but_unknown_token_is_rejected(client):
+    # correctly signed for a real user, but never issued by us
+    from app.core.security.tokens import create_refresh_token
+
+    await _register(client, "forged@gmail.com")
+    resp = await client.post("/api/auth/refresh", json={"refresh_token": create_refresh_token(1)})
+    assert resp.status_code == 401
+
+
+async def test_two_logins_in_the_same_second_both_work(client):
+    # tokens used to be byte-identical within one second, and the second login
+    # collided on the stored hash
+    await _register(client, "same-second@gmail.com")
+    body = {"email": "same-second@gmail.com", "password": "rt-password-123"}
+
+    first = await client.post("/api/auth/login", json=body)
+    second = await client.post("/api/auth/login", json=body)
+
+    assert first.status_code == second.status_code == 200
+    assert first.json()["refresh_token"] != second.json()["refresh_token"]
