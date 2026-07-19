@@ -7,12 +7,13 @@ const $ = (id) => document.getElementById(id);
 let currentExercise = null;
 let chosen = {}; // blank index (string) -> chosen word
 let shownAt = 0; // for response_time_ms
-let enabledTypes = []; // exercise types the pool may generate for me
+let activeType = null; // null = practise whatever comes next
 
 const TYPE_LABELS = {
   FILL_IN_BLANKS: "Пропуски",
   MULTIPLE_CHOICE: "Значення",
   FLASHCARD: "Картки",
+  MATCH_PAIRS: "Пари",
 };
 
 function show(viewId) {
@@ -21,63 +22,43 @@ function show(viewId) {
   }
 }
 
-// --- exercise type preferences ---------------------------------------------
-
-async function loadTypes() {
-  const resp = await apiFetch("/exercises/preferences");
-  if (!resp.ok) return;
-  enabledTypes = (await resp.json()).exercise_types;
-  renderTypes();
-  $("types-bar").classList.remove("hidden");
-}
+// --- picking what to practise ----------------------------------------------
 
 function renderTypes() {
   const list = $("types-list");
   list.innerHTML = "";
-  for (const [type, label] of Object.entries(TYPE_LABELS)) {
+  const options = [[null, "Будь-яка"], ...Object.entries(TYPE_LABELS)];
+
+  for (const [type, label] of options) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "chip" + (enabledTypes.includes(type) ? " chip--on" : "");
+    btn.className = "chip" + (activeType === type ? " chip--on" : "");
     btn.textContent = label;
-    btn.addEventListener("click", () => toggleType(type));
+    btn.addEventListener("click", () => selectType(type));
     list.appendChild(btn);
   }
+  $("types-bar").classList.remove("hidden");
 }
 
-async function toggleType(type) {
-  const next = enabledTypes.includes(type)
-    ? enabledTypes.filter((t) => t !== type)
-    : [...enabledTypes, type];
-
-  if (!next.length) {
-    $("types-status").textContent = "Хоча б один тип має лишитись";
-    return;
-  }
-
-  const resp = await apiFetch("/exercises/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ exercise_types: next }),
-  });
-  if (!resp.ok) {
-    $("types-status").textContent = "Не вдалося зберегти";
-    return;
-  }
-
-  enabledTypes = (await resp.json()).exercise_types;
+function selectType(type) {
+  activeType = type;
   renderTypes();
-  $("types-status").textContent = "Збережено";
-  setTimeout(() => ($("types-status").textContent = ""), 1500);
+  loadNext();
 }
 
 async function loadNext() {
   show("loading");
-  const resp = await apiFetch("/exercises/next");
+  const query = activeType ? "?exercise_type=" + activeType : "";
+  const resp = await apiFetch("/exercises/next" + query);
 
   if (resp.status === 401) {
     location.href = "index.html"; // session gone — back to login
     return;
   }
   if (resp.status === 404) {
+    $("empty-text").textContent = activeType
+      ? `Вправ типу «${TYPE_LABELS[activeType]}» зараз немає. Вони зʼявляться, коли додаси нові слова — або вибери «Будь-яка».`
+      : "Поки що немає готових вправ. Вони генеруються автоматично після того, як ти додаєш нові слова — зазвичай це займає до хвилини.";
     show("empty-view");
     return;
   }
@@ -450,6 +431,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("ex-submit").addEventListener("click", submit);
   $("res-next").addEventListener("click", loadNext);
   $("empty-retry").addEventListener("click", loadNext);
-  loadTypes();
+  renderTypes();
   loadNext();
 });
