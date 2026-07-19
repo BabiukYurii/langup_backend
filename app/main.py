@@ -4,6 +4,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from app.core import settings
@@ -34,6 +35,20 @@ def _add_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AIResponseValidationError, handlers.handle_ai_response_validation)
 
 
+class _CabinetFiles(StaticFiles):
+    """Static files that must not be cached by the CDN in front of us.
+
+    Cloudflare caches .js/.css for four hours by default while serving .html
+    fresh, so after a deploy the cabinet loads new markup against stale scripts.
+    `no-cache` still allows ETag revalidation, so responses stay cheap.
+    """
+
+    def file_response(self, *args, **kwargs) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app.APP_NAME)
     app.add_middleware(
@@ -48,7 +63,7 @@ def create_app() -> FastAPI:
 
     # Serve the small profile frontend at /app (same origin as the API).
     if _FRONTEND_DIR.is_dir():
-        app.mount("/app", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
+        app.mount("/app", _CabinetFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
 
     return app
 
