@@ -1,10 +1,11 @@
 # FastAPI application factory: wires routers, middleware and exception handlers.
+import re
 from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.core import settings
@@ -35,18 +36,54 @@ def _add_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AIResponseValidationError, handlers.handle_ai_response_validation)
 
 
-class _CabinetFiles(StaticFiles):
-    """Static files that must not be cached by the CDN in front of us.
+_NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
+_SAFE_PAGE = re.compile(r"^[a-z0-9_-]+$")
 
-    Cloudflare caches .js/.css for four hours by default while serving .html
-    fresh, so after a deploy the cabinet loads new markup against stale scripts.
-    `no-cache` still allows ETag revalidation, so responses stay cheap.
-    """
+
+class _CabinetFiles(StaticFiles):
+    """Cabinet assets, asking the CDN in front of us not to hold on to them."""
 
     def file_response(self, *args, **kwargs) -> Response:
         response = super().file_response(*args, **kwargs)
-        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        response.headers.update(_NO_CACHE)
         return response
+
+
+def _asset_version() -> str:
+    """Stamp for cabinet asset URLs, derived from when they last changed.
+
+    Cloudflare rewrites our `no-cache` into its own four-hour browser TTL, so a
+    deploy would otherwise leave browsers running yesterday's scripts. A version
+    that moves with the files sidesteps caching entirely: new deploy, new URL.
+    """
+    newest = max(
+        (path.stat().st_mtime for pattern in ("*.js", "*.css") for path in _FRONTEND_DIR.glob(pattern)),
+        default=0.0,
+    )
+    return f"{int(newest):x}"
+
+
+def _register_cabinet(app: FastAPI) -> None:
+    """Serve the cabinet: HTML rendered with a version stamp, assets as files."""
+    version = _asset_version()
+
+    def render(name: str) -> HTMLResponse:
+        path = _FRONTEND_DIR / name
+        if not _SAFE_PAGE.match(path.stem) or not path.is_file():
+            raise ObjectNotFoundException(name, "Page")
+        html = path.read_text(encoding="utf-8").replace("?v=dev", f"?v={version}")
+        return HTMLResponse(html, headers=_NO_CACHE)
+
+    @app.get("/app", include_in_schema=False)
+    @app.get("/app/", include_in_schema=False)
+    async def cabinet_index() -> HTMLResponse:
+        return render("index.html")
+
+    @app.get("/app/{name}.html", include_in_schema=False)
+    async def cabinet_page(name: str) -> HTMLResponse:
+        return render(f"{name}.html")
+
+    app.mount("/app", _CabinetFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
 
 
 def create_app() -> FastAPI:
@@ -63,7 +100,7 @@ def create_app() -> FastAPI:
 
     # Serve the small profile frontend at /app (same origin as the API).
     if _FRONTEND_DIR.is_dir():
-        app.mount("/app", _CabinetFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
+        _register_cabinet(app)
 
     return app
 
