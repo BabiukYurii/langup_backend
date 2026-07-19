@@ -18,6 +18,7 @@ class CaptureRequest(BaseModel):
 class UserWordOut(BaseModel):
     # One entry of the user's personal vocabulary (UserWord + its Word).
     uuid: UUID
+    word_uuid: UUID  # the shared dictionary entry behind this personal item
     lemma: str
     language: str
     part_of_speech: str | None
@@ -28,6 +29,7 @@ class UserWordOut(BaseModel):
     def from_user_word(cls, uw) -> "UserWordOut":
         return cls(
             uuid=uw.uuid,
+            word_uuid=uw.word_uuid,
             lemma=uw.word.lemma,
             language=uw.word.language,
             part_of_speech=uw.word.part_of_speech,

@@ -30,15 +30,20 @@ TEST_TABLES = [
 ]
 
 
+# Background tasks open their OWN session and AI client, so they bypass the
+# sqlite override and would hit the real database and the real gateway.
+_BACKGROUND_AI_FLAGS = ("EXERCISE_POOL_AUTOFILL", "TRANSLATE_ON_CAPTURE")
+
+
 @pytest.fixture(autouse=True)
-def _disable_pool_autofill():
-    # The pool refill runs as a BackgroundTask that opens its OWN session and AI
-    # client, so it bypasses the sqlite override and would hit the real database
-    # and the real gateway. Force it off no matter what the developer's .env says.
-    original = settings.exercises.EXERCISE_POOL_AUTOFILL
-    settings.exercises.EXERCISE_POOL_AUTOFILL = False
+def _disable_background_ai():
+    # Force them off no matter what the developer's .env says.
+    original = {name: getattr(settings.exercises, name) for name in _BACKGROUND_AI_FLAGS}
+    for name in _BACKGROUND_AI_FLAGS:
+        setattr(settings.exercises, name, False)
     yield
-    settings.exercises.EXERCISE_POOL_AUTOFILL = original
+    for name, value in original.items():
+        setattr(settings.exercises, name, value)
 
 
 @pytest_asyncio.fixture

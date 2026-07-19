@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -8,7 +8,13 @@ from app.core import settings
 from app.core.exc import AIProviderError, BadRequestException, ObjectNotFoundException
 from app.enums.learning import SUPPORTED_EXERCISE_TYPES, AttemptResult, ExerciseStatus, ExerciseType
 from app.models import User, UserWord, Word
-from app.schemas.ai import Blank, GeneratedFillInBlank, GeneratedFlashcard, GeneratedMultipleChoice
+from app.schemas.ai import (
+    Blank,
+    GeneratedFillInBlank,
+    GeneratedFlashcard,
+    GeneratedMultipleChoice,
+    GeneratedTranslation,
+)
 from app.schemas.exercise import ExercisePreferences, SubmitAttemptRequest
 from app.services.auth.oauth_google import get_google_verifier
 from app.services.learning.exercise_service import ExercisePoolService
@@ -47,6 +53,10 @@ class StubGenerator:
             model="stub",
         )
 
+    async def generate_translation(self, params):
+        self.calls += 1
+        return GeneratedTranslation(translation=f"{params.word}-переклад", model="stub")
+
 
 class FailingGenerator:
     async def generate_fill_in_blank(self, params):
@@ -54,6 +64,7 @@ class FailingGenerator:
 
     generate_multiple_choice = generate_fill_in_blank
     generate_flashcard = generate_fill_in_blank
+    generate_translation = generate_fill_in_blank
 
 
 async def _seed_vocab(session, email: str, words: list[str]) -> int:
@@ -120,6 +131,138 @@ async def test_replenish_rotates_exercise_types(session):
     assert fc.payload["front"] in ("resilient", "eloquent", "serene")
     assert fc.payload["back"].startswith("true meaning")
     assert fc.answer == {"1": "know"}
+
+
+# --- match pairs -----------------------------------------------------------
+
+SIX_WORDS = ["resilient", "eloquent", "serene", "candid", "prudent", "vivid"]
+
+
+async def _match_pairs_only(session, email: str, words: list[str], generator=None):
+    user_id = await _seed_vocab(session, email, words)
+    service = ExercisePoolService(session, generator or StubGenerator())
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.MATCH_PAIRS]))
+    return user_id, service
+
+
+async def test_match_pairs_round_is_built_from_many_words(session):
+    user_id, service = await _match_pairs_only(session, "m1@x.com", SIX_WORDS)
+
+    assert await service.replenish(user_id) > 0
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    ex = rows[0]
+
+    assert ex.exercise_type == "MATCH_PAIRS"
+    assert ex.word_uuid is None  # a round spans many words
+    pairs = ex.payload["pairs"]
+    assert len(pairs) == len(SIX_WORDS)
+    assert ex.payload["visible"] == settings.exercises.MATCH_PAIRS_VISIBLE
+    assert ex.payload["max_mistakes"] == settings.exercises.MATCH_PAIRS_MAX_MISTAKES
+    # every pair carries the word it trains, so SM-2 can be fed per pair
+    assert all(p["word_uuid"] for p in pairs)
+    assert ex.answer == {str(p["id"]): p["translation"] for p in pairs}
+
+
+async def test_only_one_match_pairs_round_is_queued_at_a_time(session):
+    # a round covers many words, so a queue of them would repeat the same ones
+    user_id, service = await _match_pairs_only(session, "m10@x.com", SIX_WORDS)
+
+    assert await service.replenish(user_id) == 1
+    assert await service.replenish(user_id) == 0
+
+    # answering the pending round frees the slot for a fresh one
+    ex = await service.get_next(user_id)
+    answers = {str(p["id"]): p["translation"] for p in ex.payload["pairs"]}
+    await service.submit_attempt(user_id, ex.uuid, SubmitAttemptRequest(answers=answers))
+    assert await service.replenish(user_id) == 1
+
+
+async def test_match_pairs_skipped_when_vocabulary_is_too_small(session):
+    # fewer words than fit on screen -> no round, and it is not an error
+    user_id, service = await _match_pairs_only(session, "m2@x.com", ["resilient", "eloquent"])
+
+    assert await service.replenish(user_id) == 0
+    assert await service.exercises.count_pending(user_id) == 0
+
+
+async def test_match_pairs_drops_duplicate_translations(session):
+    # two words sharing a translation would make the round ambiguous
+    class CollidingGenerator(StubGenerator):
+        async def generate_translation(self, params):
+            unique = params.word == SIX_WORDS[0]
+            return GeneratedTranslation(translation="унікальний" if unique else "той самий", model="stub")
+
+    user_id, service = await _match_pairs_only(session, "m3@x.com", SIX_WORDS, CollidingGenerator())
+
+    # only two distinct translations survive, which is below the visible count
+    assert await service.replenish(user_id) == 0
+
+
+async def test_match_pairs_grading_and_srs(session):
+    user_id, service = await _match_pairs_only(session, "m4@x.com", SIX_WORDS)
+    await service.replenish(user_id)
+    ex = await service.get_next(user_id)
+
+    answers = {str(p["id"]): p["translation"] for p in ex.payload["pairs"]}
+    result = await service.submit_attempt(user_id, ex.uuid, SubmitAttemptRequest(answers=answers, mistakes=1))
+
+    assert result.is_correct is True
+    assert result.result == AttemptResult.CORRECT
+    assert result.mastery_level is None  # many words -> no single mastery to report
+
+    # every matched word was reviewed
+    for pair in ex.payload["pairs"]:
+        uw = await service.user_words.get_by_user_word(user_id, UUID(pair["word_uuid"]))
+        assert uw.last_reviewed_at is not None
+
+
+async def test_match_pairs_failed_on_too_many_mistakes(session):
+    user_id, service = await _match_pairs_only(session, "m5@x.com", SIX_WORDS)
+    await service.replenish(user_id)
+    ex = await service.get_next(user_id)
+
+    answers = {str(p["id"]): p["translation"] for p in ex.payload["pairs"]}
+    result = await service.submit_attempt(
+        user_id,
+        ex.uuid,
+        SubmitAttemptRequest(answers=answers, mistakes=settings.exercises.MATCH_PAIRS_MAX_MISTAKES),
+    )
+
+    # even with every pair matched, blowing the mistake budget fails the round
+    assert result.is_correct is False
+
+
+async def test_match_pairs_leaves_unreached_words_untouched(session):
+    # the round ended early: pairs the user never saw carry no signal
+    user_id, service = await _match_pairs_only(session, "m6@x.com", SIX_WORDS)
+    await service.replenish(user_id)
+    ex = await service.get_next(user_id)
+
+    pairs = ex.payload["pairs"]
+    solved, untouched = pairs[0], pairs[-1]
+    await service.submit_attempt(
+        user_id,
+        ex.uuid,
+        SubmitAttemptRequest(answers={str(solved["id"]): solved["translation"]}, mistakes=3),
+    )
+
+    assert (await service.user_words.get_by_user_word(user_id, UUID(solved["word_uuid"]))).last_reviewed_at
+    assert (await service.user_words.get_by_user_word(user_id, UUID(untouched["word_uuid"]))).last_reviewed_at is None
+
+
+async def test_translations_are_cached_on_the_shared_word(session):
+    user_id, service = await _match_pairs_only(session, "m7@x.com", SIX_WORDS)
+    await service.replenish(user_id)
+    calls_after_first = service.generator.calls
+
+    # the cache lives on the shared Word row
+    word = await service.words_repo.get_by_lemma_language("resilient", "en")
+    assert word.definitions == [{"lang": "uk", "translation": "resilient-переклад"}]
+
+    # a second round reuses it instead of paying for inference again
+    await service.exercises.delete_by(user_id=user_id)
+    await service.replenish(user_id)
+    assert service.generator.calls == calls_after_first
 
 
 # --- choosing exercise types -----------------------------------------------

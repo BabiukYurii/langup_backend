@@ -31,6 +31,8 @@ class SubmitAttemptRequest(BaseModel):
     # Chosen/typed word per blank index, e.g. {"1": "resilient"}.
     answers: dict[str, str] = Field(default_factory=dict)
     response_time_ms: int | None = Field(default=None, ge=0)
+    # Wrong taps in a match-pairs round; ignored by the other types.
+    mistakes: int | None = Field(default=None, ge=0)
 
 
 class AttemptResultOut(BaseModel):

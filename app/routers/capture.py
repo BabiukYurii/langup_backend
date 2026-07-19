@@ -4,7 +4,7 @@ from app.core import settings
 from app.dependencies import CaptureServiceDep, CurrentUserDep
 from app.schemas.capture import CaptureRequest, UserWordOut
 from app.schemas.pagination import Page
-from app.services.learning.exercise_service import refill_pool_in_background
+from app.services.learning.exercise_service import refill_pool_in_background, translate_word_in_background
 
 router = APIRouter(prefix="/vocabulary", tags=["Vocabulary"])
 
@@ -18,6 +18,10 @@ async def capture_word(
 ) -> UserWordOut:
     """Save a captured word (with optional sentence/source) into MY vocabulary."""
     result = await capture_service.capture(current_user.id, data)
+    # Translate now, while the sentence this word came from is the freshest
+    # context we have; exercises built later then need no inference.
+    if settings.exercises.TRANSLATE_ON_CAPTURE:
+        background_tasks.add_task(translate_word_in_background, current_user.id, result.word_uuid)
     # Pre-generate exercises so /exercises/next is instant despite slow CPU inference.
     if settings.exercises.EXERCISE_POOL_AUTOFILL:
         background_tasks.add_task(refill_pool_in_background, current_user.id)

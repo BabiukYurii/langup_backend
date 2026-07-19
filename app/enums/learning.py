@@ -18,6 +18,7 @@ SUPPORTED_EXERCISE_TYPES = (
     ExerciseType.FILL_IN_BLANKS,
     ExerciseType.MULTIPLE_CHOICE,
     ExerciseType.FLASHCARD,
+    ExerciseType.MATCH_PAIRS,
 )
 
 

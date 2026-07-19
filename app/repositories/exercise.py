@@ -30,6 +30,18 @@ class ExerciseRepository(BaseRepository[Exercise]):
             stmt = stmt.where(Exercise.exercise_type == exercise_type)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
+    async def has_pending_of_type(self, user_id: int, exercise_type: str) -> bool:
+        stmt = (
+            select(Exercise.uuid)
+            .where(
+                Exercise.user_id == user_id,
+                Exercise.status.in_(self._PENDING),
+                Exercise.exercise_type == exercise_type,
+            )
+            .limit(1)
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none() is not None
+
     async def count_pending(self, user_id: int) -> int:
         # Unanswered inventory (READY + SERVED) — what replenish tops up to target.
         stmt = (
