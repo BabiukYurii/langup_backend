@@ -128,9 +128,11 @@ function renderTyping(ex) {
     input.spellcheck = false;
     input.setAttribute("aria-label", "пропущене слово");
     // Sized to the word: the blank fits exactly its letters, a length hint.
+    // Exactly the width of the word: a monospace input is `length` cells wide,
+    // so a too-short answer leaves a visibly empty cell.
     const len = ex.payload.length || 8;
-    input.size = Math.max(len, 2);
     input.maxLength = len;
+    input.style.width = `calc(${Math.max(len, 2)}ch + 18px)`;
     input.addEventListener("input", () => {
       chosen = { 1: input.value.trim() };
       $("ex-submit").disabled = !input.value.trim();

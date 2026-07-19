@@ -382,7 +382,9 @@ a.btn {
   font-weight: 600;
 }
 .ex__input {
-  /* width comes from the `size` attribute, so the blank fits the word exactly */
+  /* monospace so every letter is one cell — the width is set in ch to the
+     word's length, making the blank fit it exactly and hint the letter count */
+  font-family: ui-monospace, "Cascadia Code", "Consolas", "Courier New", monospace;
   padding: 2px 8px;
   border: none;
   border-bottom: 2px solid var(--primary);
