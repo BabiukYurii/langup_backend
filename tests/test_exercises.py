@@ -307,6 +307,37 @@ async def test_translations_are_cached_on_the_shared_word(session):
     assert service.generator.calls == calls_after_first
 
 
+async def test_flashcard_uses_a_cached_translation_without_calling_the_ai(session):
+    # word/translation is the classic flashcard, and the translation is already
+    # cached — so inference is saved for the types that genuinely need it
+    user_id = await _seed_vocab(session, "f1@x.com", ["resilient"])
+    service = ExercisePoolService(session, StubGenerator())
+    word = await service.words_repo.get_by_lemma_language("resilient", "en")
+    await service.words_repo.update_one(word, {"definitions": [{"lang": "uk", "translation": "стійкий"}]})
+
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+    calls_before = service.generator.calls
+    await service.replenish(user_id)
+
+    assert service.generator.calls == calls_before  # no inference at all
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    card = next(r for r in rows if r.exercise_type == "FLASHCARD")
+    assert card.payload == {"front": "resilient", "back": "стійкий", "example": None}
+
+
+async def test_flashcard_falls_back_to_the_ai_without_a_translation(session):
+    user_id = await _seed_vocab(session, "f2@x.com", ["resilient"])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+
+    await service.replenish(user_id)
+
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    card = next(r for r in rows if r.exercise_type == "FLASHCARD")
+    assert card.payload["back"].startswith("true meaning")
+    assert card.payload["example"]
+
+
 # --- choosing exercise types -----------------------------------------------
 
 

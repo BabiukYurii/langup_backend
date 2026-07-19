@@ -22,7 +22,7 @@ from app.schemas.ai import FillInBlankParams, WordExerciseParams
 from app.schemas.exercise import AttemptResultOut, ExerciseOut, ExercisePreferences, SubmitAttemptRequest
 from app.services.ai.exercise_generation import ExerciseGenerationService, get_exercise_generation_service
 from app.services.learning.spaced_repetition import SpacedRepetitionService
-from app.services.vocabulary.translation_service import TranslationService
+from app.services.vocabulary.translation_service import TranslationService, cached_translation
 
 logger = logging.getLogger(__name__)
 
@@ -269,12 +269,19 @@ class ExercisePoolService:
             payload = {"word": lemma, "options": options}
             answer = {"1": generated.definition}
         elif ex_type == ExerciseType.FLASHCARD:
-            generated = await self.generator.generate_flashcard(
-                WordExerciseParams(word=lemma, level=level, language=language)
-            )
             prompt = "Do you remember this word?"
-            payload = {"front": lemma, "back": generated.definition, "example": generated.example}
             answer = {"1": FLASHCARD_KNOWN}
+            # A translation is already cached for most words, and a word/translation
+            # card is the classic flashcard anyway — so build it for free and keep
+            # inference for the types that genuinely need it.
+            translation = cached_translation(uw.word, await self._translation_language(user_id))
+            if translation:
+                payload = {"front": lemma, "back": translation, "example": None}
+            else:
+                generated = await self.generator.generate_flashcard(
+                    WordExerciseParams(word=lemma, level=level, language=language)
+                )
+                payload = {"front": lemma, "back": generated.definition, "example": generated.example}
         else:  # pragma: no cover — cycle only contains the types above
             raise AIResponseValidationError(f"Unsupported exercise type {ex_type}")
 
