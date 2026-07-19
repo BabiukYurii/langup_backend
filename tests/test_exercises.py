@@ -17,7 +17,7 @@ from app.schemas.ai import (
 )
 from app.schemas.exercise import ExercisePreferences, SubmitAttemptRequest
 from app.services.auth.oauth_google import get_google_verifier
-from app.services.learning.exercise_service import ExercisePoolService
+from app.services.learning.exercise_service import ExercisePoolService, get_exercise_pool_service
 
 PROFILE = {"sub": "ex-sub-1", "email": "ex@gmail.com", "email_verified": True, "name": "Ex"}
 
@@ -233,6 +233,29 @@ async def test_match_pairs_grading_and_srs(session):
     for pair in ex.payload["pairs"]:
         uw = await service.user_words.get_by_user_word(user_id, UUID(pair["word_uuid"]))
         assert uw.last_reviewed_at is not None
+
+
+async def test_match_pairs_carries_a_time_limit(session):
+    user_id, service = await _match_pairs_only(session, "m12@x.com", SIX_WORDS)
+    await service.replenish(user_id)
+    ex = await service.get_next(user_id)
+
+    assert ex.payload["time_limit"] == settings.exercises.MATCH_PAIRS_TIME_LIMIT_SECONDS
+
+
+async def test_match_pairs_failed_when_time_runs_out(session):
+    # every pair matched, no mistakes — but the clock beat the learner
+    user_id, service = await _match_pairs_only(session, "m13@x.com", SIX_WORDS)
+    await service.replenish(user_id)
+    ex = await service.get_next(user_id)
+
+    answers = {str(p["id"]): p["translation"] for p in ex.payload["pairs"]}
+    result = await service.submit_attempt(
+        user_id, ex.uuid, SubmitAttemptRequest(answers=answers, mistakes=0, timed_out=True)
+    )
+
+    assert result.is_correct is False
+    assert result.result == AttemptResult.INCORRECT
 
 
 async def test_match_pairs_failed_on_too_many_mistakes(session):
@@ -569,6 +592,31 @@ async def test_preferences_reject_empty_and_unknown_types(app, client):
 
 async def test_preferences_require_auth(client):
     assert (await client.get("/api/exercises/preferences")).status_code == 401
+
+
+async def test_refill_on_demand(app, client, sessionmaker):
+    # answering everything must not leave the user stuck with an empty pool
+    headers = await _login(app, client)
+    await client.post("/api/vocabulary", json={"word": "resilient", "language": "en"}, headers=headers)
+
+    async with sessionmaker() as s:
+        # the endpoint must use a stubbed generator: refilling for real would
+        # call the AI gateway
+        app.dependency_overrides[get_exercise_pool_service] = lambda: ExercisePoolService(s, StubGenerator())
+
+        empty = await client.get("/api/exercises/next", headers=headers)
+        assert empty.status_code == 404
+
+        refilled = await client.post("/api/exercises/refill", headers=headers)
+        assert refilled.status_code == 200
+        assert refilled.json()["created"] > 0
+
+        assert (await client.get("/api/exercises/next", headers=headers)).status_code == 200
+    app.dependency_overrides.pop(get_exercise_pool_service)
+
+
+async def test_refill_requires_auth(client):
+    assert (await client.post("/api/exercises/refill")).status_code == 401
 
 
 async def test_http_serve_and_answer_flow(app, client, sessionmaker):

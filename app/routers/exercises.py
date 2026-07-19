@@ -4,7 +4,13 @@ from fastapi import APIRouter
 
 from app.dependencies import CurrentUserDep, ExercisePoolServiceDep
 from app.enums.learning import ExerciseType
-from app.schemas.exercise import AttemptResultOut, ExerciseOut, ExercisePreferences, SubmitAttemptRequest
+from app.schemas.exercise import (
+    AttemptResultOut,
+    ExerciseOut,
+    ExercisePreferences,
+    RefillResultOut,
+    SubmitAttemptRequest,
+)
 
 router = APIRouter(prefix="/exercises", tags=["Exercises"])
 
@@ -26,6 +32,20 @@ async def set_preferences(
 ) -> ExercisePreferences:
     """Choose which exercise types to practise; disabled ones leave the pool."""
     return await exercise_service.set_preferences(current_user.id, data)
+
+
+@router.post("/refill", response_model=RefillResultOut)
+async def refill_pool(
+    current_user: CurrentUserDep,
+    exercise_service: ExercisePoolServiceDep,
+) -> RefillResultOut:
+    """Generate exercises on demand.
+
+    The pool normally refills after a word is captured; this lets a user who
+    has answered everything ask for more without saving a new word. Generation
+    is CPU-bound, so the request can take a while.
+    """
+    return RefillResultOut(created=await exercise_service.replenish(current_user.id))
 
 
 @router.get("/next", response_model=ExerciseOut)

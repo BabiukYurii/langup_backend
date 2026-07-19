@@ -33,6 +33,8 @@ class SubmitAttemptRequest(BaseModel):
     response_time_ms: int | None = Field(default=None, ge=0)
     # Wrong taps in a match-pairs round; ignored by the other types.
     mistakes: int | None = Field(default=None, ge=0)
+    # The match-pairs clock ran out before the round was finished.
+    timed_out: bool = False
 
 
 class AttemptResultOut(BaseModel):
@@ -41,6 +43,10 @@ class AttemptResultOut(BaseModel):
     is_correct: bool
     correct_answers: dict[str, str]  # index -> correct word (revealed after answering)
     mastery_level: str | None = None  # updated SM-2 mastery, if the word was in the user's vocabulary
+
+
+class RefillResultOut(BaseModel):
+    created: int  # how many exercises the on-demand refill added
 
 
 class ExercisePreferences(BaseModel):

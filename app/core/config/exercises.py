@@ -24,3 +24,5 @@ class ExerciseConfig(BaseConfig):
     MATCH_PAIRS_VISIBLE: int = 4
     MATCH_PAIRS_TOTAL: int = 10
     MATCH_PAIRS_MAX_MISTAKES: int = 3
+    # Running out of time fails the round, like spending every mistake.
+    MATCH_PAIRS_TIME_LIMIT_SECONDS: int = 60

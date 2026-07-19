@@ -102,7 +102,8 @@ class ExercisePoolService:
 
         correct = {str(k): v for k, v in (ex.answer or {}).items()}
         matched = self._matched_keys(correct, data.answers)
-        is_correct = len(matched) == len(correct) and not self._mistake_budget_blown(ex, data)
+        # Out of time counts as a failed round even if every pair was matched.
+        is_correct = len(matched) == len(correct) and not data.timed_out and not self._mistake_budget_blown(ex, data)
         result = AttemptResult.CORRECT if is_correct else AttemptResult.INCORRECT
         quality = _QUALITY_CORRECT if is_correct else _QUALITY_INCORRECT
 
@@ -235,6 +236,7 @@ class ExercisePoolService:
                     "pairs": pairs,
                     "visible": visible,
                     "max_mistakes": settings.exercises.MATCH_PAIRS_MAX_MISTAKES,
+                    "time_limit": settings.exercises.MATCH_PAIRS_TIME_LIMIT_SECONDS,
                     "language": target_language,
                 },
                 "answer": {str(p["id"]): p["translation"] for p in pairs},
