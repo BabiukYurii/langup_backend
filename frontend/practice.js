@@ -133,16 +133,18 @@ function renderTyping(ex) {
     const len = ex.payload.length || 8;
     input.maxLength = len;
     input.style.width = `calc(${Math.max(len, 2)}ch + 18px)`;
-    input.addEventListener("input", () => {
-      chosen = { 1: input.value.trim() };
-      $("ex-submit").disabled = !input.value.trim();
-    });
+    input.setAttribute("enterkeyhint", "done");
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !$("ex-submit").disabled) submit();
+      if (e.key === "Enter") submit();
     });
     textEl.appendChild(input);
   });
   setTimeout(() => textEl.querySelector("input")?.focus(), 0);
+
+  // Kept enabled: some mobile keyboards don't fire a reliable `input` event, so
+  // gating the button on it could leave it stuck. submit() re-reads the field
+  // and ignores an empty one.
+  $("ex-submit").disabled = false;
 
   // The translation is the prompt — it's what tells the learner which word to
   // type — so it is shown straight away, not hidden behind a button.
@@ -470,6 +472,16 @@ function pick(index, option, btn, row) {
 }
 
 async function submit(mistakes = null, timedOut = false) {
+  // Read the typed answer fresh at submit time. Some mobile keyboards (swipe,
+  // autocomplete) set the value without a reliable `input` event, which would
+  // otherwise leave `chosen` stale or empty.
+  const typed = document.querySelector(".ex__input");
+  if (typed) {
+    const value = typed.value.trim();
+    if (!value) return; // nothing typed yet — ignore the tap
+    chosen = { 1: value };
+  }
+
   $("ex-submit").disabled = true;
   const resp = await apiFetch("/exercises/" + currentExercise.uuid + "/attempt", {
     method: "POST",
