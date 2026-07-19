@@ -139,33 +139,39 @@ class ExercisePoolService:
         Best-effort: words the AI service can't turn into a valid exercise are
         skipped rather than failing the whole refill. Returns how many were added.
         """
+        enabled = (await self.get_preferences(user_id)).exercise_types
+        created = 0
+
+        # A match-pairs round is a session over many words, not a pool card, so
+        # it gets its own slot. Sharing the pool's slots starved it: early on
+        # there were too few words to build a round, and by the time there were
+        # enough the pool was already full of single-word exercises.
+        if ExerciseType.MATCH_PAIRS in enabled:
+            try:
+                created += int(await self._generate_match_pairs(user_id))
+            except (AIProviderError, AIResponseValidationError) as e:
+                logger.warning("Skipping match-pairs round: %s: %s", type(e).__name__, e)
+
+        cycle = [t for t in enabled if t != ExerciseType.MATCH_PAIRS]
         need = settings.exercises.EXERCISE_POOL_TARGET - await self.exercises.count_pending(user_id)
-        if need <= 0:
-            return 0
+        if not cycle or need <= 0:
+            return created
 
-        # Rotate the types the user enabled; offset by their total so the same
+        # Rotate the remaining types; offset by the user's total so the same
         # word gets different types across refills.
-        cycle = (await self.get_preferences(user_id)).exercise_types
         _, total_ever = await self.exercises.get_many(user_id=user_id, limit=1)
-
-        # One word feeds one single-word exercise; match-pairs pulls its own set.
         queue = await self._candidate_words(user_id, need)
 
-        created = 0
         for i in range(need):
+            if not queue:
+                break  # out of words for single-word types
             ex_type = cycle[(total_ever + i) % len(cycle)]
             try:
-                if ex_type == ExerciseType.MATCH_PAIRS:
-                    built = await self._generate_match_pairs(user_id)
-                elif queue:
-                    await self._generate_and_store(user_id, queue.pop(0), ex_type)
-                    built = True
-                else:
-                    built = False  # out of words for single-word types
+                await self._generate_and_store(user_id, queue.pop(0), ex_type)
             except (AIProviderError, AIResponseValidationError) as e:
                 logger.warning("Skipping %s exercise: %s: %s", ex_type.value, type(e).__name__, e)
                 continue
-            created += int(built)
+            created += 1
         return created
 
     async def _candidate_words(self, user_id: int, limit: int) -> list[UserWord]:

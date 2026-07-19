@@ -163,6 +163,25 @@ async def test_match_pairs_round_is_built_from_many_words(session):
     assert ex.answer == {str(p["id"]): p["translation"] for p in pairs}
 
 
+async def test_match_pairs_round_is_built_even_when_the_pool_is_full(session):
+    # a round must not compete for pool slots: sharing them starved it, because
+    # by the time there were enough words the pool was already full
+    user_id = await _seed_vocab(session, "m11@x.com", SIX_WORDS)
+    service = ExercisePoolService(session, StubGenerator())
+
+    # fill the pool with single-word types only
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+    await service.replenish(user_id)
+    assert await service.exercises.count_pending(user_id) >= settings.exercises.EXERCISE_POOL_TARGET
+
+    # enabling match-pairs now still produces a round
+    await service.set_preferences(
+        user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD, ExerciseType.MATCH_PAIRS])
+    )
+    assert await service.replenish(user_id) == 1
+    assert await service.exercises.has_pending_of_type(user_id, "MATCH_PAIRS")
+
+
 async def test_only_one_match_pairs_round_is_queued_at_a_time(session):
     # a round covers many words, so a queue of them would repeat the same ones
     user_id, service = await _match_pairs_only(session, "m10@x.com", SIX_WORDS)
