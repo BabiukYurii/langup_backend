@@ -3,7 +3,7 @@ import json
 import pytest
 
 from app.core.exc import AIResponseValidationError
-from app.schemas.ai import FillInBlankParams, WordExerciseParams
+from app.schemas.ai import FillInBlankParams, TranslationParams, WordExerciseParams
 from app.services.ai.client import AIClient
 from app.services.ai.exercise_generation import ExerciseGenerationService
 
@@ -197,6 +197,59 @@ async def test_flashcard_drops_example_without_the_word():
     result = await service.generate_flashcard(WORD_PARAMS)
 
     assert result.example is None  # useless example dropped, card kept
+
+
+# --- translations ------------------------------------------------------------
+
+
+def _translation_params(sentence: str | None = None) -> TranslationParams:
+    return TranslationParams(word="turnover", sentence=sentence, source_language="en", target_language="uk")
+
+
+async def test_translation_parses_the_requested_shape():
+    service = ExerciseGenerationService(FakeAIClient(content=json.dumps({"translation": "оборот"})))
+    result = await service.generate_translation(_translation_params())
+
+    assert result.translation == "оборот"
+    assert result.model == "fake-model"
+
+
+async def test_translation_repairs_a_differently_named_key():
+    # the model answered with its own key; a lone string is unambiguous
+    service = ExerciseGenerationService(FakeAIClient(content=json.dumps({"uk": "оборот"})))
+    result = await service.generate_translation(_translation_params())
+
+    assert result.translation == "оборот"
+
+
+async def test_translation_rejects_an_echoed_source_word():
+    service = ExerciseGenerationService(FakeAIClient(content=json.dumps({"translation": "Turnover"})))
+    with pytest.raises(AIResponseValidationError):
+        await service.generate_translation(_translation_params())
+
+
+async def test_translation_rejects_empty_output():
+    service = ExerciseGenerationService(FakeAIClient(content=json.dumps({"translation": "   "})))
+    with pytest.raises(AIResponseValidationError):
+        await service.generate_translation(_translation_params())
+
+
+async def test_translation_prompt_uses_the_captured_sentence():
+    # the sentence is what makes the model pick the staff sense of "turnover"
+    fake = FakeAIClient(content=json.dumps({"translation": "плинність кадрів"}))
+    sentence = "Companies are noticing larger turnover rates of millennials."
+    await ExerciseGenerationService(fake).generate_translation(_translation_params(sentence))
+
+    assert sentence in fake.last_user
+    assert "Ukrainian" in fake.last_user  # codes are spelled out for the model
+
+
+async def test_translation_prompt_without_a_sentence_is_still_valid():
+    fake = FakeAIClient(content=json.dumps({"translation": "оборот"}))
+    await ExerciseGenerationService(fake).generate_translation(_translation_params())
+
+    assert "turnover" in fake.last_user
+    assert "sentence" not in fake.last_user.lower()
 
 
 async def test_flashcard_rejects_definition_leaking_word():

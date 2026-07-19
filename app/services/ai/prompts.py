@@ -91,3 +91,63 @@ Now respond with one JSON object in exactly that shape for the word "{word}".
 
 def build_flashcard_prompt(word: str, level: str, language: str) -> str:
     return FLASHCARD_USER.format(word=word, level=level, language=language)
+
+
+# Language codes we can name explicitly in a prompt; anything else is passed
+# through as-is (the model usually copes with the bare code).
+LANGUAGE_NAMES = {
+    "en": "English",
+    "uk": "Ukrainian",
+    "pl": "Polish",
+    "de": "German",
+    "fr": "French",
+    "es": "Spanish",
+    "it": "Italian",
+}
+
+
+def language_name(code: str) -> str:
+    return LANGUAGE_NAMES.get(code.lower(), code)
+
+
+TRANSLATION_SYSTEM = (
+    "You are a bilingual dictionary. Always respond with a single valid JSON object and nothing else."
+)
+
+TRANSLATION_USER = """\
+Translate the {source} word "{word}" into {target}.
+
+Rules:
+- Give the single most common translation, 1-3 words, no explanations.
+- The translation must be in {target}, never in {source}.
+
+Respond as {{"translation": "..."}}
+"""
+
+# Measured to be clearly better than translating a bare lemma: the sentence
+# tells the model which sense is meant, so "turnover" in a text about staff
+# comes out as personnel churn rather than as revenue or rotation.
+TRANSLATION_CONTEXT_USER = """\
+The {source} word "{word}" appears in this sentence:
+"{sentence}"
+
+Translate "{word}" into {target}, in the sense it carries there.
+
+Rules:
+- 1-3 words, no explanations.
+- The translation must be in {target}, never in {source}.
+
+Respond as {{"translation": "..."}}
+"""
+
+
+def build_translation_prompt(
+    word: str, source_language: str, target_language: str, sentence: str | None = None
+) -> str:
+    template = TRANSLATION_CONTEXT_USER if sentence else TRANSLATION_USER
+    return template.format(
+        word=word,
+        sentence=sentence,
+        source=language_name(source_language),
+        target=language_name(target_language),
+    )

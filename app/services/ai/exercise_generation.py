@@ -11,6 +11,8 @@ from app.schemas.ai import (
     GeneratedFillInBlank,
     GeneratedFlashcard,
     GeneratedMultipleChoice,
+    GeneratedTranslation,
+    TranslationParams,
     WordExerciseParams,
 )
 from app.services.ai.client import AIClient, get_ai_client
@@ -18,9 +20,11 @@ from app.services.ai.prompts import (
     FILL_IN_BLANK_SYSTEM,
     FLASHCARD_SYSTEM,
     MULTIPLE_CHOICE_SYSTEM,
+    TRANSLATION_SYSTEM,
     build_fill_in_blank_prompt,
     build_flashcard_prompt,
     build_multiple_choice_prompt,
+    build_translation_prompt,
 )
 
 # Low temperature: exercises need format compliance, not creative writing.
@@ -47,6 +51,14 @@ class ExerciseGenerationService:
         reply = await self.ai.chat_json(FLASHCARD_SYSTEM, user_prompt, temperature=_GENERATION_TEMPERATURE)
         result = _parse_as(reply, GeneratedFlashcard)
         return _normalize_flashcard(result, params.word)
+
+    async def generate_translation(self, params: TranslationParams) -> GeneratedTranslation:
+        user_prompt = build_translation_prompt(
+            params.word, params.source_language, params.target_language, params.sentence
+        )
+        # Translation is a lookup, not a creative task — keep it near-deterministic.
+        reply = await self.ai.chat_json(TRANSLATION_SYSTEM, user_prompt, temperature=0.1)
+        return _normalize_translation(_parse_translation(reply), params.word)
 
     @staticmethod
     def _parse(reply: dict, words: list[str]) -> GeneratedFillInBlank:
@@ -91,6 +103,41 @@ def _normalize_multiple_choice(result: GeneratedMultipleChoice, word: str) -> Ge
 
     result.definition = definition
     result.distractors = distractors[:3]
+    return result
+
+
+def _parse_translation(reply: dict) -> GeneratedTranslation:
+    """Accept the requested shape and the loose ones small models fall into.
+
+    Asked for {"translation": "..."} an 8B model sometimes answers with a
+    different key, or wraps the word instead. Any single string value is
+    unambiguous enough to use.
+    """
+    try:
+        payload = json.loads(reply["content"])
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        raise AIResponseValidationError(f"Cannot parse model output: {e}") from e
+
+    if not isinstance(payload, dict):
+        raise AIResponseValidationError(f"Expected a JSON object, got {type(payload).__name__}")
+
+    value = payload.get("translation")
+    if not isinstance(value, str):
+        strings = [v for v in payload.values() if isinstance(v, str) and v.strip()]
+        if len(strings) != 1:
+            raise AIResponseValidationError("No single translation in model output")
+        value = strings[0]
+    return GeneratedTranslation(translation=value, model=reply.get("model", ""))
+
+
+def _normalize_translation(result: GeneratedTranslation, word: str) -> GeneratedTranslation:
+    """An echoed source word is not a translation."""
+    translation = result.translation.strip().strip('".')
+    if not translation:
+        raise AIResponseValidationError(f"Empty translation for {word!r}")
+    if translation.lower() == word.lower():
+        raise AIResponseValidationError(f"Model echoed the source word {word!r}")
+    result.translation = translation
     return result
 
 

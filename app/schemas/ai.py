@@ -42,3 +42,19 @@ class GeneratedFlashcard(BaseModel):
     definition: str  # back side of the card
     example: str | None = None  # example sentence using the word
     model: str
+
+
+class TranslationParams(BaseModel):
+    # One word at a time, with the sentence it was captured in. Measured against
+    # batching several words: the sentence lets the model pick the right sense
+    # ("turnover" in an HR text is staff churn, not revenue), and batching a
+    # word per sentence confuses it.
+    word: str = Field(min_length=1, max_length=128)
+    sentence: str | None = None
+    source_language: str = "en"
+    target_language: str = "uk"
+
+
+class GeneratedTranslation(BaseModel):
+    translation: str
+    model: str
