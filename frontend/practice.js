@@ -100,11 +100,14 @@ function renderExercise(ex) {
   $("ex-status").textContent = "";
   $("ex-submit").disabled = true;
   $("ex-submit").classList.remove("hidden");
+  $("ex-lives").classList.add("hidden");
 
   if (ex.exercise_type === "MULTIPLE_CHOICE") {
     renderMultipleChoice(ex);
   } else if (ex.exercise_type === "FLASHCARD") {
     renderFlashcard(ex);
+  } else if (ex.exercise_type === "MATCH_PAIRS") {
+    renderMatchPairs(ex);
   } else {
     renderFillInBlanks(ex);
   }
@@ -115,8 +118,151 @@ function promptText(ex) {
     FILL_IN_BLANKS: "Заповни пропуски правильним словом.",
     MULTIPLE_CHOICE: "Вибери правильне значення слова.",
     FLASHCARD: "Чи пам'ятаєш ти це слово?",
+    MATCH_PAIRS: "З'єднай слово з його перекладом.",
   };
   return uk[ex.exercise_type] || ex.prompt || "";
+}
+
+// --- match pairs -----------------------------------------------------------
+//
+// A round holds more pairs than fit on screen. Solving one pair removes it but
+// does NOT bring in a replacement: new pairs arrive only after the second
+// solve, so the board never shrinks to a single obvious choice and the learner
+// has to recall rather than deduce.
+
+const PAIRS_PER_REFILL = 2; // solves needed before new pairs are dealt
+
+let mp = null; // match-pairs round state
+
+function renderMatchPairs(ex) {
+  const all = new Map(ex.payload.pairs.map((p) => [String(p.id), p]));
+  const ids = [...all.keys()];
+  const visible = ex.payload.visible || 4;
+
+  mp = {
+    all,
+    queue: ids.slice(visible), // not dealt yet
+    left: shuffle(ids.slice(0, visible)), // word column
+    right: shuffle(ids.slice(0, visible)), // translation column, shuffled apart
+    picked: null, // {side, id}
+    solved: {}, // pair id -> translation, submitted at the end
+    mistakes: 0,
+    maxMistakes: ex.payload.max_mistakes || 3,
+    sinceRefill: 0,
+  };
+
+  $("ex-submit").classList.add("hidden"); // the round submits itself
+  $("ex-lives").classList.remove("hidden");
+  drawLives();
+  drawBoard();
+}
+
+function drawLives() {
+  const left = mp.maxMistakes - mp.mistakes;
+  $("ex-lives").innerHTML = "";
+  for (let i = 0; i < mp.maxMistakes; i++) {
+    const dot = document.createElement("span");
+    dot.className = "life" + (i < left ? "" : " life--lost");
+    $("ex-lives").appendChild(dot);
+  }
+}
+
+function drawBoard() {
+  const board = $("ex-blanks");
+  board.innerHTML = "";
+
+  const grid = document.createElement("div");
+  grid.className = "pairs";
+  grid.append(buildColumn("left"), buildColumn("right"));
+  board.appendChild(grid);
+
+  const left = Object.keys(mp.solved).length;
+  $("ex-status").textContent = `${left} з ${mp.all.size}`;
+}
+
+function buildColumn(side) {
+  const column = document.createElement("div");
+  column.className = "pairs__col";
+  for (const id of mp[side]) {
+    const pair = mp.all.get(id);
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "pair";
+    card.dataset.id = id;
+    card.dataset.side = side;
+    card.textContent = side === "left" ? pair.word : pair.translation;
+    if (mp.picked && mp.picked.side === side && mp.picked.id === id) {
+      card.classList.add("pair--picked");
+    }
+    card.addEventListener("click", () => pickCard(side, id));
+    column.appendChild(card);
+  }
+  return column;
+}
+
+function pickCard(side, id) {
+  if (!mp.picked) {
+    mp.picked = { side, id };
+    drawBoard();
+    return;
+  }
+  if (mp.picked.side === side) {
+    mp.picked = { side, id }; // same column — just move the selection
+    drawBoard();
+    return;
+  }
+
+  const chosen = mp.picked;
+  mp.picked = null;
+  if (chosen.id === id) {
+    solvePair(id);
+  } else {
+    missPair(chosen, { side, id });
+  }
+}
+
+function solvePair(id) {
+  mp.solved[id] = mp.all.get(id).translation;
+  mp.left = mp.left.filter((x) => x !== id);
+  mp.right = mp.right.filter((x) => x !== id);
+  mp.sinceRefill += 1;
+
+  // Deal new pairs only every other solve — see the note above.
+  if (mp.sinceRefill >= PAIRS_PER_REFILL) {
+    mp.sinceRefill = 0;
+    for (let i = 0; i < PAIRS_PER_REFILL && mp.queue.length; i++) {
+      const next = mp.queue.shift();
+      insertAtRandom(mp.left, next);
+      insertAtRandom(mp.right, next);
+    }
+  }
+
+  drawBoard();
+  if (!mp.left.length) finishRound();
+}
+
+function missPair(a, b) {
+  mp.mistakes += 1;
+  drawLives();
+  drawBoard();
+
+  for (const { side, id } of [a, b]) {
+    const card = document.querySelector(`.pair[data-side="${side}"][data-id="${id}"]`);
+    if (card) card.classList.add("pair--wrong");
+  }
+  setTimeout(() => {
+    for (const card of document.querySelectorAll(".pair--wrong")) card.classList.remove("pair--wrong");
+    if (mp.mistakes >= mp.maxMistakes) finishRound();
+  }, 550);
+}
+
+function insertAtRandom(list, id) {
+  list.splice(Math.floor(Math.random() * (list.length + 1)), 0, id);
+}
+
+async function finishRound() {
+  chosen = mp.solved;
+  await submit(mp.mistakes);
 }
 
 function renderFillInBlanks(ex) {
@@ -243,11 +389,11 @@ function pick(index, option, btn, row) {
   $("ex-submit").disabled = Object.keys(chosen).length < total;
 }
 
-async function submit() {
+async function submit(mistakes = null) {
   $("ex-submit").disabled = true;
   const resp = await apiFetch("/exercises/" + currentExercise.uuid + "/attempt", {
     method: "POST",
-    body: JSON.stringify({ answers: chosen, response_time_ms: Date.now() - shownAt }),
+    body: JSON.stringify({ answers: chosen, response_time_ms: Date.now() - shownAt, mistakes }),
   });
   if (!resp.ok) {
     $("ex-status").textContent = "Не вдалося надіслати відповідь, спробуй ще раз.";
@@ -263,7 +409,13 @@ function renderResult(result) {
   const banner = $("res-banner");
   banner.className = "ex__result " + (result.is_correct ? "ex__result--ok" : "ex__result--err");
 
-  if (currentExercise.exercise_type === "FLASHCARD") {
+  if (currentExercise.exercise_type === "MATCH_PAIRS") {
+    const total = Object.keys(result.correct_answers).length;
+    const solved = Object.keys(chosen).length;
+    banner.textContent = result.is_correct
+      ? `✓ Раунд пройдено — ${solved} з ${total} пар!`
+      : `✗ Раунд завершено: ${solved} з ${total} пар до трьох помилок.`;
+  } else if (currentExercise.exercise_type === "FLASHCARD") {
     // self-graded: no "correct answer" to reveal
     banner.textContent = result.is_correct
       ? "✓ Чудово, слово засвоюється!"
