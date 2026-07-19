@@ -196,6 +196,30 @@ async def test_only_one_match_pairs_round_is_queued_at_a_time(session):
     assert await service.replenish(user_id) == 1
 
 
+async def test_match_pairs_uses_scheduled_words_when_few_are_due(session):
+    # after practising, SM-2 pushes most words into the future; a round must
+    # still be buildable from them instead of starving on the one due word
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import update
+
+    from app.models import UserWord
+
+    user_id, service = await _match_pairs_only(session, "m14@x.com", SIX_WORDS)
+
+    # leave one word due (due_at NULL); schedule every other well ahead
+    tomorrow = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=3)
+    rows, _ = await service.user_words.list_for_user(user_id, page=1, limit=100)
+    for uw in rows[1:]:
+        await session.execute(update(UserWord).where(UserWord.uuid == uw.uuid).values(due_at=tomorrow))
+    await session.commit()
+
+    assert await service.replenish(user_id, ExerciseType.MATCH_PAIRS) == 1
+    stored, _ = await service.exercises.get_many(user_id=user_id)
+    ex = next(r for r in stored if r.exercise_type == "MATCH_PAIRS")
+    assert len(ex.payload["pairs"]) >= settings.exercises.MATCH_PAIRS_VISIBLE
+
+
 async def test_match_pairs_skipped_when_vocabulary_is_too_small(session):
     # fewer words than fit on screen -> no round, and it is not an error
     user_id, service = await _match_pairs_only(session, "m2@x.com", ["resilient", "eloquent"])

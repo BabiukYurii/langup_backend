@@ -205,12 +205,20 @@ class ExercisePoolService:
         return created
 
     async def _candidate_words(self, user_id: int, limit: int) -> list[UserWord]:
-        # Words that are due for review first, then anything in the vocabulary.
+        """Words to build exercises from: due ones first, topped up to `limit`.
+
+        Once a learner has practised, SM-2 schedules most words into the future,
+        so only a handful stay due. Returning just those starved match-pairs
+        (which needs several) and left the pool half-empty — so the rest of the
+        vocabulary fills the gap when there are not enough due words.
+        """
         due = await self.user_words.list_due(user_id, _utcnow(), limit=limit)
-        if due:
+        if len(due) >= limit:
             return due
+
         rows, _ = await self.user_words.list_for_user(user_id, page=1, limit=limit)
-        return rows
+        seen = {uw.uuid for uw in due}
+        return due + [uw for uw in rows if uw.uuid not in seen][: limit - len(due)]
 
     async def _translation_language(self, user_id: int) -> str:
         return await translation_language_for(self.session, user_id)
