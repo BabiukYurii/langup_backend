@@ -21,6 +21,7 @@ from app.core.exc import (
     UnauthorizedException,
     handlers,
 )
+from app.middlewares.security_headers import SecurityHeadersMiddleware
 from app.routers import router
 
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
@@ -90,6 +91,7 @@ def _register_cabinet(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app.APP_NAME)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.app.ALLOWED_ORIGINS,

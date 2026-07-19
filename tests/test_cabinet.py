@@ -39,3 +39,14 @@ async def test_unknown_page_is_404(client):
 
 async def test_page_name_cannot_escape_the_frontend_directory(client):
     assert (await client.get("/app/..%2f..%2fetc%2fpasswd.html")).status_code == 404
+
+
+# --- security headers --------------------------------------------------------
+
+
+async def test_security_headers_are_present(client):
+    resp = await client.get("/api/health")
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["x-frame-options"] == "DENY"
+    assert "max-age" in resp.headers["strict-transport-security"]
+    assert "referrer-policy" in resp.headers
