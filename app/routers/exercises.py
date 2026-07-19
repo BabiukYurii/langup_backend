@@ -38,14 +38,16 @@ async def set_preferences(
 async def refill_pool(
     current_user: CurrentUserDep,
     exercise_service: ExercisePoolServiceDep,
+    exercise_type: ExerciseType | None = None,
 ) -> RefillResultOut:
     """Generate exercises on demand.
 
     The pool normally refills after a word is captured; this lets a user who
-    has answered everything ask for more without saving a new word. Generation
-    is CPU-bound, so the request can take a while.
+    has answered everything ask for more without saving a new word. Pass
+    `exercise_type` to get that specific kind. Generation is CPU-bound, so the
+    request can take a while.
     """
-    return RefillResultOut(created=await exercise_service.replenish(current_user.id))
+    return RefillResultOut(created=await exercise_service.replenish(current_user.id, exercise_type))
 
 
 @router.get("/next", response_model=ExerciseOut)

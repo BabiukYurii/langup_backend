@@ -37,6 +37,9 @@ _TYPE_CYCLE = list(SUPPORTED_EXERCISE_TYPES)
 # Key under which the enabled types live in User.preferences.
 _PREF_KEY = "exercise_types"
 
+# How many exercises an explicit "give me this type" request produces.
+_ON_DEMAND_PER_TYPE = 3
+
 # A flashcard is self-graded: the client submits whether the user knew the word.
 FLASHCARD_KNOWN = "know"
 FLASHCARD_UNKNOWN = "dont_know"
@@ -134,12 +137,19 @@ class ExercisePoolService:
             mastery_level=mastery,
         )
 
-    async def replenish(self, user_id: int) -> int:
+    async def replenish(self, user_id: int, exercise_type: ExerciseType | None = None) -> int:
         """Top the pool back up to EXERCISE_POOL_TARGET unanswered exercises.
 
         Best-effort: words the AI service can't turn into a valid exercise are
         skipped rather than failing the whole refill. Returns how many were added.
+
+        `exercise_type` serves an explicit "I want this kind now" request and
+        ignores the overall target: a full pool of other types is exactly the
+        situation where the learner cannot get the type they picked.
         """
+        if exercise_type:
+            return await self._generate_of_type(user_id, exercise_type)
+
         enabled = (await self.get_preferences(user_id)).exercise_types
         created = 0
 
@@ -171,6 +181,25 @@ class ExercisePoolService:
                 await self._generate_and_store(user_id, queue.pop(0), ex_type)
             except (AIProviderError, AIResponseValidationError) as e:
                 logger.warning("Skipping %s exercise: %s: %s", ex_type.value, type(e).__name__, e)
+                continue
+            created += 1
+        return created
+
+    async def _generate_of_type(self, user_id: int, ex_type: ExerciseType) -> int:
+        """Make exercises of one type because the learner asked for that type."""
+        if ex_type == ExerciseType.MATCH_PAIRS:
+            return int(await self._generate_match_pairs(user_id))
+
+        # Words already practised are reused when the vocabulary is small:
+        # repeating a known word is what practice is, and refusing to build the
+        # requested type would leave the learner with an empty screen.
+        words = await self._candidate_words(user_id, _ON_DEMAND_PER_TYPE)
+        created = 0
+        for uw in words:
+            try:
+                await self._generate_and_store(user_id, uw, ex_type)
+            except (AIProviderError, AIResponseValidationError) as e:
+                logger.warning("Skipping %s for %r: %s: %s", ex_type.value, uw.word.lemma, type(e).__name__, e)
                 continue
             created += 1
         return created

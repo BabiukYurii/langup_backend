@@ -476,7 +476,9 @@ async function generateMore(statusId) {
     status.textContent = `Генеруємо… ${elapsed} с`;
   }, 1000);
 
-  const resp = await apiFetch("/exercises/refill", { method: "POST" });
+  // ask for the type the learner is looking at, not just "anything"
+  const query = activeType ? "?exercise_type=" + activeType : "";
+  const resp = await apiFetch("/exercises/refill" + query, { method: "POST" });
   clearInterval(ticker);
   for (const b of buttons) b.disabled = false;
 

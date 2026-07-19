@@ -650,6 +650,34 @@ async def test_refill_requires_auth(client):
     assert (await client.post("/api/exercises/refill")).status_code == 401
 
 
+async def test_refill_of_a_type_works_even_with_a_full_pool(session):
+    # a pool full of other types is exactly when the learner cannot reach the
+    # type they picked, so an explicit request must ignore the overall target
+    user_id = await _seed_vocab(session, "r1@x.com", SIX_WORDS)
+    service = ExercisePoolService(session, StubGenerator())
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.MULTIPLE_CHOICE]))
+    await service.replenish(user_id)
+    assert await service.exercises.count_pending(user_id) >= settings.exercises.EXERCISE_POOL_TARGET
+
+    created = await service.replenish(user_id, ExerciseType.FLASHCARD)
+
+    assert created > 0
+    assert await service.exercises.has_pending_of_type(user_id, "FLASHCARD")
+
+
+async def test_refill_of_a_type_reuses_words_when_the_vocabulary_is_small(session):
+    # one word must still produce the requested type — repeating a known word
+    # is what practice is
+    user_id = await _seed_vocab(session, "r2@x.com", ["resilient"])
+    service = ExercisePoolService(session, StubGenerator())
+
+    assert await service.replenish(user_id, ExerciseType.FLASHCARD) == 1
+    assert await service.replenish(user_id, ExerciseType.FLASHCARD) == 1
+
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    assert len([r for r in rows if r.exercise_type == "FLASHCARD"]) == 2
+
+
 async def test_http_serve_and_answer_flow(app, client, sessionmaker):
     headers = await _login(app, client)
     await client.post("/api/vocabulary", json={"word": "resilient", "language": "en"}, headers=headers)
