@@ -110,6 +110,18 @@ function promptText(ex) {
   return uk[ex.exercise_type] || ex.prompt || "";
 }
 
+// Size an input to exactly `n` characters as this browser actually renders
+// them. Measuring the real font beats a ch-based calc: the monospace fallback
+// and its cell width vary across devices, which left a wide tail on phones.
+function sizeInputToLength(input, n) {
+  const cs = getComputedStyle(input); // resolved font, incl. the device's monospace
+  const ctx = (sizeInputToLength._ctx ||= document.createElement("canvas").getContext("2d"));
+  ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const textPx = ctx.measureText("0".repeat(n)).width; // monospace: every glyph one cell
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  input.style.width = Math.ceil(textPx + padX) + "px"; // border-box: content == the word
+}
+
 function renderTyping(ex) {
   // The learner's own sentence with one gap they type into. The translation is
   // an on-demand hint, hidden so it stays a recall exercise, not a copy.
@@ -132,13 +144,12 @@ function renderTyping(ex) {
     // so a too-short answer leaves a visibly empty cell.
     const len = ex.payload.length || 8;
     input.maxLength = len;
-    // content = exactly the word (len ch), plus the 8px of horizontal padding
-    input.style.width = `calc(${Math.max(len, 2)}ch + 8px)`;
     input.setAttribute("enterkeyhint", "done");
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") submit();
     });
     textEl.appendChild(input);
+    sizeInputToLength(input, Math.max(len, 2)); // must run after it's in the DOM
   });
   setTimeout(() => textEl.querySelector("input")?.focus(), 0);
 
