@@ -41,12 +41,14 @@ function renderTypes() {
 }
 
 function selectType(type) {
+  stopClock();
   activeType = type;
   renderTypes();
   loadNext();
 }
 
 async function loadNext() {
+  stopClock();
   show("loading");
   const query = activeType ? "?exercise_type=" + activeType : "";
   const resp = await apiFetch("/exercises/next" + query);
@@ -81,7 +83,7 @@ function renderExercise(ex) {
   $("ex-status").textContent = "";
   $("ex-submit").disabled = true;
   $("ex-submit").classList.remove("hidden");
-  $("ex-lives").classList.add("hidden");
+  $("ex-meter").classList.add("hidden");
 
   if (ex.exercise_type === "MULTIPLE_CHOICE") {
     renderMultipleChoice(ex);
@@ -133,9 +135,35 @@ function renderMatchPairs(ex) {
   };
 
   $("ex-submit").classList.add("hidden"); // the round submits itself
-  $("ex-lives").classList.remove("hidden");
+  $("ex-meter").classList.remove("hidden");
   drawLives();
   drawBoard();
+  startClock(ex.payload.time_limit || 60);
+}
+
+function startClock(seconds) {
+  stopClock();
+  mp.left_seconds = seconds;
+  drawClock();
+  mp.timer = setInterval(() => {
+    mp.left_seconds -= 1;
+    drawClock();
+    if (mp.left_seconds <= 0) finishRound(true); // out of time fails the round
+  }, 1000);
+}
+
+function stopClock() {
+  if (mp && mp.timer) {
+    clearInterval(mp.timer);
+    mp.timer = null;
+  }
+}
+
+function drawClock() {
+  const left = Math.max(0, mp.left_seconds);
+  const el = $("ex-timer");
+  el.textContent = `${left} с`;
+  el.classList.toggle("timer--low", left <= 10);
 }
 
 function drawLives() {
@@ -241,9 +269,11 @@ function insertAtRandom(list, id) {
   list.splice(Math.floor(Math.random() * (list.length + 1)), 0, id);
 }
 
-async function finishRound() {
+async function finishRound(timedOut = false) {
+  stopClock();
+  mp.timedOut = timedOut; // remembered so the result can say why the round ended
   chosen = mp.solved;
-  await submit(mp.mistakes);
+  await submit(mp.mistakes, timedOut);
 }
 
 function renderFillInBlanks(ex) {
@@ -370,11 +400,16 @@ function pick(index, option, btn, row) {
   $("ex-submit").disabled = Object.keys(chosen).length < total;
 }
 
-async function submit(mistakes = null) {
+async function submit(mistakes = null, timedOut = false) {
   $("ex-submit").disabled = true;
   const resp = await apiFetch("/exercises/" + currentExercise.uuid + "/attempt", {
     method: "POST",
-    body: JSON.stringify({ answers: chosen, response_time_ms: Date.now() - shownAt, mistakes }),
+    body: JSON.stringify({
+      answers: chosen,
+      response_time_ms: Date.now() - shownAt,
+      mistakes,
+      timed_out: timedOut,
+    }),
   });
   if (!resp.ok) {
     $("ex-status").textContent = "Не вдалося надіслати відповідь, спробуй ще раз.";
@@ -393,9 +428,13 @@ function renderResult(result) {
   if (currentExercise.exercise_type === "MATCH_PAIRS") {
     const total = Object.keys(result.correct_answers).length;
     const solved = Object.keys(chosen).length;
-    banner.textContent = result.is_correct
-      ? `✓ Раунд пройдено — ${solved} з ${total} пар!`
-      : `✗ Раунд завершено: ${solved} з ${total} пар до трьох помилок.`;
+    if (result.is_correct) {
+      banner.textContent = `✓ Раунд пройдено — ${solved} з ${total} пар!`;
+    } else if (mp.timedOut) {
+      banner.textContent = `⏱ Час вийшов: ${solved} з ${total} пар.`;
+    } else {
+      banner.textContent = `✗ Раунд завершено: ${solved} з ${total} пар, помилок забагато.`;
+    }
   } else if (currentExercise.exercise_type === "FLASHCARD") {
     // self-graded: no "correct answer" to reveal
     banner.textContent = result.is_correct
@@ -423,6 +462,28 @@ function shuffle(arr) {
   return arr;
 }
 
+async function generateMore(statusId) {
+  const status = $(statusId);
+  const buttons = [$("empty-generate"), $("res-generate")];
+  for (const b of buttons) b.disabled = true;
+  status.textContent = "Генеруємо… це може зайняти до хвилини";
+
+  const resp = await apiFetch("/exercises/refill", { method: "POST" });
+  for (const b of buttons) b.disabled = false;
+
+  if (!resp.ok) {
+    status.textContent = "Не вдалося згенерувати. Спробуй ще раз.";
+    return;
+  }
+  const created = (await resp.json()).created;
+  if (!created) {
+    status.textContent = "Нових вправ не вийшло — збережи ще кілька слів.";
+    return;
+  }
+  status.textContent = "";
+  loadNext();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!TOKENS.access) {
     location.href = "index.html"; // not logged in
@@ -431,6 +492,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("ex-submit").addEventListener("click", submit);
   $("res-next").addEventListener("click", loadNext);
   $("empty-retry").addEventListener("click", loadNext);
+  $("empty-generate").addEventListener("click", () => generateMore("empty-status"));
+  $("res-generate").addEventListener("click", () => generateMore("res-mastery"));
   renderTypes();
   loadNext();
 });

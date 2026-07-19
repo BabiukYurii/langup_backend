@@ -439,10 +439,24 @@ a.btn {
   color: var(--primary);
 }
 /* match pairs */
+.meter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 4px;
+}
 .lives {
   display: flex;
   gap: 6px;
-  margin: 14px 0 4px;
+}
+.timer {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums; /* stops the row twitching as digits change */
+  color: var(--muted);
+}
+.timer--low {
+  color: #ff8a8a;
 }
 .life {
   width: 9px;

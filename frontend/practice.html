@@ -29,7 +29,10 @@
         <!-- exercise -->
         <div id="ex-view" class="hidden">
           <p id="ex-prompt" class="card__subtitle"></p>
-          <div id="ex-lives" class="lives hidden"></div>
+          <div id="ex-meter" class="meter hidden">
+            <div id="ex-lives" class="lives"></div>
+            <span id="ex-timer" class="timer"></span>
+          </div>
           <p id="ex-text" class="ex__text"></p>
           <div id="ex-blanks"></div>
           <div class="form__actions">
@@ -43,7 +46,10 @@
           <div id="res-banner" class="ex__result"></div>
           <div class="form__actions">
             <span id="res-mastery" class="meta"></span>
-            <button id="res-next" class="btn btn--primary" type="button">Наступна вправа →</button>
+            <div class="links-row">
+              <button id="res-generate" class="btn btn--ghost" type="button">Згенерувати ще</button>
+              <button id="res-next" class="btn btn--primary" type="button">Наступна вправа →</button>
+            </div>
           </div>
         </div>
 
@@ -54,8 +60,11 @@
             додаєш нові слова через розширення — зазвичай це займає до хвилини.
           </p>
           <div class="form__actions">
-            <span class="meta"></span>
-            <button id="empty-retry" class="btn btn--primary" type="button">Оновити</button>
+            <span id="empty-status" class="meta"></span>
+            <div class="links-row">
+              <button id="empty-retry" class="btn btn--ghost" type="button">Оновити</button>
+              <button id="empty-generate" class="btn btn--primary" type="button">Згенерувати ще</button>
+            </div>
           </div>
         </div>
 
