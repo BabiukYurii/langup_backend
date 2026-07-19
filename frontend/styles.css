@@ -20,13 +20,27 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh; /* track the mobile viewport as the address bar hides */
   color: var(--text);
   background: radial-gradient(1200px 600px at 50% -10%, #232a55 0%, transparent 60%),
     var(--bg);
   background-color: var(--bg);
   display: flex;
   justify-content: center;
-  padding: 48px 16px;
+  overflow-x: hidden; /* nothing should ever cause a sideways scroll */
+  /* breathing room on desktop, tight on phones, clear of any notch */
+  padding: clamp(16px, 5vw, 48px) 16px;
+  padding-top: max(clamp(16px, 5vw, 48px), env(safe-area-inset-top));
+  padding-bottom: max(clamp(16px, 5vw, 48px), env(safe-area-inset-bottom));
+}
+
+/* long words (options, translations, sentences) wrap instead of overflowing */
+.card,
+.pair,
+.opt,
+.ex__text,
+.ex__back {
+  overflow-wrap: break-word;
 }
 
 .shell {
@@ -167,6 +181,7 @@ body {
 }
 .field-row .field {
   flex: 1;
+  min-width: 0; /* let a field shrink below its input's intrinsic width */
 }
 .field input {
   background: var(--bg-soft);
@@ -174,7 +189,7 @@ body {
   border-radius: 10px;
   padding: 11px 12px;
   color: var(--text);
-  font-size: 15px;
+  font-size: 16px; /* 16+ stops iOS zooming in on focus */
   outline: none;
   transition: border-color 0.15s;
 }
@@ -186,6 +201,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap; /* the meta text and buttons drop to their own rows if tight */
+  gap: 12px;
   margin-top: 4px;
 }
 .meta {
@@ -197,6 +214,7 @@ body {
   border: none;
   border-radius: 10px;
   padding: 10px 18px;
+  min-height: 44px; /* comfortable touch target */
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -264,7 +282,7 @@ body {
   border-radius: 10px;
   padding: 10px 12px;
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px; /* 16+ stops iOS zooming in on focus */
   outline: none;
   transition: border-color 0.15s;
 }
@@ -285,6 +303,7 @@ body {
 }
 .links-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 a.btn {
@@ -587,4 +606,68 @@ a.btn {
 
 .hidden {
   display: none !important;
+}
+
+/* --- phones --------------------------------------------------------------- */
+/* The layout is a single column at every size; on small screens it just gives
+   back the padding and type scale that desktop can afford. */
+@media (max-width: 560px) {
+  .card {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+  .brand {
+    margin-bottom: 18px;
+  }
+  .card__title {
+    font-size: 20px;
+  }
+
+  /* header rows: let a long title/count wrap under the back button */
+  .words-bar,
+  .profile__head {
+    flex-wrap: wrap;
+  }
+
+  /* two side-by-side fields don't fit a narrow phone — stack them */
+  .field-row {
+    flex-direction: column;
+  }
+
+  /* practice */
+  .ex__text {
+    font-size: 16px;
+  }
+  .ex__sentence {
+    font-size: 17px;
+  }
+  .ex__word {
+    font-size: 22px;
+  }
+  .opt {
+    padding: 11px 14px; /* taller for touch, options already wrap */
+  }
+  .pairs {
+    gap: 8px;
+  }
+  .pair {
+    min-height: 56px;
+    padding: 10px;
+  }
+
+  /* stacked answer buttons should fill the row on a phone */
+  .form__actions .links-row {
+    width: 100%;
+  }
+  .form__actions .links-row .btn {
+    flex: 1;
+  }
+}
+
+/* Users who prefer less motion: drop the shake and transitions. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }
