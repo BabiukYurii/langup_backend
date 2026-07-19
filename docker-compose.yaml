@@ -53,8 +53,11 @@ services:
     image: langup-app
     container_name: langup-celery-worker
     env_file: [.env]
-    entrypoint: ["uv", "run", "celery", "-A", "app.celery.config:celery_app", "worker", "--loglevel=info"]
-    depends_on: [redis]
+    # One slot on purpose: Ollama serves a single inference at a time, so extra
+    # workers would only make jobs fight over the same cores.
+    entrypoint:
+      ["uv", "run", "celery", "-A", "app.celery.config:celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+    depends_on: [redis, db]
     restart: unless-stopped
 
   celery_beat:
