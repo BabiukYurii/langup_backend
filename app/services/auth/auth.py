@@ -6,8 +6,9 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import settings
-from app.core.exc import ObjectAlreadyExistsException, UnauthorizedException
+from app.core.exc import ObjectAlreadyExistsException, RateLimitedException, UnauthorizedException
 from app.core.security.password import hash_password, verify_password
+from app.core.security.rate_limit import login_locked, record_login_failure
 from app.core.security.tokens import create_access_token, create_refresh_token, decode_token
 from app.database.postgres import get_session
 from app.enums.auth import OAuthProvider, TokenType
@@ -56,8 +57,13 @@ class AuthService:
     async def login(self, data: LoginRequest) -> TokenPair:
         """Password sign-in. One generic 401 for unknown email, OAuth-only
         accounts, and wrong password — no account enumeration."""
+        if await login_locked(data.email):
+            # Too many recent failures for this account, from anywhere.
+            raise RateLimitedException(settings.rate_limit.RATE_LIMIT_LOGIN_PER_ACCOUNT_WINDOW_SECONDS)
+
         user = await self.users.get_by_email(data.email)
         if not user or not user.hashed_password or not verify_password(data.password, user.hashed_password):
+            await record_login_failure(data.email)
             raise UnauthorizedException("Invalid email or password")
         return await self._issue_tokens(user.id)
 

@@ -29,7 +29,14 @@ def _redis() -> redis.Redis:
 
 
 def client_ip(request: Request) -> str:
-    """Caller's address, trusting the proxy header we sit behind."""
+    """Caller's real address, from the proxy we sit behind.
+
+    CF-Connecting-IP is Cloudflare's single, un-spoofable client address; it is
+    preferred over X-Forwarded-For, which is a chain a caller can prepend to.
+    """
+    cf = request.headers.get("cf-connecting-ip")
+    if cf:
+        return cf.strip()
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -48,6 +55,38 @@ async def enforce(key: str, limit: int, window_seconds: int) -> None:
         return
     if count > limit:
         raise RateLimitedException(window_seconds)
+
+
+def _login_key(email: str) -> str:
+    return f"ratelimit:login-account:{email.strip().lower()}"
+
+
+async def login_locked(email: str) -> bool:
+    """Whether one account has failed login too many times recently.
+
+    Counts failures only, keyed by email — so a distributed guess at one
+    account is caught even while each IP stays under the per-IP limit, and a
+    legitimate user who signs in normally is never affected.
+    """
+    if not settings.rate_limit.RATE_LIMIT_ENABLED:
+        return False
+    try:
+        count = await _redis().get(_login_key(email))
+    except Exception:  # noqa: BLE001 — a Redis outage must not lock anyone out
+        logger.exception("Login-lock check failed for %s, allowing", email)
+        return False
+    return int(count or 0) >= settings.rate_limit.RATE_LIMIT_LOGIN_PER_ACCOUNT_ATTEMPTS
+
+
+async def record_login_failure(email: str) -> None:
+    if not settings.rate_limit.RATE_LIMIT_ENABLED:
+        return
+    try:
+        count = await _redis().incr(_login_key(email))
+        if count == 1:
+            await _redis().expire(_login_key(email), settings.rate_limit.RATE_LIMIT_LOGIN_PER_ACCOUNT_WINDOW_SECONDS)
+    except Exception:  # noqa: BLE001
+        logger.exception("Recording login failure failed for %s", email)
 
 
 class RateLimiter:

@@ -26,6 +26,11 @@ class FakeRedis:
         self.counts[key] = self.counts.get(key, 0) + 1
         return self.counts[key]
 
+    async def get(self, key: str) -> int | None:
+        if self.broken:
+            raise ConnectionError("redis is down")
+        return self.counts.get(key)
+
     async def expire(self, key: str, seconds: int) -> None:
         self.expiries[key] = seconds
 
@@ -81,6 +86,21 @@ async def test_the_proxy_header_identifies_the_real_client(limiter_on):
         await limiter(_request(forwarded="9.9.9.9"))
 
 
+def test_cloudflares_header_wins_over_x_forwarded_for():
+    # CF-Connecting-IP is the un-spoofable one; XFF is a chain a caller controls
+    req = Request(
+        {
+            "type": "http",
+            "headers": [
+                (b"cf-connecting-ip", b"5.5.5.5"),
+                (b"x-forwarded-for", b"1.2.3.4, 9.9.9.9"),
+            ],
+            "client": ("10.0.0.1", 1),
+        }
+    )
+    assert rate_limit.client_ip(req) == "5.5.5.5"
+
+
 async def test_quotas_are_ignored_while_disabled(monkeypatch):
     settings.rate_limit.RATE_LIMIT_ENABLED = False
     monkeypatch.setattr(rate_limit, "_redis", lambda: FakeRedis())
@@ -101,6 +121,37 @@ async def test_a_redis_outage_lets_requests_through(monkeypatch):
             await limiter(_request())
     finally:
         settings.rate_limit.RATE_LIMIT_ENABLED = original
+
+
+async def test_repeated_failures_lock_one_account_regardless_of_ip(limiter_on, monkeypatch):
+    # the distributed-guess case: only failures count, and they count by email
+    monkeypatch.setattr(settings.rate_limit, "RATE_LIMIT_LOGIN_PER_ACCOUNT_ATTEMPTS", 3)
+    email = "victim@gmail.com"
+
+    assert await rate_limit.login_locked(email) is False
+    for _ in range(3):
+        await rate_limit.record_login_failure(email)
+
+    assert await rate_limit.login_locked(email) is True
+    assert await rate_limit.login_locked("someone-else@gmail.com") is False  # only that account
+
+
+async def test_a_locked_account_gets_429_even_with_the_right_password(app, client, limiter_on, monkeypatch):
+    monkeypatch.setattr(settings.rate_limit, "RATE_LIMIT_LOGIN_PER_ACCOUNT_ATTEMPTS", 2)
+    await client.post("/api/auth/register", json={"email": "locked@gmail.com", "password": "right-password-1"})
+
+    for _ in range(2):
+        await client.post("/api/auth/login", json={"email": "locked@gmail.com", "password": "wrong"})
+
+    # even the correct password is refused while the account is locked
+    blocked = await client.post("/api/auth/login", json={"email": "locked@gmail.com", "password": "right-password-1"})
+    assert blocked.status_code == 429
+
+
+async def test_a_successful_login_does_not_count_against_the_account(limiter_on):
+    # a legitimate user signing in normally must never approach the lock
+    for _ in range(50):
+        assert await rate_limit.login_locked("regular@gmail.com") is False
 
 
 async def test_login_answers_429_once_the_quota_is_spent(client, limiter_on, monkeypatch):
