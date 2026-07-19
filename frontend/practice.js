@@ -476,23 +476,41 @@ async function generateMore(statusId) {
     status.textContent = `Генеруємо… ${elapsed} с`;
   }, 1000);
 
+  const done = (text) => {
+    clearInterval(ticker);
+    for (const b of buttons) b.disabled = false;
+    status.textContent = text;
+  };
+
   // ask for the type the learner is looking at, not just "anything"
   const query = activeType ? "?exercise_type=" + activeType : "";
   const resp = await apiFetch("/exercises/refill" + query, { method: "POST" });
-  clearInterval(ticker);
-  for (const b of buttons) b.disabled = false;
+  if (!resp.ok) return done("Не вдалося згенерувати. Спробуй ще раз.");
 
-  if (!resp.ok) {
-    status.textContent = "Не вдалося згенерувати. Спробуй ще раз.";
-    return;
-  }
-  const created = (await resp.json()).created;
-  if (!created) {
-    status.textContent = "Нових вправ не вийшло — збережи ще кілька слів.";
-    return;
-  }
-  status.textContent = "";
+  const body = await resp.json();
+  // A worker took the job -> poll it. No worker -> it already ran inline.
+  const created = body.status === "queued" ? await pollRefill(body.task_id) : body.created;
+
+  if (created === null) return done("Генерація не завершилась. Спробуй ще раз.");
+  if (!created) return done("Нових вправ не вийшло — збережи ще кілька слів.");
+  done("");
   loadNext();
+}
+
+// Give up after this long rather than polling a job nobody is working on.
+const REFILL_POLL_LIMIT_MS = 180000;
+
+async function pollRefill(taskId) {
+  const until = Date.now() + REFILL_POLL_LIMIT_MS;
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const resp = await apiFetch("/exercises/refill/" + taskId);
+    if (!resp.ok) return null;
+    const { status, created } = await resp.json();
+    if (status === "done") return created ?? 0;
+    if (status === "failed") return null;
+  }
+  return null;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
