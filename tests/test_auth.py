@@ -1,3 +1,6 @@
+from contextlib import contextmanager
+
+from app.core import settings
 from app.services.auth.oauth_google import get_google_verifier
 
 GOOGLE_PROFILE = {
@@ -141,6 +144,17 @@ async def test_refresh_rejects_access_token(app, client):
 # refresh token stays valid for its full 30 days and logout cannot stop it.
 
 
+@contextmanager
+def _no_grace_window():
+    """Make a replay look old, without making the test sleep."""
+    original = settings.auth.REFRESH_REUSE_GRACE_SECONDS
+    settings.auth.REFRESH_REUSE_GRACE_SECONDS = -1
+    try:
+        yield
+    finally:
+        settings.auth.REFRESH_REUSE_GRACE_SECONDS = original
+
+
 async def _register(client, email: str = "rt@gmail.com") -> dict:
     resp = await client.post("/api/auth/register", json={"email": email, "password": "rt-password-123"})
     return resp.json()
@@ -153,18 +167,39 @@ async def test_refresh_rotates_and_retires_the_old_token(client):
     assert refreshed.status_code == 200
     assert refreshed.json()["refresh_token"] != tokens["refresh_token"]
 
-    # the spent token is dead even though its signature is still valid
-    replayed = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    # once the concurrency window has passed, the spent token is dead even
+    # though its signature is still perfectly valid
+    with _no_grace_window():
+        replayed = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert replayed.status_code == 401
 
 
-async def test_replaying_a_spent_token_kills_every_session(client):
-    # replay means the token leaked; which copy is the thief's is unknowable,
-    # so every session of that user ends
+async def test_two_clients_refreshing_at_once_stay_signed_in(client):
+    """The popup, its service worker and each cabinet tab cannot coordinate.
+
+    Two of them refreshing within a moment of each other is routine, and used
+    to end every session of a perfectly innocent user.
+    """
+    tokens = await _register(client, "race@gmail.com")
+
+    first = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    second = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+
+    assert first.status_code == second.status_code == 200
+    # and the session each of them ended up with still works
+    for resp in (first, second):
+        again = await client.post("/api/auth/refresh", json={"refresh_token": resp.json()["refresh_token"]})
+        assert again.status_code == 200
+
+
+async def test_replaying_a_spent_token_later_kills_every_session(client):
+    # long after rotation a replay means the token leaked, and which copy is
+    # the thief's is unknowable — so every session of that user ends
     tokens = await _register(client, "reuse@gmail.com")
     current = (await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})).json()
 
-    await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})  # replay
+    with _no_grace_window():
+        await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})  # replay
 
     assert (await client.post("/api/auth/refresh", json={"refresh_token": current["refresh_token"]})).status_code == 401
 

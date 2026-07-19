@@ -107,12 +107,21 @@ class AuthService:
             raise UnauthorizedException("Refresh token is not recognised")
 
         if stored.revoked_at is not None:
-            # This token was already spent. Either it leaked and someone is
-            # replaying it, or the real owner's is stolen — either way, end
-            # every session of that user rather than guess which.
-            logger.warning("Reuse of a revoked refresh token for user %s", stored.user_id)
-            await self.refresh_tokens.revoke_all_for_user(stored.user_id, _utcnow())
-            raise UnauthorizedException("Refresh token has been revoked")
+            # Only rotation sets replaced_by. A token retired by logout or by
+            # theft detection has none, and must be dead the instant it is —
+            # no window where signing out still leaves a way back in.
+            grace = timedelta(seconds=settings.auth.REFRESH_REUSE_GRACE_SECONDS)
+            rotated = stored.replaced_by is not None
+            if not rotated or _utcnow() - stored.revoked_at > grace:
+                # Long after rotation this is a replay: the token leaked, and
+                # which copy is the thief's is unknowable — so end every session
+                # of that user rather than guess.
+                logger.warning("Reuse of a revoked refresh token for user %s", stored.user_id)
+                await self.refresh_tokens.revoke_all_for_user(stored.user_id, _utcnow())
+                raise UnauthorizedException("Refresh token has been revoked")
+            # Within the window it is two of the user's own clients refreshing
+            # at the same moment, which must not log them out.
+            logger.info("Concurrent refresh for user %s, inside the grace window", stored.user_id)
 
         if stored.expires_at <= _utcnow():
             raise UnauthorizedException("Refresh token has expired")

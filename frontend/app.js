@@ -94,8 +94,8 @@ async function saveProfile(event) {
   }
 }
 
-function logout() {
-  TOKENS.clear();
+async function logout() {
+  await logoutRequest();
   if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
   showLogin();
   toast("Ви вийшли");
