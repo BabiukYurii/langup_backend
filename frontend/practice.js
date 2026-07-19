@@ -91,6 +91,8 @@ function renderExercise(ex) {
     renderFlashcard(ex);
   } else if (ex.exercise_type === "MATCH_PAIRS") {
     renderMatchPairs(ex);
+  } else if (ex.exercise_type === "TYPING") {
+    renderTyping(ex);
   } else {
     renderFillInBlanks(ex);
   }
@@ -102,8 +104,50 @@ function promptText(ex) {
     MULTIPLE_CHOICE: "Вибери правильне значення слова.",
     FLASHCARD: "Чи пам'ятаєш ти це слово?",
     MATCH_PAIRS: "З'єднай слово з його перекладом.",
+    TYPING: "Впиши пропущене слово.",
   };
   return uk[ex.exercise_type] || ex.prompt || "";
+}
+
+function renderTyping(ex) {
+  // The learner's own sentence with one gap they type into. The translation is
+  // an on-demand hint, hidden so it stays a recall exercise, not a copy.
+  const textEl = $("ex-text");
+  const parts = ex.payload.text.split(/___(\d+)___/g); // [text, "1", text, ...]
+  parts.forEach((part, i) => {
+    if (i % 2 === 0) {
+      textEl.appendChild(document.createTextNode(part));
+      return;
+    }
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "ex__input";
+    input.autocapitalize = "none";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.setAttribute("aria-label", "пропущене слово");
+    input.addEventListener("input", () => {
+      chosen = { 1: input.value.trim() };
+      $("ex-submit").disabled = !input.value.trim();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !$("ex-submit").disabled) submit();
+    });
+    textEl.appendChild(input);
+  });
+  setTimeout(() => textEl.querySelector("input")?.focus(), 0);
+
+  if (ex.payload.hint) {
+    const hint = document.createElement("button");
+    hint.type = "button";
+    hint.className = "ex__hint";
+    hint.textContent = "Показати підказку";
+    hint.addEventListener("click", () => {
+      hint.textContent = "Підказка: " + ex.payload.hint;
+      hint.disabled = true;
+    });
+    $("ex-blanks").appendChild(hint);
+  }
 }
 
 // --- match pairs -----------------------------------------------------------
