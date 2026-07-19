@@ -37,3 +37,10 @@ class ServerErrorException(Exception):
     def __init__(self, message: str) -> None:
         self.message = f"Server error. {message}"
         super().__init__(self.message)
+
+
+class RateLimitedException(Exception):
+    def __init__(self, retry_after_seconds: int) -> None:
+        self.retry_after_seconds = retry_after_seconds
+        self.message = "Too many requests. Please try again later."
+        super().__init__(self.message)

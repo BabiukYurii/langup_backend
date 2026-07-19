@@ -6,6 +6,7 @@ from app.core.config.celery import CeleryConfig
 from app.core.config.db import DbBaseConfig
 from app.core.config.exercises import ExerciseConfig
 from app.core.config.jwt import JwtConfig
+from app.core.config.rate_limit import RateLimitConfig
 from app.core.config.redis import RedisConfig
 
 __all__ = ["Settings", "settings"]
@@ -23,6 +24,7 @@ class Settings(BaseConfig):
     exercises: ExerciseConfig = ExerciseConfig()
     redis: RedisConfig = RedisConfig()
     celery: CeleryConfig = CeleryConfig()
+    rate_limit: RateLimitConfig = RateLimitConfig()
 
 
 settings = Settings()

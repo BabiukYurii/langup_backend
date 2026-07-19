@@ -1,7 +1,8 @@
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.core.security.rate_limit import generation_rate_limit
 from app.dependencies import CurrentUserDep, ExercisePoolServiceDep
 from app.enums.learning import ExerciseType
 from app.schemas.exercise import (
@@ -36,7 +37,7 @@ async def set_preferences(
     return await exercise_service.set_preferences(current_user.id, data)
 
 
-@router.post("/refill", response_model=RefillResultOut)
+@router.post("/refill", response_model=RefillResultOut, dependencies=[Depends(generation_rate_limit)])
 async def refill_pool(
     current_user: CurrentUserDep,
     exercise_service: ExercisePoolServiceDep,

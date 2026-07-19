@@ -4,6 +4,7 @@ from app.core.exc.base import (
     ForbiddenException,
     ObjectAlreadyExistsException,
     ObjectNotFoundException,
+    RateLimitedException,
     ServerErrorException,
     UnauthorizedException,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "ForbiddenException",
     "ObjectAlreadyExistsException",
     "ObjectNotFoundException",
+    "RateLimitedException",
     "ServerErrorException",
     "UnauthorizedException",
 ]
