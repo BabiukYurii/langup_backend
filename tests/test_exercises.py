@@ -67,15 +67,38 @@ class FailingGenerator:
     generate_translation = generate_fill_in_blank
 
 
-async def _seed_vocab(session, email: str, words: list[str]) -> int:
+async def _seed_vocab(session, email: str, words: list[str], with_context: bool = False) -> int:
+    """Seed a user's vocabulary.
+
+    with_context also gives each word a cached translation and a sentence, so
+    the types that need those (TYPING, FLASHCARD) can generate too.
+    """
+    from app.models import Source, WordContext
+
     user = User(email=email)
     session.add(user)
     await session.flush()
+    source = None
+    if with_context:
+        source = Source(user_id=user.id, url="http://example.com", language="en")
+        session.add(source)
+        await session.flush()
     for lemma in words:
-        word = Word(lemma=lemma, language="en")
+        definitions = [{"lang": "uk", "translation": f"{lemma}-переклад"}] if with_context else None
+        word = Word(lemma=lemma, language="en", definitions=definitions)
         session.add(word)
         await session.flush()
         session.add(UserWord(user_id=user.id, word_uuid=word.uuid))
+        if with_context:
+            session.add(
+                WordContext(
+                    user_id=user.id,
+                    word_uuid=word.uuid,
+                    source_uuid=source.uuid,
+                    surface_form=lemma,
+                    sentence=f"They kept it {lemma} through the day.",
+                )
+            )
     await session.commit()
     return user.id
 
@@ -84,7 +107,9 @@ async def _seed_vocab(session, email: str, words: list[str]) -> int:
 
 
 async def test_replenish_fills_pool_up_to_target(session):
-    user_id = await _seed_vocab(session, "a@x.com", ["resilient", "eloquent", "serene", "candid", "prudent", "vivid"])
+    user_id = await _seed_vocab(
+        session, "a@x.com", ["resilient", "eloquent", "serene", "candid", "prudent", "vivid"], with_context=True
+    )
     service = ExercisePoolService(session, StubGenerator())
 
     created = await service.replenish(user_id)
@@ -97,7 +122,9 @@ async def test_replenish_fills_pool_up_to_target(session):
 
 async def test_served_exercises_still_count_toward_pool_target(session):
     # serving without answering must not trigger extra generation
-    user_id = await _seed_vocab(session, "a2@x.com", ["resilient", "eloquent", "serene", "candid", "prudent"])
+    user_id = await _seed_vocab(
+        session, "a2@x.com", ["resilient", "eloquent", "serene", "candid", "prudent"], with_context=True
+    )
     service = ExercisePoolService(session, StubGenerator())
     await service.replenish(user_id)
 
@@ -380,6 +407,63 @@ async def test_flashcard_is_skipped_without_a_translation(session):
 
     service = ExercisePoolService(session, NoTranslation())
     await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+
+    assert await service.replenish(user_id) == 0
+
+
+# --- typing ----------------------------------------------------------------
+
+
+async def _seed_word_with_sentence(session, service, user_id, lemma, sentence, translation="переклад"):
+    word = await service.words_repo.get_by_lemma_language(lemma, "en")
+    await service.words_repo.update_one(word, {"definitions": [{"lang": "uk", "translation": translation}]})
+    await service.word_contexts.create_one(
+        {"user_id": user_id, "word_uuid": word.uuid, "surface_form": lemma, "sentence": sentence}
+    )
+
+
+async def test_typing_blanks_the_word_in_its_own_sentence(session):
+    user_id = await _seed_vocab(session, "t1@x.com", ["conducted"])
+    service = ExercisePoolService(session, StubGenerator())
+    await _seed_word_with_sentence(
+        session, service, user_id, "conducted", "The research was conducted by a team.", "проведено"
+    )
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.TYPING]))
+
+    assert await service.replenish(user_id) == 1
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    ex = next(r for r in rows if r.exercise_type == "TYPING")
+
+    assert ex.payload["text"] == "The research was ___1___ by a team."
+    assert ex.payload["hint"] == "проведено"
+    assert ex.answer == {"1": "conducted"}  # the word itself is the answer
+    assert ex.word_uuid is not None  # single word -> feeds SM-2
+
+
+async def test_typing_grades_the_typed_word_case_insensitively(session):
+    user_id = await _seed_vocab(session, "t2@x.com", ["conducted"])
+    service = ExercisePoolService(session, StubGenerator())
+    await _seed_word_with_sentence(session, service, user_id, "conducted", "It was conducted well.")
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.TYPING]))
+    await service.replenish(user_id)
+    ex = await service.get_next(user_id)
+
+    ok = await service.submit_attempt(user_id, ex.uuid, SubmitAttemptRequest(answers={"1": "  Conducted "}))
+    assert ok.is_correct is True
+
+    # a fresh one, wrong this time, reveals the answer
+    await service.replenish(user_id)
+    other = await service.get_next(user_id)
+    bad = await service.submit_attempt(user_id, other.uuid, SubmitAttemptRequest(answers={"1": "wrote"}))
+    assert bad.is_correct is False
+    assert bad.correct_answers == {"1": "conducted"}
+
+
+async def test_typing_is_skipped_without_a_sentence(session):
+    # no captured sentence -> nothing to blank; the slot goes to another type
+    user_id = await _seed_vocab(session, "t3@x.com", ["conducted"])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.TYPING]))
 
     assert await service.replenish(user_id) == 0
 

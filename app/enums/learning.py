@@ -10,15 +10,17 @@ class ExerciseType(BaseStrEnum):
     SENTENCE_RECONSTRUCTION = "SENTENCE_RECONSTRUCTION"
     LISTENING = "LISTENING"
     AI_CONTEXTUAL = "AI_CONTEXTUAL"
+    TYPING = "TYPING"  # type the missing word into its own captured sentence
 
 
-# Types the AI layer can actually produce today; the rest of ExerciseType is
-# planned surface. The pool rotates through these and the API only accepts these.
+# Types the pool can produce today; the rest of ExerciseType is planned surface.
+# The pool rotates through these and the API only accepts these.
 SUPPORTED_EXERCISE_TYPES = (
     ExerciseType.FILL_IN_BLANKS,
     ExerciseType.MULTIPLE_CHOICE,
     ExerciseType.FLASHCARD,
     ExerciseType.MATCH_PAIRS,
+    ExerciseType.TYPING,
 )
 
 

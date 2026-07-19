@@ -2,6 +2,7 @@
 # the result into SM-2), and refill the pool via the AI generation service.
 import logging
 import random
+import re
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -49,6 +50,19 @@ FLASHCARD_UNKNOWN = "dont_know"
 def _utcnow() -> datetime:
     # Naive UTC to match the DB's timezone-less DateTime columns.
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _blank_word(sentence: str, word: str) -> tuple[str, bool]:
+    """Replace the first occurrence of `word` with a ___1___ placeholder.
+
+    Whole-word first (so "at" doesn't gut "cat"); falls back to a loose match
+    for words the boundary rule misses, e.g. ones ending in punctuation.
+    """
+    for pattern in (rf"\b{re.escape(word)}\b", re.escape(word)):
+        text, n = re.subn(pattern, "___1___", sentence, count=1, flags=re.IGNORECASE)
+        if n:
+            return text, True
+    return sentence, False
 
 
 class ExercisePoolService:
@@ -320,6 +334,21 @@ class ExercisePoolService:
                 raise AIResponseValidationError(f"No translation for {lemma!r}")
             sentence = await self.word_contexts.latest_sentence(uw.word_uuid)
             payload = {"word": lemma, "sentence": sentence, "translation": translation}
+        elif ex_type == ExerciseType.TYPING:
+            # The learner's own sentence with the word blanked out, to be typed
+            # back from memory. The translation is the only hint. No inference.
+            prompt = "Type the missing word."
+            sentence = await self.word_contexts.latest_sentence(uw.word_uuid)
+            if not sentence:
+                raise AIResponseValidationError(f"No sentence for {lemma!r}")
+            text, blanked = _blank_word(sentence, lemma)
+            if not blanked:
+                raise AIResponseValidationError(f"{lemma!r} not found in its sentence")
+            payload = {
+                "text": text,
+                "hint": await self.translations.translate_word(uw.word, await self._translation_language(user_id)),
+            }
+            answer = {"1": lemma}
         else:  # pragma: no cover — cycle only contains the types above
             raise AIResponseValidationError(f"Unsupported exercise type {ex_type}")
 
