@@ -518,7 +518,9 @@ document.addEventListener("DOMContentLoaded", () => {
     location.href = "index.html"; // not logged in
     return;
   }
-  $("ex-submit").addEventListener("click", submit);
+  // Wrapped, not passed directly: a bare handler receives the click event as
+  // the first argument, which would land in submit()'s `mistakes` param.
+  $("ex-submit").addEventListener("click", () => submit());
   $("res-next").addEventListener("click", loadNext);
   $("empty-retry").addEventListener("click", loadNext);
   $("empty-generate").addEventListener("click", () => generateMore("empty-status"));
