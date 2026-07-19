@@ -335,11 +335,38 @@ function renderMultipleChoice(ex) {
   $("ex-blanks").appendChild(row);
 }
 
+// Bold every occurrence of `word` in `sentence`, case-insensitive, building the
+// nodes by hand so the sentence text can never be treated as markup.
+function boldWordInto(el, sentence, word) {
+  const lower = sentence.toLowerCase();
+  const needle = word.toLowerCase();
+  let from = 0;
+  let at = needle ? lower.indexOf(needle, from) : -1;
+
+  while (at !== -1) {
+    if (at > from) el.appendChild(document.createTextNode(sentence.slice(from, at)));
+    const strong = document.createElement("strong");
+    strong.textContent = sentence.slice(at, at + word.length);
+    el.appendChild(strong);
+    from = at + word.length;
+    at = lower.indexOf(needle, from);
+  }
+  if (from < sentence.length) el.appendChild(document.createTextNode(sentence.slice(from)));
+}
+
 function renderFlashcard(ex) {
-  const word = document.createElement("span");
-  word.className = "ex__word";
-  word.textContent = ex.payload.front;
-  $("ex-text").appendChild(word);
+  // A card is the sentence the word was met in, the word in bold; the
+  // translation is the answer, revealed on demand. Review only, no grading.
+  const card = document.createElement("p");
+  card.className = "ex__sentence";
+  if (ex.payload.sentence) {
+    boldWordInto(card, ex.payload.sentence, ex.payload.word);
+  } else {
+    const only = document.createElement("strong");
+    only.textContent = ex.payload.word;
+    card.appendChild(only);
+  }
+  $("ex-text").appendChild(card);
 
   $("ex-submit").classList.add("hidden"); // flashcard has its own buttons
 
@@ -347,20 +374,14 @@ function renderFlashcard(ex) {
   const reveal = document.createElement("button");
   reveal.type = "button";
   reveal.className = "btn btn--primary";
-  reveal.textContent = "Показати відповідь";
+  reveal.textContent = "Показати переклад";
   reveal.addEventListener("click", () => {
     reveal.remove();
 
     const back = document.createElement("p");
     back.className = "ex__back";
-    back.textContent = ex.payload.back;
+    back.textContent = ex.payload.translation;
     area.appendChild(back);
-    if (ex.payload.example) {
-      const example = document.createElement("p");
-      example.className = "meta";
-      example.textContent = ex.payload.example;
-      area.appendChild(example);
-    }
 
     const row = document.createElement("div");
     row.className = "ex__options";

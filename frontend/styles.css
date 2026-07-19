@@ -525,10 +525,20 @@ a.btn {
 .ex__options--column .opt {
   text-align: left;
 }
+.ex__sentence {
+  margin: 18px 0;
+  font-size: 18px;
+  line-height: 1.7;
+}
+.ex__sentence strong {
+  color: var(--primary);
+  font-weight: 700;
+}
 .ex__back {
   margin: 4px 0 10px;
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ok);
 }
 .opt--know {
   border-color: rgba(56, 193, 114, 0.5);
