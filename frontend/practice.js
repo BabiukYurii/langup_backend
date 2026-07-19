@@ -466,9 +466,18 @@ async function generateMore(statusId) {
   const status = $(statusId);
   const buttons = [$("empty-generate"), $("res-generate")];
   for (const b of buttons) b.disabled = true;
-  status.textContent = "Генеруємо… це може зайняти до хвилини";
+
+  // Generation is CPU-bound and can take half a minute; a silent wait reads as
+  // a broken button, so count the seconds out loud.
+  let elapsed = 0;
+  status.textContent = "Генеруємо… 0 с";
+  const ticker = setInterval(() => {
+    elapsed += 1;
+    status.textContent = `Генеруємо… ${elapsed} с`;
+  }, 1000);
 
   const resp = await apiFetch("/exercises/refill", { method: "POST" });
+  clearInterval(ticker);
   for (const b of buttons) b.disabled = false;
 
   if (!resp.ok) {
