@@ -496,6 +496,47 @@ a.btn {
   border-color: rgba(108, 140, 255, 0.5);
   color: var(--primary);
 }
+/* admin panel */
+.admin__row {
+  cursor: pointer;
+}
+.admin__row:hover {
+  background: var(--bg-soft);
+}
+.admin__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 4px 0 16px;
+}
+.admin__controls .field {
+  flex: 1;
+  min-width: 120px;
+}
+.admin__controls select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 14px;
+}
+.admin__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.admin__ex {
+  gap: 10px;
+}
+.admin__ex-answer {
+  margin-left: auto;
+  font-family: ui-monospace, "Consolas", monospace;
+  color: var(--primary);
+  font-size: 13px;
+}
 /* match pairs */
 .meter {
   display: flex;

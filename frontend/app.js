@@ -28,6 +28,10 @@ function renderProfile(user) {
   verified.textContent = user.is_email_verified ? "email підтверджено" : "не підтверджено";
   verified.className = `badge ${user.is_email_verified ? "badge--ok" : "badge--muted"}`;
 
+  // The admin panel link only makes sense for privileged accounts; the API
+  // still enforces the role, this just hides a door that would 403 anyway.
+  $("admin-link").classList.toggle("hidden", user.role !== "ADMIN" && user.role !== "SUPER_ADMIN");
+
   $("f-full_name").value = user.full_name || "";
   $("f-native_language").value = user.native_language || "";
   $("f-target_language").value = user.target_language || "";

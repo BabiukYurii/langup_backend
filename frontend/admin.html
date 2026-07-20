@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Адмін</title>
+    <link rel="stylesheet" href="styles.css?v=dev" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="brand">
+        <span class="brand__logo">L</span>
+        <span class="brand__name">LangUp</span>
+      </header>
+
+      <!-- USERS LIST -->
+      <section id="users-view" class="card">
+        <div class="words-bar">
+          <a href="index.html" class="btn btn--ghost">← Профіль</a>
+          <div class="dict__head">
+            <h1 class="card__title">Користувачі</h1>
+            <span id="users-count" class="meta"></span>
+          </div>
+        </div>
+
+        <input id="users-search" class="dict__search" type="text" placeholder="Пошук за email або ім'ям…" />
+        <ul id="users-list" class="dict__list"></ul>
+        <p id="users-empty" class="meta hidden">Нікого не знайдено.</p>
+      </section>
+
+      <!-- USER DETAIL -->
+      <section id="detail-view" class="card hidden">
+        <div class="words-bar">
+          <button id="back-to-users" class="btn btn--ghost" type="button">← Список</button>
+          <div class="dict__head">
+            <h1 id="d-email" class="card__title">—</h1>
+            <span id="d-id" class="meta"></span>
+          </div>
+        </div>
+
+        <div class="admin__controls">
+          <label class="field">
+            <span>Роль</span>
+            <select id="d-role">
+              <option value="USER">USER</option>
+              <option value="ADMIN">ADMIN</option>
+              <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Статус</span>
+            <select id="d-status">
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+              <option value="DELETED">DELETED</option>
+            </select>
+          </label>
+          <button id="d-save" class="btn btn--primary" type="button">Зберегти</button>
+        </div>
+
+        <div class="admin__tabs">
+          <button id="tab-vocab" class="chip chip--on" type="button">Словник</button>
+          <button id="tab-exercises" class="chip" type="button">Вправи</button>
+        </div>
+
+        <ul id="d-vocab" class="dict__list"></ul>
+        <ul id="d-exercises" class="dict__list hidden"></ul>
+        <p id="d-empty" class="meta hidden">Порожньо.</p>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
+    </main>
+
+    <script src="config.js?v=dev"></script>
+    <script src="api.js?v=dev"></script>
+    <script src="admin.js?v=dev"></script>
+  </body>
+</html>
