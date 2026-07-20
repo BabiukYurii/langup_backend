@@ -414,11 +414,11 @@ async def test_flashcard_is_skipped_without_a_translation(session):
 # --- typing ----------------------------------------------------------------
 
 
-async def _seed_word_with_sentence(session, service, user_id, lemma, sentence, translation="переклад"):
+async def _seed_word_with_sentence(session, service, user_id, lemma, sentence, translation="переклад", surface=None):
     word = await service.words_repo.get_by_lemma_language(lemma, "en")
     await service.words_repo.update_one(word, {"definitions": [{"lang": "uk", "translation": translation}]})
     await service.word_contexts.create_one(
-        {"user_id": user_id, "word_uuid": word.uuid, "surface_form": lemma, "sentence": sentence}
+        {"user_id": user_id, "word_uuid": word.uuid, "surface_form": surface or lemma, "sentence": sentence}
     )
 
 
@@ -445,6 +445,25 @@ async def test_typing_blanks_the_word_in_its_own_sentence(session):
     served = await service.get_next(user_id)
     assert served.payload["length"] == len("conducted")
     assert "length" not in ex.payload  # the row itself stays untouched
+
+
+async def test_typing_blanks_the_inflected_surface_form(session):
+    # The word is stored under its lemma, but the sentence holds an inflected
+    # form — that form is what gets blanked, sized to, and accepted back.
+    user_id = await _seed_vocab(session, "t3@x.com", ["occur"])
+    service = ExercisePoolService(session, StubGenerator())
+    await _seed_word_with_sentence(
+        session, service, user_id, "occur", "The collapse occurs at night.", surface="occurs"
+    )
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.TYPING]))
+
+    assert await service.replenish(user_id) == 1
+    served = await service.get_next(user_id)
+    assert served.payload["text"] == "The collapse ___1___ at night."
+    assert served.payload["length"] == len("occurs")
+
+    ok = await service.submit_attempt(user_id, served.uuid, SubmitAttemptRequest(answers={"1": "occurs"}))
+    assert ok.is_correct is True
 
 
 async def test_typing_grades_the_typed_word_case_insensitively(session):

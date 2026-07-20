@@ -65,6 +65,16 @@ def _blank_word(sentence: str, word: str) -> tuple[str, bool]:
     return sentence, False
 
 
+def _blank_first_match(sentence: str, candidates: tuple[str | None, ...]) -> tuple[str, str] | None:
+    """Blank the first candidate found in the sentence: (text, blanked word)."""
+    for candidate in candidates:
+        if candidate:
+            text, blanked = _blank_word(sentence, candidate)
+            if blanked:
+                return text, candidate
+    return None
+
+
 class ExercisePoolService:
     def __init__(self, session: AsyncSession, generator: ExerciseGenerationService) -> None:
         self.session = session
@@ -338,12 +348,15 @@ class ExercisePoolService:
             # The learner's own sentence with the word blanked out, to be typed
             # back from memory. The translation is the only hint. No inference.
             prompt = "Type the missing word."
-            sentence = await self.word_contexts.latest_sentence(uw.word_uuid)
-            if not sentence:
+            ctx = await self.word_contexts.latest_context(uw.word_uuid)
+            if not ctx:
                 raise AIResponseValidationError(f"No sentence for {lemma!r}")
-            text, blanked = _blank_word(sentence, lemma)
-            if not blanked:
+            # Blank the form that actually appears in the sentence (the lemma
+            # may be inflected there: lemma "occur", sentence "... occurs").
+            blank = _blank_first_match(ctx.sentence, (ctx.surface_form, lemma))
+            if not blank:
                 raise AIResponseValidationError(f"{lemma!r} not found in its sentence")
+            text, target = blank
             translation = await self.translations.translate_word(uw.word, await self._translation_language(user_id))
             if not translation:
                 # The translation is the prompt ("type the word that means X"),
@@ -352,7 +365,9 @@ class ExercisePoolService:
             # No "length" here: the blank's size is derived from the answer key
             # when the exercise is served (ExerciseOut.from_exercise), not stored.
             payload = {"text": text, "hint": translation}
-            answer = {"1": lemma}
+            # The answer is the blanked form: the learner retypes what the
+            # sentence really said, and its length sizes the blank exactly.
+            answer = {"1": target}
         else:  # pragma: no cover — cycle only contains the types above
             raise AIResponseValidationError(f"Unsupported exercise type {ex_type}")
 
