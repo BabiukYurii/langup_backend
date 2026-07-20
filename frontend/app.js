@@ -74,6 +74,41 @@ async function onGoogleCredential(response) {
   }
 }
 
+// ---------- email + password ----------
+let authMode = "login"; // "login" | "register"
+
+function toggleAuthMode() {
+  authMode = authMode === "login" ? "register" : "login";
+  const registering = authMode === "register";
+  $("a-name-field").classList.toggle("hidden", !registering);
+  $("a-password").autocomplete = registering ? "new-password" : "current-password";
+  $("auth-submit").textContent = registering ? "Зареєструватися" : "Увійти";
+  $("auth-mode-toggle").textContent = registering ? "У мене вже є акаунт" : "Створити акаунт";
+}
+
+async function onEmailAuth(event) {
+  event.preventDefault();
+  const body = { email: $("a-email").value.trim(), password: $("a-password").value };
+  if (authMode === "register") body.full_name = $("a-name").value.trim() || null;
+  try {
+    const resp = await fetch(`${CFG.API_BASE}/auth/${authMode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      const fallback = authMode === "register" ? "Не вдалося зареєструватися" : "Невірний email або пароль";
+      return toast(typeof err.detail === "string" ? err.detail : fallback, "err");
+    }
+    TOKENS.set(await resp.json());
+    await loadProfile();
+    toast("Вітаємо у LangUp!");
+  } catch {
+    toast("Помилка мережі", "err");
+  }
+}
+
 async function saveProfile(event) {
   event.preventDefault();
   if (!currentUser) return;
@@ -126,6 +161,8 @@ function initGoogle() {
 // ---------- boot ----------
 document.addEventListener("DOMContentLoaded", () => {
   $("profile-form").addEventListener("submit", saveProfile);
+  $("email-auth-form").addEventListener("submit", onEmailAuth);
+  $("auth-mode-toggle").addEventListener("click", toggleAuthMode);
   $("logout-btn").addEventListener("click", logout);
   initGoogle();
   loadProfile();

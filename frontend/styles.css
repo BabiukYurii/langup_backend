@@ -398,6 +398,21 @@ a.btn {
 .ex__input:focus {
   background: rgba(108, 140, 255, 0.18);
 }
+/* "або" between Google and the email form on the login card */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: var(--muted, #8b93b8);
+  font-size: 13px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
 /* the word's translation — the prompt telling the learner what to type */
 .ex__prompt-word {
   margin: 4px 0 0;

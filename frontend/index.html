@@ -23,6 +23,27 @@
           Google Sign-In вимкнено: додай <code>GOOGLE_CLIENT_ID</code> у
           <code>frontend/config.js</code>.
         </p>
+
+        <div class="auth-divider"><span>або</span></div>
+
+        <form id="email-auth-form" class="form">
+          <label class="field">
+            <span>Email</span>
+            <input id="a-email" type="email" autocomplete="email" required placeholder="you@example.com" />
+          </label>
+          <label class="field">
+            <span>Пароль</span>
+            <input id="a-password" type="password" autocomplete="current-password" required minlength="8" placeholder="********" />
+          </label>
+          <label class="field hidden" id="a-name-field">
+            <span>Ім'я (необов'язково)</span>
+            <input id="a-name" type="text" autocomplete="name" placeholder="Ваше ім'я" />
+          </label>
+          <div class="form__actions">
+            <button id="auth-mode-toggle" class="btn btn--ghost" type="button">Створити акаунт</button>
+            <button id="auth-submit" class="btn btn--primary" type="submit">Увійти</button>
+          </div>
+        </form>
       </section>
 
       <!-- PROFILE -->
