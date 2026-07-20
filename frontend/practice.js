@@ -153,8 +153,7 @@ function renderTyping(ex) {
     // Sized to the word: the blank fits exactly its letters, a length hint.
     // Exactly the width of the word: a monospace input is `length` cells wide,
     // so a too-short answer leaves a visibly empty cell.
-    const len = ex.payload.length || 8;
-    input.maxLength = len;
+    const len = ex.payload.length;
     input.setAttribute("enterkeyhint", "done");
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") submit();
@@ -163,7 +162,18 @@ function renderTyping(ex) {
     // Synchronous on purpose: getComputedStyle resolves the font and padding
     // even while the view is still hidden, and requestAnimationFrame is paused
     // for a backgrounded tab, which left the width unset (a full-width input).
-    sizeInputToLength(input, Math.max(len, 2));
+    if (len) {
+      input.maxLength = len;
+      sizeInputToLength(input, Math.max(len, 2));
+    } else {
+      // Exercises generated before payload.length existed carry no count, so
+      // there is nothing to size to: grow with what the learner types instead
+      // of guessing a width that leaves empty cells past the word.
+      input.maxLength = 32;
+      const fit = () => sizeInputToLength(input, Math.max(input.value.length, 2));
+      input.addEventListener("input", fit);
+      fit();
+    }
   });
   setTimeout(() => textEl.querySelector("input")?.focus(), 0);
 
