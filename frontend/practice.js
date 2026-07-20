@@ -111,15 +111,25 @@ function promptText(ex) {
 }
 
 // Size an input to exactly `n` characters as this browser actually renders
-// them. Measuring the real font beats a ch-based calc: the monospace fallback
-// and its cell width vary across devices, which left a wide tail on phones.
+// them. A hidden span beats canvas.measureText: canvas picks its own font
+// fallback, which on some phones differs from the one the <input> resolves to,
+// so its width came out too wide and left a tail. A real DOM node laid out in
+// the same document shares the input's exact font resolution, so it matches.
 function sizeInputToLength(input, n) {
-  const cs = getComputedStyle(input); // resolved font, incl. the device's monospace
-  const ctx = (sizeInputToLength._ctx ||= document.createElement("canvas").getContext("2d"));
-  ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-  const textPx = ctx.measureText("0".repeat(n)).width; // monospace: every glyph one cell
+  const cs = getComputedStyle(input); // the font the input actually resolved to
+  const sizer = document.createElement("span");
+  sizer.style.cssText = "position:absolute;visibility:hidden;white-space:pre;top:-9999px;left:-9999px;";
+  sizer.style.fontFamily = cs.fontFamily;
+  sizer.style.fontSize = cs.fontSize;
+  sizer.style.fontWeight = cs.fontWeight;
+  sizer.style.fontStyle = cs.fontStyle;
+  sizer.style.letterSpacing = cs.letterSpacing;
+  sizer.textContent = "0".repeat(n); // monospace: every glyph is one cell
+  document.body.appendChild(sizer);
+  const textPx = sizer.getBoundingClientRect().width;
+  sizer.remove();
   const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-  // border-box: content == the word, +2px only so the caret has somewhere to sit
+  // content == the word, +2px only so the caret has somewhere to sit
   input.style.width = Math.ceil(textPx + padX + 2) + "px";
 }
 
