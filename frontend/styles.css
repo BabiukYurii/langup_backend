@@ -385,7 +385,7 @@ a.btn {
   /* monospace so every letter is one cell — the width is set in ch to the
      word's length, making the blank fit it exactly and hint the letter count */
   font-family: ui-monospace, "Cascadia Code", "Consolas", "Courier New", monospace;
-  padding: 2px 3px;
+  padding: 2px 0;
   border: none;
   border-bottom: 2px solid var(--primary);
   background: rgba(108, 140, 255, 0.1);

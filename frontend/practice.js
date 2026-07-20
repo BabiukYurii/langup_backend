@@ -119,7 +119,8 @@ function sizeInputToLength(input, n) {
   ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   const textPx = ctx.measureText("0".repeat(n)).width; // monospace: every glyph one cell
   const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-  input.style.width = Math.ceil(textPx + padX) + "px"; // border-box: content == the word
+  // border-box: content == the word, +2px only so the caret has somewhere to sit
+  input.style.width = Math.ceil(textPx + padX + 2) + "px";
 }
 
 function renderTyping(ex) {
@@ -149,7 +150,9 @@ function renderTyping(ex) {
       if (e.key === "Enter") submit();
     });
     textEl.appendChild(input);
-    sizeInputToLength(input, Math.max(len, 2)); // must run after it's in the DOM
+    // Defer to the next frame: the exercise view is still display:none during
+    // render, and some mobile browsers measure a hidden element wrong.
+    requestAnimationFrame(() => sizeInputToLength(input, Math.max(len, 2)));
   });
   setTimeout(() => textEl.querySelector("input")?.focus(), 0);
 
