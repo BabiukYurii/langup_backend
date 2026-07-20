@@ -155,9 +155,7 @@ async def test_a_successful_login_does_not_count_against_the_account(limiter_on)
 
 
 async def test_login_answers_429_once_the_quota_is_spent(client, limiter_on, monkeypatch):
-    monkeypatch.setattr(
-        rate_limit.auth_rate_limit, "limit", 2
-    )  # keep the test short; the real quota is larger
+    monkeypatch.setattr(rate_limit.auth_rate_limit, "limit", 2)  # keep the test short; the real quota is larger
     body = {"email": "nobody@gmail.com", "password": "wrong-password-1"}
 
     for _ in range(2):

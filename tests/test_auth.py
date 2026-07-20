@@ -208,9 +208,7 @@ async def test_logout_makes_the_refresh_token_unusable(client):
     tokens = await _register(client, "logout@gmail.com")
 
     assert (await client.post("/api/auth/logout", json={"refresh_token": tokens["refresh_token"]})).status_code == 204
-    assert (
-        await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
-    ).status_code == 401
+    assert (await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})).status_code == 401
 
 
 async def test_logout_of_an_unknown_token_is_not_an_error(client):

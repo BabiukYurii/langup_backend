@@ -81,7 +81,9 @@ class TranslationService:
         return translations
 
     async def _cache(self, word: Word, target_language: str, translation: str) -> None:
-        entries = [e for e in (word.definitions or []) if not (isinstance(e, dict) and e.get("lang") == target_language)]
+        entries = [
+            e for e in (word.definitions or []) if not (isinstance(e, dict) and e.get("lang") == target_language)
+        ]
         entries.append({"lang": target_language, "translation": translation})
         # Rebind the list so SQLAlchemy notices the JSON column changed.
         await self.words.update_one(word, {"definitions": entries})

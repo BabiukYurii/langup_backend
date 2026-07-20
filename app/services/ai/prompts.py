@@ -110,9 +110,7 @@ def language_name(code: str) -> str:
     return LANGUAGE_NAMES.get(code.lower(), code)
 
 
-TRANSLATION_SYSTEM = (
-    "You are a bilingual dictionary. Always respond with a single valid JSON object and nothing else."
-)
+TRANSLATION_SYSTEM = "You are a bilingual dictionary. Always respond with a single valid JSON object and nothing else."
 
 TRANSLATION_USER = """\
 Translate the {source} word "{word}" into {target}.
@@ -141,9 +139,7 @@ Respond as {{"translation": "..."}}
 """
 
 
-def build_translation_prompt(
-    word: str, source_language: str, target_language: str, sentence: str | None = None
-) -> str:
+def build_translation_prompt(word: str, source_language: str, target_language: str, sentence: str | None = None) -> str:
     template = TRANSLATION_CONTEXT_USER if sentence else TRANSLATION_USER
     return template.format(
         word=word,
