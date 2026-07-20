@@ -436,9 +436,15 @@ async def test_typing_blanks_the_word_in_its_own_sentence(session):
 
     assert ex.payload["text"] == "The research was ___1___ by a team."
     assert ex.payload["hint"] == "проведено"  # the translation prompts what to type
-    assert ex.payload["length"] == len("conducted")  # blank is sized to the word
+    assert "length" not in ex.payload  # the count is derived at serve time, not stored
     assert ex.answer == {"1": "conducted"}  # the word itself is the answer
     assert ex.word_uuid is not None  # single word -> feeds SM-2
+
+    # Served payload carries the blank's size, computed from the answer key —
+    # so even exercises stored before the field existed get a correct one.
+    served = await service.get_next(user_id)
+    assert served.payload["length"] == len("conducted")
+    assert "length" not in ex.payload  # the row itself stays untouched
 
 
 async def test_typing_grades_the_typed_word_case_insensitively(session):

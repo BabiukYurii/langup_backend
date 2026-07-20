@@ -18,12 +18,20 @@ class ExerciseOut(BaseModel):
 
     @classmethod
     def from_exercise(cls, ex) -> "ExerciseOut":
+        payload = ex.payload
+        if ex.exercise_type == ExerciseType.TYPING.value:
+            # The client sizes the blank to the word. The count is derived from
+            # the answer key at serve time (a copy — the row is not touched) so
+            # it always matches what submit_attempt will grade against, and the
+            # word itself never leaves the server.
+            word = (ex.answer or {}).get("1", "")
+            payload = {**payload, "length": len(word)}
         return cls(
             uuid=ex.uuid,
             exercise_type=ex.exercise_type,
             prompt=ex.prompt,
             difficulty=float(ex.difficulty) if ex.difficulty is not None else None,
-            payload=ex.payload,
+            payload=payload,
             created_at=ex.created_at,
         )
 

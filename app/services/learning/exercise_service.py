@@ -349,13 +349,9 @@ class ExercisePoolService:
                 # The translation is the prompt ("type the word that means X"),
                 # so without it there is nothing to answer from — skip.
                 raise AIResponseValidationError(f"No translation for {lemma!r}")
-            payload = {
-                "text": text,
-                "hint": translation,
-                # The client sizes the blank to the word — the length is a hint,
-                # but the word itself must not leak, so send only the count.
-                "length": len(lemma),
-            }
+            # No "length" here: the blank's size is derived from the answer key
+            # when the exercise is served (ExerciseOut.from_exercise), not stored.
+            payload = {"text": text, "hint": translation}
             answer = {"1": lemma}
         else:  # pragma: no cover — cycle only contains the types above
             raise AIResponseValidationError(f"Unsupported exercise type {ex_type}")
