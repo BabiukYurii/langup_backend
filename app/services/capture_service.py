@@ -9,6 +9,7 @@ from app.repositories.word import WordRepository
 from app.repositories.word_context import WordContextRepository
 from app.schemas.capture import CaptureRequest, UserWordOut
 from app.schemas.pagination import Page
+from app.utils.lemmatize import to_lemma
 
 
 class CaptureService:
@@ -23,7 +24,10 @@ class CaptureService:
         self.user_words = UserWordRepository(session)
 
     async def capture(self, user_id: int, data: CaptureRequest) -> UserWordOut:
-        lemma = data.word.strip()
+        # The shared dictionary is keyed by lemma, so "demands" and "demanded"
+        # land on one Word; the form actually captured lives in the context.
+        surface = data.word.strip()
+        lemma = to_lemma(surface, data.language)
 
         word = await self.words.get_by_lemma_language(lemma, data.language)
         if not word:
@@ -49,7 +53,7 @@ class CaptureService:
                     "user_id": user_id,
                     "word_uuid": word.uuid,
                     "source_uuid": source.uuid if source else None,
-                    "surface_form": lemma,
+                    "surface_form": surface,
                     "sentence": data.sentence,
                 }
             )

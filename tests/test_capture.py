@@ -38,6 +38,25 @@ async def test_capture_creates_personal_word(app, client):
     assert listing.json()["total"] == 1
 
 
+async def test_capture_lemmatizes_the_word(app, client):
+    headers = await _login(app, client)
+    resp = await client.post(
+        "/api/vocabulary",
+        json={"word": "Occurs", "language": "en", "sentence": "It occurs at night."},
+        headers=headers,
+    )
+    assert resp.json()["lemma"] == "occur"  # dictionary form, lowercased
+
+
+async def test_capture_inflections_share_one_word(app, client):
+    headers = await _login(app, client)
+    await client.post("/api/vocabulary", json={"word": "demands", "language": "en"}, headers=headers)
+    await client.post("/api/vocabulary", json={"word": "demanded", "language": "en"}, headers=headers)
+
+    listing = await client.get("/api/vocabulary", headers=headers)
+    assert listing.json()["total"] == 1  # both inflections -> lemma "demand"
+
+
 async def test_capture_is_idempotent_per_word(app, client):
     headers = await _login(app, client)
     payload = {"word": "apple", "language": "en"}

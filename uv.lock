@@ -1217,6 +1217,7 @@ dependencies = [
     { name = "python-multipart" },
     { name = "redis" },
     { name = "sentry-sdk" },
+    { name = "simplemma" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "stripe" },
     { name = "structlog" },
@@ -1267,6 +1268,7 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "redis", specifier = ">=5.2.0" },
     { name = "sentry-sdk", specifier = ">=2.20.0" },
+    { name = "simplemma", specifier = ">=1.2.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
     { name = "stripe", specifier = ">=11.0.0" },
     { name = "structlog", specifier = ">=24.4.0" },
@@ -2229,6 +2231,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f6/5d/a343201726150e05f2036eeb6e493e2e2f8bf8a66f5aa70f2f4ac96f9ca3/sentry_sdk-2.62.0.tar.gz", hash = "sha256:3c870b9f50d9fd15b58c817dbde1c7cfaa9fe3f05df0a4c6edd5571cb82f5491", size = 463986, upload-time = "2026-06-08T13:23:49.223Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/07/05440381627877aae223fd68f330df9b9fc6641d08bf65328b55235617a2/sentry_sdk-2.62.0-py3-none-any.whl", hash = "sha256:27f61d13a86c3c1648dec666dd5a64f79772dd6a84b446f11866601ecab24f6f", size = 490586, upload-time = "2026-06-08T13:23:47.486Z" },
+]
+
+[[package]]
+name = "simplemma"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/21/11ae67cc092d4109be9c80df42441bf0f438a20ff7d22e44658fa3cdb0d9/simplemma-1.2.0.tar.gz", hash = "sha256:f561a9f0f41400d52ed4a0674a3e0423df64c41f5390602d2f071d6b687c5e68", size = 67542207, upload-time = "2026-06-01T17:16:52.937Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/29/ec27f68195841041b583661f4094a4edfd83601a8db43ab2901b4c4ae229/simplemma-1.2.0-py3-none-any.whl", hash = "sha256:a02fcbbb9eecc9c0e56eaea0c482eb43bf8bec8e33f45024b321a483bf77d854", size = 67520844, upload-time = "2026-06-01T17:16:25.604Z" },
 ]
 
 [[package]]
