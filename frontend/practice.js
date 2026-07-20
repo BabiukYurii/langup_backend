@@ -150,9 +150,10 @@ function renderTyping(ex) {
       if (e.key === "Enter") submit();
     });
     textEl.appendChild(input);
-    // Defer to the next frame: the exercise view is still display:none during
-    // render, and some mobile browsers measure a hidden element wrong.
-    requestAnimationFrame(() => sizeInputToLength(input, Math.max(len, 2)));
+    // Synchronous on purpose: getComputedStyle resolves the font and padding
+    // even while the view is still hidden, and requestAnimationFrame is paused
+    // for a backgrounded tab, which left the width unset (a full-width input).
+    sizeInputToLength(input, Math.max(len, 2));
   });
   setTimeout(() => textEl.querySelector("input")?.focus(), 0);
 
