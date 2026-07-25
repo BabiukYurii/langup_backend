@@ -14,8 +14,11 @@ spaced-repetition reviews.
 - Runs on a **home Ubuntu server** (`piatek@100.85.70.77`), behind **Cloudflare** at
   `https://langup.piatek-magazyn.com`. Render is no longer used.
 - Deploy branch is **`dev`**. Steps on the server:
-  `cd /home/piatek/Desktop/apps/langup_backend && git pull origin dev && docker compose up -d --build app`
+  `cd /home/piatek/Desktop/apps/langup_backend && git pull origin dev && docker compose up -d --build app celery_worker celery_beat event_consumer`
   (frontend is baked into the image, so frontend changes need `--build`).
+  **Rebuild the workers too, not just `app`** — `celery_worker`/`celery_beat`/`event_consumer`
+  share the code image, and rebuilding only `app` leaves them on stale code (they stop
+  matching the API and can silently drop tasks). The exercise pool + translations run there.
 - **Prod DB** = Postgres **container** `langup-db` (`docker exec langup-db psql -U langup -d langup`).
   The API container is `langup-api` (listens on `8008` on the server). Redis container too.
 - **AI gateway** (separate repo `langup_ai`): a FastAPI proxy (`langup-ai-gateway`, port 8002)
