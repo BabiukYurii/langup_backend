@@ -3,16 +3,37 @@ from app.services.auth.oauth_google import get_google_verifier
 PROFILE = {"sub": "cap-sub-1", "email": "cap@gmail.com", "email_verified": True, "name": "Cap"}
 
 
-async def _login(app, client) -> dict:
+async def _login(app, client, native_language: str | None = "uk") -> dict:
     app.dependency_overrides[get_google_verifier] = lambda: lambda _t: PROFILE
     resp = await client.post("/api/auth/google", json={"id_token": "fake"})
     token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}"}
+    # Capturing now requires a native language; set it unless a test wants the
+    # bare, just-created account (to exercise the guard).
+    if native_language:
+        me = (await client.get("/api/auth/me", headers=headers)).json()
+        await client.patch(f"/api/users/{me['id']}", json={"native_language": native_language}, headers=headers)
+    return headers
 
 
 async def test_capture_requires_auth(client):
     resp = await client.post("/api/vocabulary", json={"word": "hello", "language": "en"})
     assert resp.status_code == 401
+
+
+async def test_capture_requires_native_language(app, client):
+    # A brand-new account has no native language yet: saving is refused with a
+    # marker the client uses to prompt for the language.
+    headers = await _login(app, client, native_language=None)
+    resp = await client.post("/api/vocabulary", json={"word": "hello", "language": "en"}, headers=headers)
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "native_language_required"
+
+
+async def test_capture_allowed_after_setting_native_language(app, client):
+    headers = await _login(app, client)  # default sets native_language
+    resp = await client.post("/api/vocabulary", json={"word": "hello", "language": "en"}, headers=headers)
+    assert resp.status_code == 201
 
 
 async def test_capture_creates_personal_word(app, client):

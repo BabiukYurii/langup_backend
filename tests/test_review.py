@@ -6,7 +6,11 @@ PROFILE = {"sub": "rev-sub-1", "email": "rev@gmail.com", "email_verified": True,
 async def _login(app, client) -> dict:
     app.dependency_overrides[get_google_verifier] = lambda: lambda _t: PROFILE
     token = (await client.post("/api/auth/google", json={"id_token": "fake"})).json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}"}
+    # Capturing requires a native language, and these tests seed words via capture.
+    me = (await client.get("/api/auth/me", headers=headers)).json()
+    await client.patch(f"/api/users/{me['id']}", json={"native_language": "uk"}, headers=headers)
+    return headers
 
 
 async def _capture(client, headers, word) -> str:

@@ -1,15 +1,20 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exc import BadRequestException
 from app.database.postgres import get_session
 from app.enums.vocabulary import SourceType
 from app.repositories.source import SourceRepository
+from app.repositories.user import UserRepository
 from app.repositories.user_word import UserWordRepository
 from app.repositories.word import WordRepository
 from app.repositories.word_context import WordContextRepository
 from app.schemas.capture import CaptureRequest, UserWordOut
 from app.schemas.pagination import Page
 from app.utils.lemmatize import to_lemma
+
+# Machine-readable marker the client can match to prompt for language selection.
+NATIVE_LANGUAGE_REQUIRED = "native_language_required"
 
 
 class CaptureService:
@@ -22,8 +27,16 @@ class CaptureService:
         self.sources = SourceRepository(session)
         self.contexts = WordContextRepository(session)
         self.user_words = UserWordRepository(session)
+        self.users = UserRepository(session)
 
     async def capture(self, user_id: int, data: CaptureRequest) -> UserWordOut:
+        # A native language is mandatory before saving: it's the language we
+        # translate captured words into, so without it the word is unusable.
+        # Enforced here (not just in the client) so no caller can bypass it.
+        user = await self.users.get_by_id(user_id)
+        if not user or not user.native_language:
+            raise BadRequestException(NATIVE_LANGUAGE_REQUIRED)
+
         # The shared dictionary is keyed by lemma, so "demands" and "demanded"
         # land on one Word; the form actually captured lives in the context.
         surface = data.word.strip()

@@ -735,7 +735,11 @@ async def test_flashcard_self_grading(session):
 async def _login(app, client) -> dict:
     app.dependency_overrides[get_google_verifier] = lambda: lambda _t: PROFILE
     token = (await client.post("/api/auth/google", json={"id_token": "fake"})).json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}"}
+    # Some tests seed words via the capture endpoint, which requires a language.
+    me = (await client.get("/api/auth/me", headers=headers)).json()
+    await client.patch(f"/api/users/{me['id']}", json={"native_language": "uk"}, headers=headers)
+    return headers
 
 
 async def test_exercises_require_auth(client):

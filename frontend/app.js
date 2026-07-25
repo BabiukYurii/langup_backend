@@ -38,23 +38,56 @@ function renderProfile(user) {
   $("p-created").textContent = "З нами з " + new Date(user.created_at).toLocaleDateString();
 
   hide($("login-view"));
+  hide($("lang-view"));
   show($("profile-view"));
 }
 
 function showLogin() {
   currentUser = null;
   hide($("profile-view"));
+  hide($("lang-view"));
   show($("login-view"));
+}
+
+// A native language is mandatory: a brand-new account must pick one before it
+// reaches the cabinet. An account that already has it (set here or elsewhere)
+// skips this — which is why the extension never needs to ask again.
+function showLangGate(user) {
+  currentUser = user;
+  hide($("login-view"));
+  hide($("profile-view"));
+  show($("lang-view"));
+}
+
+function routeAfterAuth(user) {
+  if (!user.native_language) return showLangGate(user);
+  renderProfile(user);
 }
 
 async function loadProfile() {
   if (!TOKENS.access) return showLogin();
   const resp = await apiFetch("/auth/me");
   if (resp.ok) {
-    renderProfile(await resp.json());
+    routeAfterAuth(await resp.json());
   } else {
     TOKENS.clear();
     showLogin();
+  }
+}
+
+async function saveNativeLanguage(event) {
+  event.preventDefault();
+  const native_language = $("l-native_language").value;
+  if (!native_language || !currentUser) return;
+  const resp = await apiFetch(`/users/${currentUser.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ native_language }),
+  });
+  if (resp.ok) {
+    renderProfile(await resp.json());
+    toast("Готово!");
+  } else {
+    toast("Не вдалося зберегти мову", "err");
   }
 }
 
@@ -167,6 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("profile-form").addEventListener("submit", saveProfile);
   $("email-auth-form").addEventListener("submit", onEmailAuth);
   $("auth-mode-toggle").addEventListener("click", toggleAuthMode);
+  $("lang-form").addEventListener("submit", saveNativeLanguage);
   $("logout-btn").addEventListener("click", logout);
   initGoogle();
   loadProfile();

@@ -46,6 +46,32 @@
         </form>
       </section>
 
+      <!-- NATIVE LANGUAGE (required for new accounts) -->
+      <section id="lang-view" class="card hidden">
+        <h1 class="card__title">Обери рідну мову</h1>
+        <p class="card__subtitle">Ми перекладаємо збережені слова саме на неї. Це потрібно вказати один раз.</p>
+        <form id="lang-form" class="form">
+          <label class="field">
+            <span>Рідна мова</span>
+            <select id="l-native_language" required>
+              <option value="" disabled selected>Обери мову…</option>
+              <option value="uk">Українська</option>
+              <option value="pl">Польська</option>
+              <option value="en">Англійська</option>
+              <option value="de">Німецька</option>
+              <option value="es">Іспанська</option>
+              <option value="fr">Французька</option>
+              <option value="it">Італійська</option>
+              <option value="pt">Португальська</option>
+            </select>
+          </label>
+          <div class="form__actions">
+            <span></span>
+            <button class="btn btn--primary" type="submit">Продовжити</button>
+          </div>
+        </form>
+      </section>
+
       <!-- PROFILE -->
       <section id="profile-view" class="card hidden">
         <div class="profile__head">
