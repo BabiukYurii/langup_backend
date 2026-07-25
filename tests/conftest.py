@@ -10,9 +10,13 @@ from app.main import create_app
 from app.models.auth import OAuthAccount, RefreshToken
 from app.models.exercise import Exercise
 from app.models.exercise_attempt import ExerciseAttempt
+from app.models.payment import Payment
+from app.models.plan import Plan
 from app.models.source import Source
+from app.models.subscription import Subscription
 from app.models.user import User
 from app.models.user_word import UserWord
+from app.models.webhook_event import WebhookEvent
 from app.models.word import Word
 from app.models.word_context import WordContext
 
@@ -28,6 +32,10 @@ TEST_TABLES = [
     UserWord.__table__,
     Exercise.__table__,
     ExerciseAttempt.__table__,
+    Plan.__table__,
+    Subscription.__table__,
+    Payment.__table__,
+    WebhookEvent.__table__,
 ]
 
 

@@ -4,9 +4,8 @@ from sqlalchemy import (
     Integer,
     String,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.base import Base, JSONType, TimestampMixin, UUIDMixin
 
 
 class Plan(Base, UUIDMixin, TimestampMixin):
@@ -19,6 +18,6 @@ class Plan(Base, UUIDMixin, TimestampMixin):
     price_cents = Column(Integer, nullable=False, server_default="0")
     currency = Column(String(8), nullable=False, server_default="USD")
     trial_days = Column(Integer, nullable=False, server_default="0")
-    limits = Column(JSONB, nullable=True)  # usage limits (captures/day, ai_calls/month, ...)
-    provider_price_ids = Column(JSONB, nullable=True)  # map provider -> external price id
+    limits = Column(JSONType, nullable=True)  # usage limits (captures/day, ai_calls/month, ...)
+    provider_price_ids = Column(JSONType, nullable=True)  # map provider -> external price id
     is_active = Column(Boolean, nullable=False, server_default="true")

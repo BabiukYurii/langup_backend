@@ -5,9 +5,8 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.base import Base, JSONType, TimestampMixin, UUIDMixin
 
 
 class WebhookEvent(Base, UUIDMixin, TimestampMixin):
@@ -18,7 +17,7 @@ class WebhookEvent(Base, UUIDMixin, TimestampMixin):
     provider = Column(String(16), nullable=False, index=True)  # PaymentProvider
     event_id = Column(String(255), nullable=False, index=True)  # provider's event id
     event_type = Column(String(128), nullable=True)
-    payload = Column(JSONB, nullable=False)  # raw verified payload
+    payload = Column(JSONType, nullable=False)  # raw verified payload
     processed_at = Column(DateTime, nullable=True)  # null until handled
     status = Column(String(16), nullable=False, server_default="RECEIVED")  # RECEIVED/PROCESSED/FAILED
     error = Column(Text, nullable=True)

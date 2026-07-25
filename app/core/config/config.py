@@ -6,6 +6,7 @@ from app.core.config.celery import CeleryConfig
 from app.core.config.db import DbBaseConfig
 from app.core.config.exercises import ExerciseConfig
 from app.core.config.jwt import JwtConfig
+from app.core.config.payments import PaymentsConfig
 from app.core.config.rate_limit import RateLimitConfig
 from app.core.config.redis import RedisConfig
 
@@ -25,6 +26,7 @@ class Settings(BaseConfig):
     redis: RedisConfig = RedisConfig()
     celery: CeleryConfig = CeleryConfig()
     rate_limit: RateLimitConfig = RateLimitConfig()
+    payments: PaymentsConfig = PaymentsConfig()
 
 
 settings = Settings()
