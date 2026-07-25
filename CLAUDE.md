@@ -18,8 +18,11 @@ spaced-repetition reviews.
   (frontend is baked into the image, so frontend changes need `--build`).
 - **Prod DB** = Postgres **container** `langup-db` (`docker exec langup-db psql -U langup -d langup`).
   The API container is `langup-api` (listens on `8008` on the server). Redis container too.
-- **AI gateway**: separate Ollama service at `https://ai.piatek-magazyn.com`
-  (default model `aya-expanse:8b` for Ukrainian). The backend calls it for exercise generation.
+- **AI gateway** (separate repo `langup_ai`): a FastAPI proxy (`langup-ai-gateway`, port 8002)
+  in front of a **llama.cpp** server, reached at `https://ai.piatek-magazyn.com`. Model:
+  **Gemma-4-26B-A4B** (MoE, ~4B active, QAT-Q4 GGUF) on an **AMD Radeon 780M iGPU via Vulkan**
+  (weights in VRAM, not system RAM). Gemma's thinking is disabled (`--reasoning-budget 0`) for
+  speed. The backend calls it for exercise generation and translation.
 
 ## Architecture
 Layered modular monolith, async-first. Request flow: **router → service → repository → model (SQLAlchemy async) → Postgres**. Pydantic `schemas/` cross the boundaries. DI via FastAPI `Depends` aliases in `app/dependencies.py`.
@@ -46,7 +49,7 @@ New feature = one **vertical**, always in this order:
 - **Exercises (pre-generated pool):** per-user pool, statuses **READY → SERVED → COMPLETED**,
   5 types rotated (`FILL_IN_BLANKS, MULTIPLE_CHOICE, FLASHCARD, MATCH_PAIRS, TYPING`).
   `GET /api/exercises/next`, `POST /api/exercises/{uuid}/attempt` (grades + feeds SM-2),
-  refill endpoints. Generation calls the Ollama gateway; runs on **Celery + Redis**
+  refill endpoints. Generation calls the llama.cpp gateway; runs on **Celery + Redis**
   (`CELERY_ENABLED`, worker concurrency 1) with a **BackgroundTasks fallback**.
 
 Still **scaffold stubs** (planned, not implemented): payments vertical, most of the AI

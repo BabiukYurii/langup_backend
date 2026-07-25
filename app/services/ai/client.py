@@ -1,4 +1,4 @@
-# HTTP client for the langup_ai inference gateway (Ollama on the mini-PC).
+# HTTP client for the langup_ai inference gateway (llama.cpp + Gemma on the mini-PC iGPU).
 # Prompts/parsing do NOT live here — this only moves messages over the wire.
 import httpx
 

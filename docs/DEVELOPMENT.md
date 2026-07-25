@@ -15,7 +15,7 @@ before the next builds on it. This document is kept in sync with reality.
 - 🟨 **Phase 3 — Learning core**: SM-2 + **exercise pool** (5 types, READY→SERVED→COMPLETED,
   grade→SM-2, Celery/Redis with BackgroundTasks fallback) done; learning sessions, progress
   metrics, websockets — not yet.
-- 🟨 **Phase 4 — AI**: exercise generation calls the **live Ollama gateway**; the rest of the
+- 🟨 **Phase 4 — AI**: exercise generation calls the **live llama.cpp gateway** (Gemma-4-26B-A4B); the rest of the
   AI layer (context analysis, difficulty, explanations) — not yet.
 - ⬜ **Phase 5 — Payments**.
 - 🟨 **Phase 6 — Hardening**: CI + self-hosted Docker deploy + rate limiting + security headers
@@ -27,8 +27,9 @@ Deployed on a **self-hosted Ubuntu server** (Docker Compose, branch `dev`) behin
 
 ## Key decisions (diverged from the original plan)
 - **Auth: both Google (extension-driven) and email/password.**
-- **AI runs on a local small LLM** — an Ollama gateway (`aya-expanse:8b`) on a mini-PC,
-  reached at `https://ai.piatek-magazyn.com` — not Anthropic/OpenAI.
+- **AI runs on a local LLM** — a llama.cpp server behind a FastAPI gateway (`langup_ai`),
+  model **Gemma-4-26B-A4B** on an AMD 780M iGPU (Vulkan), reached at
+  `https://ai.piatek-magazyn.com` — not Anthropic/OpenAI.
 - **Events: Redis Streams only, plus Celery** for background jobs — Kafka is dropped.
 - **Deploy: self-hosted Ubuntu + Docker Compose** (was Render). Kubernetes is optional/later.
 
@@ -91,10 +92,10 @@ main
 
 ## Phase 4 — AI features (local small LLM) ⬜
 
-Runs against a **local Ollama service** (OpenAI-compatible), not a cloud provider.
+Runs against a **local llama.cpp service** (OpenAI-compatible /v1), not a cloud provider.
 
-- ⬜ `feat/ai-service` — separate FastAPI microservice wrapping Ollama + prompt templates +
-  structured-JSON validation (model: Qwen2.5-7B-Instruct or similar, quantized).
+- ✅ `feat/ai-service` — separate FastAPI gateway (`langup_ai`) in front of llama.cpp +
+  structured-JSON validation (model: Gemma-4-26B-A4B, QAT-Q4 GGUF, iGPU/Vulkan).
 - ⬜ `feat/ai-client` — provider-agnostic client in the backend pointing at the local endpoint
   (retries/timeouts/structured output/token log).
 - ⬜ `feat/ai-context-analysis` — resolve the word's sense in its captured sentence.
@@ -105,7 +106,7 @@ Runs against a **local Ollama service** (OpenAI-compatible), not a cloud provide
   never in the request path; persist `ai_generations`.
 
 > Since the backend is now self-hosted on the same home network as the AI mini-PC, it reaches
-> the Ollama gateway directly (`https://ai.piatek-magazyn.com`) — no cloud→home tunnel needed.
+> the llama.cpp gateway directly (`https://ai.piatek-magazyn.com`) — no cloud→home tunnel needed.
 
 ## Phase 5 — Payments & subscriptions ⬜
 
