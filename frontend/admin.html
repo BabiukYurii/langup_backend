@@ -23,7 +23,26 @@
           </div>
         </div>
 
-        <input id="users-search" class="dict__search" type="text" placeholder="Пошук за email або ім'ям…" />
+        <div class="admin__listbar">
+          <input id="users-search" class="dict__search" type="text" placeholder="Пошук за email або ім'ям…" />
+          <button id="new-user-btn" class="btn btn--primary" type="button">＋ Новий</button>
+        </div>
+
+        <form id="new-user-form" class="admin__create hidden">
+          <input id="nu-email" type="email" placeholder="Email" autocomplete="off" required />
+          <input id="nu-password" type="password" placeholder="Пароль (мін. 8)" minlength="8" autocomplete="new-password" required />
+          <input id="nu-name" type="text" placeholder="Ім'я (необов'язково)" />
+          <select id="nu-role">
+            <option value="USER">USER</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+          </select>
+          <div class="admin__create-actions">
+            <button type="button" id="nu-cancel" class="btn btn--ghost">Скасувати</button>
+            <button type="submit" class="btn btn--primary">Створити</button>
+          </div>
+        </form>
+
         <ul id="users-list" class="dict__list"></ul>
         <p id="users-empty" class="meta hidden">Нікого не знайдено.</p>
       </section>
@@ -39,6 +58,10 @@
         </div>
 
         <div class="admin__controls">
+          <label class="field">
+            <span>Ім'я</span>
+            <input id="d-name" type="text" placeholder="—" />
+          </label>
           <label class="field">
             <span>Роль</span>
             <select id="d-role">
@@ -56,12 +79,19 @@
             </select>
           </label>
           <button id="d-save" class="btn btn--primary" type="button">Зберегти</button>
+          <button id="d-delete" class="btn btn--danger" type="button">Видалити</button>
         </div>
 
         <div class="admin__tabs">
           <button id="tab-vocab" class="chip chip--on" type="button">Словник</button>
           <button id="tab-exercises" class="chip" type="button">Вправи</button>
         </div>
+
+        <form id="add-word-form" class="admin__addword">
+          <input id="aw-word" type="text" placeholder="Слово" required />
+          <input id="aw-lang" type="text" placeholder="мова (en)" maxlength="8" value="en" required />
+          <button type="submit" class="btn btn--primary">＋ Додати</button>
+        </form>
 
         <ul id="d-vocab" class="dict__list"></ul>
         <ul id="d-exercises" class="dict__list hidden"></ul>

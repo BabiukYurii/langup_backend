@@ -537,6 +537,80 @@ a.btn {
   color: var(--primary);
   font-size: 13px;
 }
+.admin__listbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.admin__listbar .dict__search {
+  flex: 1;
+  margin: 0;
+}
+.admin__create,
+.admin__addword {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+.admin__create input,
+.admin__create select,
+.admin__addword input {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+}
+.admin__create-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-end;
+}
+.admin__actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.admin__icon-btn {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-soft);
+  color: var(--muted);
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.admin__icon-btn:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+.admin__status-sel {
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+.btn--danger {
+  background: transparent;
+  color: #ff6b6b;
+  border: 1px solid rgba(224, 49, 49, 0.5);
+}
+.btn--danger:hover {
+  background: rgba(224, 49, 49, 0.12);
+}
 /* match pairs */
 .meter {
   display: flex;
