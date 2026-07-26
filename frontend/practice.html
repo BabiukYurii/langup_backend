@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LangUp — Практика</title>
+    <title>LangUp — Practice</title>
     <link rel="stylesheet" href="styles.css?v=dev" />
   </head>
   <body>
@@ -15,9 +15,9 @@
 
       <section class="card">
         <div class="words-bar">
-          <a href="index.html" class="btn btn--ghost">← Профіль</a>
+          <a href="index.html" class="btn btn--ghost">← Profile</a>
           <div class="dict__head">
-            <h1 class="card__title">Практика</h1>
+            <h1 class="card__title">Practice</h1>
           </div>
         </div>
 
@@ -37,7 +37,7 @@
           <div id="ex-blanks"></div>
           <div class="form__actions">
             <span id="ex-status" class="meta"></span>
-            <button id="ex-submit" class="btn btn--primary" type="button" disabled>Відповісти</button>
+            <button id="ex-submit" class="btn btn--primary" type="button" disabled>Answer</button>
           </div>
         </div>
 
@@ -47,8 +47,8 @@
           <div class="form__actions">
             <span id="res-mastery" class="meta"></span>
             <div class="links-row">
-              <button id="res-generate" class="btn btn--ghost" type="button">Згенерувати ще</button>
-              <button id="res-next" class="btn btn--primary" type="button">Наступна вправа →</button>
+              <button id="res-generate" class="btn btn--ghost" type="button">Generate more</button>
+              <button id="res-next" class="btn btn--primary" type="button">Next exercise →</button>
             </div>
           </div>
         </div>
@@ -56,19 +56,19 @@
         <!-- empty pool -->
         <div id="empty-view" class="hidden">
           <p id="empty-text" class="card__subtitle">
-            Поки що немає готових вправ. Вони генеруються автоматично після того, як ти
-            додаєш нові слова через розширення — зазвичай це займає до хвилини.
+            No exercises ready yet. They're generated automatically after you save
+            new words with the extension — this usually takes up to a minute.
           </p>
           <div class="form__actions">
             <span id="empty-status" class="meta"></span>
             <div class="links-row">
-              <button id="empty-retry" class="btn btn--ghost" type="button">Оновити</button>
-              <button id="empty-generate" class="btn btn--primary" type="button">Згенерувати ще</button>
+              <button id="empty-retry" class="btn btn--ghost" type="button">Refresh</button>
+              <button id="empty-generate" class="btn btn--primary" type="button">Generate more</button>
             </div>
           </div>
         </div>
 
-        <p id="loading" class="meta">Завантаження…</p>
+        <p id="loading" class="meta">Loading…</p>
       </section>
     </main>
 

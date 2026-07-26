@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LangUp — Особистий кабінет</title>
+    <title>LangUp — Dashboard</title>
     <link rel="stylesheet" href="styles.css?v=dev" />
   </head>
   <body>
@@ -15,16 +15,16 @@
 
       <!-- LOGIN -->
       <section id="login-view" class="card hidden">
-        <h1 class="card__title">Вхід до кабінету</h1>
-        <p class="card__subtitle">Створи акаунт або увійди за допомогою Google.</p>
+        <h1 class="card__title">Sign in</h1>
+        <p class="card__subtitle">Create an account or sign in with Google.</p>
 
         <div id="google-btn" class="google-btn"></div>
         <p id="google-missing" class="notice hidden">
-          Google Sign-In вимкнено: додай <code>GOOGLE_CLIENT_ID</code> у
+          Google Sign-In is disabled: add <code>GOOGLE_CLIENT_ID</code> in
           <code>frontend/config.js</code>.
         </p>
 
-        <div class="auth-divider"><span>або</span></div>
+        <div class="auth-divider"><span>or</span></div>
 
         <form id="email-auth-form" class="form">
           <label class="field">
@@ -32,42 +32,42 @@
             <input id="a-email" type="email" autocomplete="email" required placeholder="you@example.com" />
           </label>
           <label class="field">
-            <span>Пароль</span>
+            <span>Password</span>
             <input id="a-password" type="password" autocomplete="current-password" required minlength="8" placeholder="********" />
           </label>
           <label class="field hidden" id="a-name-field">
-            <span>Ім'я (необов'язково)</span>
-            <input id="a-name" type="text" autocomplete="name" placeholder="Ваше ім'я" />
+            <span>Name (optional)</span>
+            <input id="a-name" type="text" autocomplete="name" placeholder="Your name" />
           </label>
           <div class="form__actions">
-            <button id="auth-mode-toggle" class="btn btn--ghost" type="button">Створити акаунт</button>
-            <button id="auth-submit" class="btn btn--primary" type="submit">Увійти</button>
+            <button id="auth-mode-toggle" class="btn btn--ghost" type="button">Create account</button>
+            <button id="auth-submit" class="btn btn--primary" type="submit">Sign in</button>
           </div>
         </form>
       </section>
 
       <!-- NATIVE LANGUAGE (required for new accounts) -->
       <section id="lang-view" class="card hidden">
-        <h1 class="card__title">Обери рідну мову</h1>
-        <p class="card__subtitle">Ми перекладаємо збережені слова саме на неї. Це потрібно вказати один раз.</p>
+        <h1 class="card__title">Choose your native language</h1>
+        <p class="card__subtitle">We translate saved words into it. You only need to set this once.</p>
         <form id="lang-form" class="form">
           <label class="field">
-            <span>Рідна мова</span>
+            <span>Native language</span>
             <select id="l-native_language" required>
-              <option value="" disabled selected>Обери мову…</option>
-              <option value="uk">Українська</option>
-              <option value="pl">Польська</option>
-              <option value="en">Англійська</option>
-              <option value="de">Німецька</option>
-              <option value="es">Іспанська</option>
-              <option value="fr">Французька</option>
-              <option value="it">Італійська</option>
-              <option value="pt">Португальська</option>
+              <option value="" disabled selected>Select a language…</option>
+              <option value="uk">Ukrainian</option>
+              <option value="pl">Polish</option>
+              <option value="en">English</option>
+              <option value="de">German</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
             </select>
           </label>
           <div class="form__actions">
             <span></span>
-            <button class="btn btn--primary" type="submit">Продовжити</button>
+            <button class="btn btn--primary" type="submit">Continue</button>
           </div>
         </form>
       </section>
@@ -81,37 +81,37 @@
             <p id="p-email" class="card__subtitle">—</p>
             <div class="badges">
               <span id="p-role" class="badge">USER</span>
-              <span id="p-verified" class="badge badge--muted">не підтверджено</span>
+              <span id="p-verified" class="badge badge--muted">not verified</span>
             </div>
           </div>
-          <button id="logout-btn" class="btn btn--ghost" type="button">Вийти</button>
+          <button id="logout-btn" class="btn btn--ghost" type="button">Sign out</button>
         </div>
 
         <form id="profile-form" class="form">
           <label class="field">
-            <span>Ім'я</span>
-            <input id="f-full_name" type="text" placeholder="Ваше ім'я" />
+            <span>Name</span>
+            <input id="f-full_name" type="text" placeholder="Your name" />
           </label>
           <div class="field-row">
             <label class="field">
-              <span>Рідна мова</span>
+              <span>Native language</span>
               <input id="f-native_language" type="text" maxlength="8" placeholder="uk" />
             </label>
             <label class="field">
-              <span>Вивчаю</span>
+              <span>Learning</span>
               <input id="f-target_language" type="text" maxlength="8" placeholder="en" />
             </label>
           </div>
           <div class="form__actions">
             <span id="p-created" class="meta">—</span>
-            <button class="btn btn--primary" type="submit">Зберегти</button>
+            <button class="btn btn--primary" type="submit">Save</button>
           </div>
         </form>
 
         <div class="links-row">
-          <a href="words.html" class="btn btn--primary words-link">Мій словник →</a>
-          <a href="practice.html" class="btn btn--primary words-link">Практика →</a>
-          <a id="admin-link" href="admin.html" class="btn btn--ghost words-link hidden">Адмін панель →</a>
+          <a href="words.html" class="btn btn--primary words-link">My dictionary →</a>
+          <a href="practice.html" class="btn btn--primary words-link">Practice →</a>
+          <a id="admin-link" href="admin.html" class="btn btn--ghost words-link hidden">Admin panel →</a>
         </div>
       </section>
 

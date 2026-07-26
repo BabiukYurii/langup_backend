@@ -10,11 +10,11 @@ let shownAt = 0; // for response_time_ms
 let activeType = null; // null = practise whatever comes next
 
 const TYPE_LABELS = {
-  FILL_IN_BLANKS: "Пропуски",
-  MULTIPLE_CHOICE: "Значення",
-  FLASHCARD: "Картки",
-  MATCH_PAIRS: "Пари",
-  TYPING: "Впиши",
+  FILL_IN_BLANKS: "Blanks",
+  MULTIPLE_CHOICE: "Meaning",
+  FLASHCARD: "Flashcards",
+  MATCH_PAIRS: "Pairs",
+  TYPING: "Type",
 };
 
 function show(viewId) {
@@ -28,7 +28,7 @@ function show(viewId) {
 function renderTypes() {
   const list = $("types-list");
   list.innerHTML = "";
-  const options = [[null, "Будь-яка"], ...Object.entries(TYPE_LABELS)];
+  const options = [[null, "Any"], ...Object.entries(TYPE_LABELS)];
 
   for (const [type, label] of options) {
     const btn = document.createElement("button");
@@ -60,13 +60,13 @@ async function loadNext() {
   }
   if (resp.status === 404) {
     $("empty-text").textContent = activeType
-      ? `Вправ типу «${TYPE_LABELS[activeType]}» зараз немає. Вони зʼявляться, коли додаси нові слова — або вибери «Будь-яка».`
-      : "Поки що немає готових вправ. Вони генеруються автоматично після того, як ти додаєш нові слова — зазвичай це займає до хвилини.";
+      ? `No "${TYPE_LABELS[activeType]}" exercises right now. They'll appear as you save new words — or pick "Any".`
+      : "No exercises ready yet. They're generated automatically after you save new words — this usually takes up to a minute.";
     show("empty-view");
     return;
   }
   if (!resp.ok) {
-    $("loading").textContent = "Не вдалося завантажити вправу. Спробуй оновити сторінку.";
+    $("loading").textContent = "Could not load the exercise. Try refreshing the page.";
     return;
   }
 
@@ -101,11 +101,11 @@ function renderExercise(ex) {
 
 function promptText(ex) {
   const uk = {
-    FILL_IN_BLANKS: "Заповни пропуски правильним словом.",
-    MULTIPLE_CHOICE: "Вибери правильне значення слова.",
-    FLASHCARD: "Чи пам'ятаєш ти це слово?",
-    MATCH_PAIRS: "З'єднай слово з його перекладом.",
-    TYPING: "Впиши пропущене слово.",
+    FILL_IN_BLANKS: "Fill in the blanks with the correct word.",
+    MULTIPLE_CHOICE: "Choose the correct meaning of the word.",
+    FLASHCARD: "Do you remember this word?",
+    MATCH_PAIRS: "Match the word with its translation.",
+    TYPING: "Type the missing word.",
   };
   return uk[ex.exercise_type] || ex.prompt || "";
 }
@@ -149,7 +149,7 @@ function renderTyping(ex) {
     input.autocapitalize = "none";
     input.autocomplete = "off";
     input.spellcheck = false;
-    input.setAttribute("aria-label", "пропущене слово");
+    input.setAttribute("aria-label", "missing word");
     // Sized to the word: the blank fits exactly its letters, a length hint.
     // Exactly the width of the word: a monospace input is `length` cells wide,
     // so a too-short answer leaves a visibly empty cell.
@@ -248,7 +248,7 @@ function stopClock() {
 function drawClock() {
   const left = Math.max(0, mp.left_seconds);
   const el = $("ex-timer");
-  el.textContent = `${left} с`;
+  el.textContent = `${left}s`;
   el.classList.toggle("timer--low", left <= 10);
 }
 
@@ -272,7 +272,7 @@ function drawBoard() {
   board.appendChild(grid);
 
   const left = Object.keys(mp.solved).length;
-  $("ex-status").textContent = `${left} з ${mp.all.size}`;
+  $("ex-status").textContent = `${left} of ${mp.all.size}`;
 }
 
 function buildColumn(side) {
@@ -387,7 +387,7 @@ function renderFillInBlanks(ex) {
     if (ex.payload.blanks.length > 1) {
       const label = document.createElement("span");
       label.className = "meta";
-      label.textContent = "Пропуск " + blank.index + ":";
+      label.textContent = "Blank " + blank.index + ":";
       row.appendChild(label);
     }
     for (const option of shuffle([...blank.options])) {
@@ -460,7 +460,7 @@ function renderFlashcard(ex) {
   const reveal = document.createElement("button");
   reveal.type = "button";
   reveal.className = "btn btn--primary";
-  reveal.textContent = "Показати переклад";
+  reveal.textContent = "Show translation";
   reveal.addEventListener("click", () => {
     reveal.remove();
 
@@ -474,7 +474,7 @@ function renderFlashcard(ex) {
     const knew = document.createElement("button");
     knew.type = "button";
     knew.className = "opt opt--know";
-    knew.textContent = "Знав ✓";
+    knew.textContent = "Knew it ✓";
     knew.addEventListener("click", () => {
       chosen = { 1: "know" };
       submit();
@@ -482,7 +482,7 @@ function renderFlashcard(ex) {
     const forgot = document.createElement("button");
     forgot.type = "button";
     forgot.className = "opt opt--forgot";
-    forgot.textContent = "Не знав ✗";
+    forgot.textContent = "Didn't know ✗";
     forgot.addEventListener("click", () => {
       chosen = { 1: "dont_know" };
       submit();
@@ -529,7 +529,7 @@ async function submit(mistakes = null, timedOut = false) {
     }),
   });
   if (!resp.ok) {
-    $("ex-status").textContent = "Не вдалося надіслати відповідь, спробуй ще раз.";
+    $("ex-status").textContent = "Could not submit the answer, try again.";
     $("ex-submit").disabled = false;
     return;
   }
@@ -546,28 +546,28 @@ function renderResult(result) {
     const total = Object.keys(result.correct_answers).length;
     const solved = Object.keys(chosen).length;
     if (result.is_correct) {
-      banner.textContent = `✓ Раунд пройдено — ${solved} з ${total} пар!`;
+      banner.textContent = `✓ Round complete — ${solved} of ${total} pairs!`;
     } else if (mp.timedOut) {
-      banner.textContent = `⏱ Час вийшов: ${solved} з ${total} пар.`;
+      banner.textContent = `⏱ Time's up: ${solved} of ${total} pairs.`;
     } else {
-      banner.textContent = `✗ Раунд завершено: ${solved} з ${total} пар, помилок забагато.`;
+      banner.textContent = `✗ Round over: ${solved} of ${total} pairs, too many mistakes.`;
     }
   } else if (currentExercise.exercise_type === "FLASHCARD") {
     // self-graded: no "correct answer" to reveal
     banner.textContent = result.is_correct
-      ? "✓ Чудово, слово засвоюється!"
-      : "✗ Нічого страшного — повторимо його пізніше.";
+      ? "✓ Great, you're learning this word!"
+      : "✗ No worries — we'll review it later.";
   } else if (result.is_correct) {
-    banner.textContent = "✓ Правильно!";
+    banner.textContent = "✓ Correct!";
   } else {
     const correct = Object.entries(result.correct_answers)
       .map(([, word]) => word)
       .join(", ");
-    banner.textContent = "✗ Неправильно. Правильна відповідь: " + correct;
+    banner.textContent = "✗ Incorrect. Correct answer: " + correct;
   }
 
   $("res-mastery").textContent = result.mastery_level
-    ? "Рівень засвоєння: " + result.mastery_level.toLowerCase()
+    ? "Mastery level: " + result.mastery_level.toLowerCase()
     : "";
 }
 
@@ -587,10 +587,10 @@ async function generateMore(statusId) {
   // Generation is CPU-bound and can take half a minute; a silent wait reads as
   // a broken button, so count the seconds out loud.
   let elapsed = 0;
-  status.textContent = "Генеруємо… 0 с";
+  status.textContent = "Generating… 0s";
   const ticker = setInterval(() => {
     elapsed += 1;
-    status.textContent = `Генеруємо… ${elapsed} с`;
+    status.textContent = `Generating… ${elapsed}s`;
   }, 1000);
 
   const done = (text) => {
@@ -602,14 +602,14 @@ async function generateMore(statusId) {
   // ask for the type the learner is looking at, not just "anything"
   const query = activeType ? "?exercise_type=" + activeType : "";
   const resp = await apiFetch("/exercises/refill" + query, { method: "POST" });
-  if (!resp.ok) return done("Не вдалося згенерувати. Спробуй ще раз.");
+  if (!resp.ok) return done("Could not generate. Try again.");
 
   const body = await resp.json();
   // A worker took the job -> poll it. No worker -> it already ran inline.
   const created = body.status === "queued" ? await pollRefill(body.task_id) : body.created;
 
-  if (created === null) return done("Генерація не завершилась. Спробуй ще раз.");
-  if (!created) return done("Нових вправ не вийшло — збережи ще кілька слів.");
+  if (created === null) return done("Generation didn't finish. Try again.");
+  if (!created) return done("No new exercises — save a few more words.");
   done("");
   loadNext();
 }

@@ -19,13 +19,13 @@ function toast(message, kind = "ok") {
 // ---------- views ----------
 function renderProfile(user) {
   currentUser = user;
-  $("p-name").textContent = user.full_name || "Без імені";
+  $("p-name").textContent = user.full_name || "No name";
   $("p-email").textContent = user.email;
   $("avatar").textContent = (user.full_name || user.email || "?").trim().charAt(0).toUpperCase();
   $("p-role").textContent = user.role;
 
   const verified = $("p-verified");
-  verified.textContent = user.is_email_verified ? "email підтверджено" : "не підтверджено";
+  verified.textContent = user.is_email_verified ? "email verified" : "not verified";
   verified.className = `badge ${user.is_email_verified ? "badge--ok" : "badge--muted"}`;
 
   // The admin panel link only makes sense for privileged accounts; the API
@@ -35,7 +35,7 @@ function renderProfile(user) {
   $("f-full_name").value = user.full_name || "";
   $("f-native_language").value = user.native_language || "";
   $("f-target_language").value = user.target_language || "";
-  $("p-created").textContent = "З нами з " + new Date(user.created_at).toLocaleDateString();
+  $("p-created").textContent = "With us since " + new Date(user.created_at).toLocaleDateString();
 
   hide($("login-view"));
   hide($("lang-view"));
@@ -85,9 +85,9 @@ async function saveNativeLanguage(event) {
   });
   if (resp.ok) {
     renderProfile(await resp.json());
-    toast("Готово!");
+    toast("Done!");
   } else {
-    toast("Не вдалося зберегти мову", "err");
+    toast("Could not save the language", "err");
   }
 }
 
@@ -101,13 +101,13 @@ async function onGoogleCredential(response) {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      return toast(err.detail || "Не вдалося увійти", "err");
+      return toast(err.detail || "Could not sign in", "err");
     }
     TOKENS.set(await resp.json());
     await loadProfile();
-    toast("Вітаємо у LangUp!");
+    toast("Welcome to LangUp!");
   } catch {
-    toast("Помилка мережі", "err");
+    toast("Network error", "err");
   }
 }
 
@@ -119,8 +119,8 @@ function toggleAuthMode() {
   const registering = authMode === "register";
   $("a-name-field").classList.toggle("hidden", !registering);
   $("a-password").autocomplete = registering ? "new-password" : "current-password";
-  $("auth-submit").textContent = registering ? "Зареєструватися" : "Увійти";
-  $("auth-mode-toggle").textContent = registering ? "У мене вже є акаунт" : "Створити акаунт";
+  $("auth-submit").textContent = registering ? "Sign up" : "Sign in";
+  $("auth-mode-toggle").textContent = registering ? "I already have an account" : "Create account";
 }
 
 async function onEmailAuth(event) {
@@ -135,14 +135,14 @@ async function onEmailAuth(event) {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      const fallback = authMode === "register" ? "Не вдалося зареєструватися" : "Невірний email або пароль";
+      const fallback = authMode === "register" ? "Could not sign up" : "Invalid email or password";
       return toast(typeof err.detail === "string" ? err.detail : fallback, "err");
     }
     TOKENS.set(await resp.json());
     await loadProfile();
-    toast("Вітаємо у LangUp!");
+    toast("Welcome to LangUp!");
   } catch {
-    toast("Помилка мережі", "err");
+    toast("Network error", "err");
   }
 }
 
@@ -160,9 +160,9 @@ async function saveProfile(event) {
   });
   if (resp.ok) {
     renderProfile(await resp.json());
-    toast("Збережено");
+    toast("Saved");
   } else {
-    toast("Не вдалося зберегти", "err");
+    toast("Could not save", "err");
   }
 }
 
@@ -170,7 +170,7 @@ async function logout() {
   await logoutRequest();
   if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
   showLogin();
-  toast("Ви вийшли");
+  toast("Signed out");
 }
 
 // ---------- Google Sign-In init ----------

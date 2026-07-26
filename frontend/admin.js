@@ -84,8 +84,8 @@ async function createUser(e) {
   };
   const resp = await apiFetch("/admin/users", { method: "POST", body: JSON.stringify(body) });
   if (bounceIfDenied(resp)) return;
-  if (!resp.ok) return toast(await errText(resp, "Не вдалося створити"), "err");
-  toast("Користувача створено");
+  if (!resp.ok) return toast(await errText(resp, "Could not create"), "err");
+  toast("User created");
   $("new-user-form").reset();
   hide($("new-user-form"));
   loadUsers();
@@ -96,7 +96,7 @@ async function openDetail(userId) {
   currentUserId = userId;
   const resp = await apiFetch(`/admin/users/${userId}`);
   if (bounceIfDenied(resp)) return;
-  if (!resp.ok) return toast("Не вдалося завантажити користувача", "err");
+  if (!resp.ok) return toast("Could not load the user", "err");
 
   const user = await resp.json();
   $("d-email").textContent = user.full_name || user.email;
@@ -121,21 +121,21 @@ async function saveUser() {
     body: JSON.stringify(body),
   });
   if (bounceIfDenied(resp)) return;
-  if (resp.ok) return toast("Збережено");
-  toast(await errText(resp, "Не вдалося зберегти"), "err");
+  if (resp.ok) return toast("Saved");
+  toast(await errText(resp, "Could not save"), "err");
 }
 
 async function deleteUser() {
-  if (!confirm("Видалити цього користувача разом з усіма його даними? Дію не можна скасувати.")) return;
+  if (!confirm("Delete this user and all their data? This cannot be undone.")) return;
   const resp = await apiFetch(`/admin/users/${currentUserId}`, { method: "DELETE" });
   if (bounceIfDenied(resp)) return;
   if (resp.status === 204) {
-    toast("Користувача видалено");
+    toast("User deleted");
     hide($("detail-view"));
     show($("users-view"));
     return loadUsers();
   }
-  toast(await errText(resp, "Не вдалося видалити"), "err");
+  toast(await errText(resp, "Could not delete"), "err");
 }
 
 // ---------- tabs ----------
@@ -176,8 +176,8 @@ async function loadVocab() {
     actions.className = "admin__actions";
     // Edit acts on the SHARED word (affects everyone who has it).
     actions.append(
-      iconBtn("✎", "Редагувати спільне слово", () => editWord(w.word_uuid, w.lemma)),
-      iconBtn("✕", "Прибрати зі словника юзера", () => removeVocab(w.uuid, w.lemma)),
+      iconBtn("✎", "Edit the shared word", () => editWord(w.word_uuid, w.lemma)),
+      iconBtn("✕", "Remove from the user's vocabulary", () => removeVocab(w.uuid, w.lemma)),
     );
 
     li.append(lemma, lang, mastery, actions);
@@ -193,37 +193,37 @@ async function addWord(e) {
     body: JSON.stringify(body),
   });
   if (bounceIfDenied(resp)) return;
-  if (!resp.ok) return toast(await errText(resp, "Не вдалося додати"), "err");
+  if (!resp.ok) return toast(await errText(resp, "Could not add"), "err");
   $("aw-word").value = "";
-  toast("Слово додано");
+  toast("Word added");
   loadVocab();
 }
 
 async function removeVocab(userWordUuid, lemma) {
-  if (!confirm(`Прибрати «${lemma}» зі словника цього користувача?`)) return;
+  if (!confirm(`Remove "${lemma}" from this user's vocabulary?`)) return;
   const resp = await apiFetch(`/admin/users/${currentUserId}/vocabulary/${userWordUuid}`, {
     method: "DELETE",
   });
   if (bounceIfDenied(resp)) return;
   if (resp.status === 204) {
-    toast("Прибрано");
+    toast("Removed");
     return loadVocab();
   }
-  toast(await errText(resp, "Не вдалося прибрати"), "err");
+  toast(await errText(resp, "Could not remove"), "err");
 }
 
 async function editWord(wordUuid, currentLemma) {
-  const lemma = prompt("Лема спільного слова (впливає на ВСІХ користувачів):", currentLemma);
+  const lemma = prompt("Shared word lemma (affects ALL users):", currentLemma);
   if (lemma === null) return;
-  const translation = prompt("Переклад (uk). Лишіть порожнім, щоб не змінювати:", "");
+  const translation = prompt("Translation (uk). Leave empty to keep it unchanged:", "");
   const body = {};
   if (lemma.trim() && lemma.trim() !== currentLemma) body.lemma = lemma.trim();
   if (translation && translation.trim()) body.translation = translation.trim();
   if (Object.keys(body).length === 0) return;
   const resp = await apiFetch(`/admin/words/${wordUuid}`, { method: "PATCH", body: JSON.stringify(body) });
   if (bounceIfDenied(resp)) return;
-  if (!resp.ok) return toast(await errText(resp, "Не вдалося змінити слово"), "err");
-  toast("Спільне слово оновлено");
+  if (!resp.ok) return toast(await errText(resp, "Could not change the word"), "err");
+  toast("Shared word updated");
   loadVocab();
 }
 
@@ -263,7 +263,7 @@ async function loadExercises() {
 
     const actions = document.createElement("span");
     actions.className = "admin__actions";
-    actions.append(iconBtn("✕", "Видалити вправу", () => deleteExercise(ex.uuid)));
+    actions.append(iconBtn("✕", "Delete exercise", () => deleteExercise(ex.uuid)));
 
     li.append(type, statusSel, answer, actions);
     list.appendChild(li);
@@ -276,19 +276,19 @@ async function changeExerciseStatus(uuid, status) {
     body: JSON.stringify({ status }),
   });
   if (bounceIfDenied(resp)) return;
-  if (resp.ok) return toast("Статус змінено");
-  toast(await errText(resp, "Не вдалося змінити статус"), "err");
+  if (resp.ok) return toast("Status changed");
+  toast(await errText(resp, "Could not change status"), "err");
 }
 
 async function deleteExercise(uuid) {
-  if (!confirm("Видалити цю вправу?")) return;
+  if (!confirm("Delete this exercise?")) return;
   const resp = await apiFetch(`/admin/exercises/${uuid}`, { method: "DELETE" });
   if (bounceIfDenied(resp)) return;
   if (resp.status === 204) {
-    toast("Вправу видалено");
+    toast("Exercise deleted");
     return loadExercises();
   }
-  toast(await errText(resp, "Не вдалося видалити"), "err");
+  toast(await errText(resp, "Could not delete"), "err");
 }
 
 // ---------- helpers ----------
