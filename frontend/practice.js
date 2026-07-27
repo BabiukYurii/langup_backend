@@ -59,9 +59,20 @@ async function loadNext() {
     return;
   }
   if (resp.status === 404) {
-    $("empty-text").textContent = activeType
-      ? `No "${TYPE_LABELS[activeType]}" exercises right now. They'll appear as you save new words — or pick "Any".`
-      : "No exercises ready yet. They're generated automatically after you save new words — this usually takes up to a minute.";
+    // An empty pool can mean "nothing generated yet" or "daily free limit hit".
+    const quota = await apiFetch("/exercises/quota")
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (quota && !quota.unlimited && quota.remaining === 0) {
+      $("empty-text").textContent =
+        "You've reached today's free limit of AI-generated exercises. Upgrade to Premium for unlimited practice, or come back tomorrow.";
+      $("empty-generate").classList.add("hidden"); // generating is blocked until tomorrow
+    } else {
+      $("empty-text").textContent = activeType
+        ? `No "${TYPE_LABELS[activeType]}" exercises right now. They'll appear as you save new words — or pick "Any".`
+        : "No exercises ready yet. They're generated automatically after you save new words — this usually takes up to a minute.";
+      $("empty-generate").classList.remove("hidden");
+    }
     show("empty-view");
     return;
   }

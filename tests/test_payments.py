@@ -104,6 +104,40 @@ async def test_checkout_starts_when_configured(app, client, session, monkeypatch
     assert resp.json()["checkout_url"].startswith("https://checkout.stripe.test/")
 
 
+# --- new-user trial --------------------------------------------------------
+
+
+async def test_new_user_gets_premium_trial(app, client, session):
+    await _seed_plan(session)  # the trial plan must exist
+    reg = await client.post("/api/auth/register", json={"email": "trial@x.com", "password": "supersecret123"})
+    tok = reg.json()["access_token"]
+    body = (await client.get("/api/payments/subscription", headers={"Authorization": f"Bearer {tok}"})).json()
+    assert body["status"] == "TRIALING"
+    assert body["is_active"] is True
+
+
+async def test_expired_trial_is_not_active(app, client, session):
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import Subscription
+
+    plan = await _seed_plan(session)
+    headers = await _login(client)  # a plain user (no trial granted via /api/users)
+    me = (await client.get("/api/auth/me", headers=headers)).json()
+    session.add(
+        Subscription(
+            user_id=me["id"],
+            plan_uuid=plan.uuid,
+            status="TRIALING",
+            trial_end_at=datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
+        )
+    )
+    await session.flush()
+    body = (await client.get("/api/payments/subscription", headers=headers)).json()
+    assert body["status"] == "TRIALING"
+    assert body["is_active"] is False  # the trial has ended
+
+
 # --- customer portal -------------------------------------------------------
 
 

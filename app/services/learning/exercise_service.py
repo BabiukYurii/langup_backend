@@ -24,6 +24,7 @@ from app.schemas.ai import FillInBlankParams, WordExerciseParams
 from app.schemas.exercise import AttemptResultOut, ExerciseOut, ExercisePreferences, SubmitAttemptRequest
 from app.services.ai.exercise_generation import ExerciseGenerationService, get_exercise_generation_service
 from app.services.learning.spaced_repetition import SpacedRepetitionService
+from app.services.payments.usage_limit_service import UsageLimitService
 from app.services.vocabulary.translation_service import TranslationService
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ class ExercisePoolService:
         self.translations = TranslationService(session, generator)
         self.words_repo = WordRepository(session)
         self.word_contexts = WordContextRepository(session)
+        self.usage = UsageLimitService(session)
 
     async def get_preferences(self, user_id: int) -> ExercisePreferences:
         """Enabled exercise types; every type is on until the user says otherwise."""
@@ -179,11 +181,18 @@ class ExercisePoolService:
         enabled = (await self.get_preferences(user_id)).exercise_types
         created = 0
 
+        # Free tier is capped at N AI generations/day; premium is unlimited
+        # (budget is None). Stop generating once the budget is spent — the pool
+        # simply won't top up until tomorrow.
+        budget = await self.usage.generation_budget(user_id)
+        if budget is not None and budget <= 0:
+            return 0
+
         # A match-pairs round is a session over many words, not a pool card, so
         # it gets its own slot. Sharing the pool's slots starved it: early on
         # there were too few words to build a round, and by the time there were
         # enough the pool was already full of single-word exercises.
-        if ExerciseType.MATCH_PAIRS in enabled:
+        if ExerciseType.MATCH_PAIRS in enabled and (budget is None or created < budget):
             try:
                 created += int(await self._generate_match_pairs(user_id))
             except (AIProviderError, AIResponseValidationError) as e:
@@ -191,7 +200,10 @@ class ExercisePoolService:
 
         cycle = [t for t in enabled if t != ExerciseType.MATCH_PAIRS]
         need = settings.exercises.EXERCISE_POOL_TARGET - await self.exercises.count_pending(user_id)
+        if budget is not None:
+            need = min(need, budget - created)
         if not cycle or need <= 0:
+            await self.usage.consume_generations(user_id, created)
             return created
 
         # Rotate the remaining types; offset by the user's total so the same
@@ -209,17 +221,25 @@ class ExercisePoolService:
                 logger.warning("Skipping %s exercise: %s: %s", ex_type.value, type(e).__name__, e)
                 continue
             created += 1
+        await self.usage.consume_generations(user_id, created)
         return created
 
     async def _generate_of_type(self, user_id: int, ex_type: ExerciseType) -> int:
         """Make exercises of one type because the learner asked for that type."""
+        budget = await self.usage.generation_budget(user_id)
+        if budget is not None and budget <= 0:
+            return 0
+
         if ex_type == ExerciseType.MATCH_PAIRS:
-            return int(await self._generate_match_pairs(user_id))
+            created = int(await self._generate_match_pairs(user_id))
+            await self.usage.consume_generations(user_id, created)
+            return created
 
         # Words already practised are reused when the vocabulary is small:
         # repeating a known word is what practice is, and refusing to build the
         # requested type would leave the learner with an empty screen.
-        words = await self._candidate_words(user_id, _ON_DEMAND_PER_TYPE)
+        want = _ON_DEMAND_PER_TYPE if budget is None else min(_ON_DEMAND_PER_TYPE, budget)
+        words = (await self._candidate_words(user_id, _ON_DEMAND_PER_TYPE))[:want]
         created = 0
         for uw in words:
             try:
@@ -228,6 +248,7 @@ class ExercisePoolService:
                 logger.warning("Skipping %s for %r: %s: %s", ex_type.value, uw.word.lemma, type(e).__name__, e)
                 continue
             created += 1
+        await self.usage.consume_generations(user_id, created)
         return created
 
     async def _candidate_words(self, user_id: int, limit: int) -> list[UserWord]:

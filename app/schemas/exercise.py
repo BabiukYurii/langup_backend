@@ -62,6 +62,14 @@ class RefillResultOut(BaseModel):
     created: int | None = None
 
 
+class GenerationQuotaOut(BaseModel):
+    # Daily AI-generation quota for the practice UI's paywall message.
+    unlimited: bool
+    used: int
+    limit: int | None
+    remaining: int | None
+
+
 class RefillStatusOut(BaseModel):
     # Celery states, narrowed to what the UI acts on.
     status: Literal["pending", "running", "done", "failed"]

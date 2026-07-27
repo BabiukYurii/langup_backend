@@ -53,17 +53,21 @@ async function loadSubscription() {
   const upgrade = $("upgrade-btn");
   const manage = $("manage-btn");
   const renew = $("sub-renew");
-  if (sub.is_active) {
+  const when = sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : null;
+
+  if (sub.status === "TRIALING" && sub.is_active) {
+    // Free trial: still premium, but nothing to manage in Stripe yet — nudge to subscribe.
+    $("sub-status").textContent = "Premium trial";
+    show(upgrade);
+    hide(manage);
+    renew.textContent = when ? `Trial ends on ${when}` : "";
+    renew.classList.toggle("hidden", !when);
+  } else if (sub.is_active) {
     $("sub-status").textContent = "Premium — active";
     hide(upgrade);
     show(manage);
-    if (sub.current_period_end) {
-      const when = new Date(sub.current_period_end).toLocaleDateString();
-      renew.textContent = sub.cancel_at_period_end ? `Ends on ${when}` : `Renews on ${when}`;
-      show(renew);
-    } else {
-      hide(renew);
-    }
+    renew.textContent = when ? (sub.cancel_at_period_end ? `Ends on ${when}` : `Renews on ${when}`) : "";
+    renew.classList.toggle("hidden", !when);
   } else {
     $("sub-status").textContent = "Free";
     show(upgrade);

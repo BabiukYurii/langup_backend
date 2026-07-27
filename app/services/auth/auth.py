@@ -36,10 +36,17 @@ def _fingerprint(token: str) -> str:
 
 class AuthService:
     def __init__(self, session: AsyncSession, verifier: GoogleVerifier) -> None:
+        self.session = session
         self.users = UserRepository(session)
         self.oauth = OAuthAccountRepository(session)
         self.refresh_tokens = RefreshTokenRepository(session)
         self.verify_google = verifier
+
+    async def _grant_trial(self, user_id: int) -> None:
+        # New signups get a free Premium trial (see SubscriptionService).
+        from app.services.payments.subscription_service import SubscriptionService
+
+        await SubscriptionService(self.session).grant_trial(user_id)
 
     async def register(self, data: RegisterRequest) -> TokenPair:
         """Create a password-based account and sign the user in."""
@@ -52,6 +59,7 @@ class AuthService:
                 "full_name": data.full_name,
             }
         )
+        await self._grant_trial(user.id)
         return await self._issue_tokens(user.id)
 
     async def login(self, data: LoginRequest) -> TokenPair:
@@ -88,6 +96,7 @@ class AuthService:
                         "is_email_verified": bool(info.get("email_verified", False)),
                     }
                 )
+                await self._grant_trial(user.id)
             await self.oauth.create_one(
                 {
                     "user_id": user.id,

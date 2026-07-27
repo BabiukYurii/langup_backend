@@ -9,6 +9,7 @@ from app.schemas.exercise import (
     AttemptResultOut,
     ExerciseOut,
     ExercisePreferences,
+    GenerationQuotaOut,
     RefillResultOut,
     RefillStatusOut,
     SubmitAttemptRequest,
@@ -25,6 +26,15 @@ async def get_preferences(
 ) -> ExercisePreferences:
     """Which exercise types the pool generates for me (all of them by default)."""
     return await exercise_service.get_preferences(current_user.id)
+
+
+@router.get("/quota", response_model=GenerationQuotaOut)
+async def generation_quota(
+    current_user: CurrentUserDep,
+    exercise_service: ExercisePoolServiceDep,
+) -> GenerationQuotaOut:
+    """My daily AI-generation quota (unlimited for active subscribers)."""
+    return GenerationQuotaOut(**await exercise_service.usage.generation_quota(current_user.id))
 
 
 @router.put("/preferences", response_model=ExercisePreferences)

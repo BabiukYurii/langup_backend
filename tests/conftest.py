@@ -14,6 +14,7 @@ from app.models.payment import Payment
 from app.models.plan import Plan
 from app.models.source import Source
 from app.models.subscription import Subscription
+from app.models.usage_limit import UsageLimit
 from app.models.user import User
 from app.models.user_word import UserWord
 from app.models.webhook_event import WebhookEvent
@@ -36,6 +37,7 @@ TEST_TABLES = [
     Subscription.__table__,
     Payment.__table__,
     WebhookEvent.__table__,
+    UsageLimit.__table__,
 ]
 
 
