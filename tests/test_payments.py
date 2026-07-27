@@ -232,3 +232,30 @@ async def test_webhook_subscription_updated_changes_status(app, client, session,
     assert body["status"] == "PAST_DUE"
     assert body["is_active"] is False
     assert body["cancel_at_period_end"] is True
+
+
+async def test_webhook_cancel_at_marks_not_renewing(app, client, session, monkeypatch):
+    # A portal cancel-at-period-end sets `cancel_at` (a date), not the
+    # cancel_at_period_end flag; the subscription stays active until then.
+    from app.services.payments import webhook_service
+
+    monkeypatch.setattr(webhook_service, "StripeProvider", FakeStripeProvider)
+    plan = await _seed_plan(session)
+    headers = await _login(client)
+    me = (await client.get("/api/auth/me", headers=headers)).json()
+    await client.post(
+        "/api/webhooks/stripe",
+        content=json.dumps(_checkout_event(me["id"], plan.uuid)),
+        headers={"Stripe-Signature": "x"},
+    )
+    updated = {
+        "id": "evt_cancel_at",
+        "type": "customer.subscription.updated",
+        "data": {"object": {"id": "sub_1", "status": "active", "cancel_at": 1787866092, "cancel_at_period_end": False}},
+    }
+    await client.post("/api/webhooks/stripe", content=json.dumps(updated), headers={"Stripe-Signature": "x"})
+
+    body = (await client.get("/api/payments/subscription", headers=headers)).json()
+    assert body["is_active"] is True  # still active until the cancel date
+    assert body["cancel_at_period_end"] is True  # but flagged as not renewing
+    assert body["current_period_end"] is not None

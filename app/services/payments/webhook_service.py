@@ -109,12 +109,18 @@ class WebhookService:
                     status=_STRIPE_STATUS.get(obj.get("status"), SubscriptionStatus.ACTIVE),
                 )
             return
+        # A portal "cancel at end of period" sets `cancel_at` (a date), not
+        # `cancel_at_period_end`, so treat either as "will not renew". Show the
+        # end date from `cancel_at` when present, else the current period end.
+        cancel_at = obj.get("cancel_at")
+        will_cancel = bool(obj.get("cancel_at_period_end")) or cancel_at is not None
+        end = _ts(cancel_at) if cancel_at else _ts(obj.get("current_period_end"))
         await self.subscriptions.update_one(
             sub,
             {
                 "status": _STRIPE_STATUS.get(obj.get("status"), sub.status).value,
-                "current_period_end": _ts(obj.get("current_period_end")),
-                "cancel_at_period_end": bool(obj.get("cancel_at_period_end")),
+                "current_period_end": end,
+                "cancel_at_period_end": will_cancel,
                 "canceled_at": _ts(obj.get("canceled_at")),
             },
         )
