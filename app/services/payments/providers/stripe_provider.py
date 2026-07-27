@@ -46,6 +46,19 @@ class StripeProvider:
         )
         return CheckoutSession(url=session.url, provider_session_id=session.id)
 
+    async def create_billing_portal_session(self, *, subscription_id: str, return_url: str) -> str:
+        """Hosted portal where the customer can update or cancel their plan.
+
+        We store the subscription id, not the customer id, so look the customer
+        up from the subscription first.
+        """
+        sub = await asyncio.to_thread(self._client.subscriptions.retrieve, subscription_id)
+        session = await asyncio.to_thread(
+            self._client.billing_portal.sessions.create,
+            params={"customer": sub.customer, "return_url": return_url},
+        )
+        return session.url
+
     def verify_webhook(self, payload: bytes, signature: str) -> WebhookEnvelope:
         try:
             # Verifies the signature; raises if it doesn't match.

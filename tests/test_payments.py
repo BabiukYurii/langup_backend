@@ -104,6 +104,52 @@ async def test_checkout_starts_when_configured(app, client, session, monkeypatch
     assert resp.json()["checkout_url"].startswith("https://checkout.stripe.test/")
 
 
+# --- customer portal -------------------------------------------------------
+
+
+async def test_portal_requires_auth(client):
+    assert (await client.post("/api/payments/portal")).status_code == 401
+
+
+async def test_portal_400_without_subscription(app, client, session, monkeypatch):
+    from app.core import settings
+
+    monkeypatch.setattr(settings.payments, "STRIPE_API_KEY", "sk_test_x")
+    headers = await _login(client)
+    resp = await client.post("/api/payments/portal", headers=headers)
+    assert resp.status_code == 400
+
+
+async def test_portal_returns_url(app, client, session, monkeypatch):
+    from app.core import settings
+    from app.models import Subscription
+    from app.services.payments import billing_service
+
+    plan = await _seed_plan(session)
+    headers = await _login(client)
+    me = (await client.get("/api/auth/me", headers=headers)).json()
+    session.add(
+        Subscription(
+            user_id=me["id"], plan_uuid=plan.uuid, provider="STRIPE", provider_subscription_id="sub_1", status="ACTIVE"
+        )
+    )
+    await session.flush()
+    monkeypatch.setattr(settings.payments, "STRIPE_API_KEY", "sk_test_x")
+
+    class FakeProvider:
+        def __init__(self, *_a, **_k):
+            pass
+
+        async def create_billing_portal_session(self, *, subscription_id, return_url):
+            assert subscription_id == "sub_1"
+            return "https://billing.stripe.test/p/1"
+
+    monkeypatch.setattr(billing_service, "StripeProvider", FakeProvider)
+    resp = await client.post("/api/payments/portal", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["portal_url"].startswith("https://billing.stripe.test/")
+
+
 # --- subscription readout --------------------------------------------------
 
 

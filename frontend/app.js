@@ -51,13 +51,39 @@ async function loadSubscription() {
   const sub = await resp.json();
   show(box);
   const upgrade = $("upgrade-btn");
+  const manage = $("manage-btn");
+  const renew = $("sub-renew");
   if (sub.is_active) {
     $("sub-status").textContent = "Premium — active";
     hide(upgrade);
+    show(manage);
+    if (sub.current_period_end) {
+      const when = new Date(sub.current_period_end).toLocaleDateString();
+      renew.textContent = sub.cancel_at_period_end ? `Ends on ${when}` : `Renews on ${when}`;
+      show(renew);
+    } else {
+      hide(renew);
+    }
   } else {
     $("sub-status").textContent = "Free";
     show(upgrade);
+    hide(manage);
+    hide(renew);
   }
+}
+
+// Open Stripe's Customer Portal to manage or cancel the subscription.
+async function openPortal() {
+  const btn = $("manage-btn");
+  btn.disabled = true;
+  const resp = await apiFetch("/payments/portal", { method: "POST" });
+  btn.disabled = false;
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    return toast(typeof err.detail === "string" ? err.detail : "Could not open the portal", "err");
+  }
+  const { portal_url } = await resp.json();
+  window.location.href = portal_url;
 }
 
 // Open Stripe Checkout for the premium plan and send the browser there.
@@ -237,6 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("auth-mode-toggle").addEventListener("click", toggleAuthMode);
   $("lang-form").addEventListener("submit", saveNativeLanguage);
   $("upgrade-btn").addEventListener("click", startCheckout);
+  $("manage-btn").addEventListener("click", openPortal);
   $("logout-btn").addEventListener("click", logout);
   initGoogle();
   loadProfile();

@@ -6,7 +6,8 @@ from app.core.exc import BadRequestException, ObjectNotFoundException
 from app.database.postgres import get_session
 from app.enums.payments import PaymentProvider
 from app.repositories.plan import PlanRepository
-from app.schemas.payments import CheckoutSessionOut, PlanOut
+from app.repositories.subscription import SubscriptionRepository
+from app.schemas.payments import CheckoutSessionOut, PlanOut, PortalSessionOut
 from app.schemas.user import UserOut
 from app.services.payments.providers.stripe_provider import StripeProvider
 
@@ -17,6 +18,7 @@ class BillingService:
 
     def __init__(self, session: AsyncSession) -> None:
         self.plans = PlanRepository(session)
+        self.subscriptions = SubscriptionRepository(session)
 
     async def list_plans(self) -> list[PlanOut]:
         return [PlanOut.model_validate(p) for p in await self.plans.list_active()]
@@ -45,6 +47,22 @@ class BillingService:
             metadata={"user_id": str(user.id), "plan_uuid": str(plan.uuid)},
         )
         return CheckoutSessionOut(checkout_url=session.url)
+
+    async def start_portal(self, user: UserOut) -> PortalSessionOut:
+        """Open Stripe's Customer Portal so the user can manage or cancel."""
+        cfg = settings.payments
+        if not cfg.stripe_enabled:
+            raise BadRequestException("Payments are not configured")
+        sub = await self.subscriptions.get_for_user(user.id)
+        if not sub or not sub.provider_subscription_id:
+            raise BadRequestException("No subscription to manage")
+
+        provider = StripeProvider(cfg.STRIPE_API_KEY, cfg.STRIPE_WEBHOOK_SECRET)
+        return_url = settings.app.BASE_URL.rstrip("/") + "/app/index.html"
+        url = await provider.create_billing_portal_session(
+            subscription_id=sub.provider_subscription_id, return_url=return_url
+        )
+        return PortalSessionOut(portal_url=url)
 
 
 async def get_billing_service(session: AsyncSession = Depends(get_session)) -> BillingService:

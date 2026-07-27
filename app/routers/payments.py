@@ -3,7 +3,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.dependencies import CurrentUserDep
-from app.schemas.payments import CheckoutRequest, CheckoutSessionOut, PlanOut, SubscriptionOut
+from app.schemas.payments import (
+    CheckoutRequest,
+    CheckoutSessionOut,
+    PlanOut,
+    PortalSessionOut,
+    SubscriptionOut,
+)
 from app.services.payments.billing_service import BillingService, get_billing_service
 from app.services.payments.subscription_service import SubscriptionService, get_subscription_service
 
@@ -25,6 +31,12 @@ async def start_checkout(
 ) -> CheckoutSessionOut:
     """Open a hosted Stripe Checkout for a plan; returns the URL to redirect to."""
     return await billing.start_checkout(current_user, data.plan_code)
+
+
+@router.post("/portal", response_model=PortalSessionOut)
+async def open_portal(current_user: CurrentUserDep, billing: BillingServiceDep) -> PortalSessionOut:
+    """Open Stripe's Customer Portal so the user can manage or cancel."""
+    return await billing.start_portal(current_user)
 
 
 @router.get("/subscription", response_model=SubscriptionOut)

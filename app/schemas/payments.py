@@ -27,6 +27,11 @@ class CheckoutSessionOut(BaseModel):
     checkout_url: str
 
 
+class PortalSessionOut(BaseModel):
+    # The hosted Stripe Customer Portal URL (manage / cancel).
+    portal_url: str
+
+
 class SubscriptionOut(BaseModel):
     status: SubscriptionStatus
     plan_code: str | None = None
