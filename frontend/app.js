@@ -40,6 +40,41 @@ function renderProfile(user) {
   hide($("login-view"));
   hide($("lang-view"));
   show($("profile-view"));
+  loadSubscription();
+}
+
+// Show the current plan and, for free accounts, an Upgrade button.
+async function loadSubscription() {
+  const box = $("sub-box");
+  const resp = await apiFetch("/payments/subscription");
+  if (!resp.ok) return hide(box);
+  const sub = await resp.json();
+  show(box);
+  const upgrade = $("upgrade-btn");
+  if (sub.is_active) {
+    $("sub-status").textContent = "Premium — active";
+    hide(upgrade);
+  } else {
+    $("sub-status").textContent = "Free";
+    show(upgrade);
+  }
+}
+
+// Open Stripe Checkout for the premium plan and send the browser there.
+async function startCheckout() {
+  const btn = $("upgrade-btn");
+  btn.disabled = true;
+  const resp = await apiFetch("/payments/checkout", {
+    method: "POST",
+    body: JSON.stringify({ plan_code: "premium_monthly" }),
+  });
+  btn.disabled = false;
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    return toast(typeof err.detail === "string" ? err.detail : "Could not start checkout", "err");
+  }
+  const { checkout_url } = await resp.json();
+  window.location.href = checkout_url;
 }
 
 function showLogin() {
@@ -201,6 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("email-auth-form").addEventListener("submit", onEmailAuth);
   $("auth-mode-toggle").addEventListener("click", toggleAuthMode);
   $("lang-form").addEventListener("submit", saveNativeLanguage);
+  $("upgrade-btn").addEventListener("click", startCheckout);
   $("logout-btn").addEventListener("click", logout);
   initGoogle();
   loadProfile();

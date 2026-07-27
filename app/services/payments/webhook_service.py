@@ -71,7 +71,11 @@ class WebhookService:
     async def _dispatch(self, event_type: str, obj: dict) -> None:
         if event_type == "checkout.session.completed":
             await self._on_checkout_completed(obj)
-        elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
+        elif event_type in (
+            "customer.subscription.created",
+            "customer.subscription.updated",
+            "customer.subscription.deleted",
+        ):
             await self._on_subscription_changed(obj)
         elif event_type == "invoice.paid":
             await self._on_invoice_paid(obj)
