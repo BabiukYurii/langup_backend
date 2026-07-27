@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 
 from app.core.security.rbac import ADMIN_ROLES, require_roles
 from app.schemas.admin import (
@@ -14,9 +14,16 @@ from app.schemas.admin import (
     AdminWordUpdate,
 )
 from app.schemas.capture import UserWordOut
+from app.schemas.dictionary import DictionaryImportRequest, DictionaryImportResult
 from app.schemas.pagination import Page
 from app.schemas.user import UserOut
 from app.services.admin_service import AdminService, get_admin_service
+from app.services.vocabulary.dictionary_service import (
+    DictionaryImportService,
+    content_lines,
+    schedule_dictionary_import,
+    schedule_normalize_import,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -115,3 +122,24 @@ async def update_exercise(
 async def delete_exercise(exercise_uuid: UUID, admin: AdminUserDep, service: AdminServiceDep) -> None:
     """Delete an exercise from a user's pool."""
     await service.delete_exercise(exercise_uuid)
+
+
+@router.post("/dictionary/import", response_model=DictionaryImportResult, status_code=status.HTTP_202_ACCEPTED)
+async def import_dictionary(
+    data: DictionaryImportRequest, admin: AdminUserDep, background: BackgroundTasks
+) -> DictionaryImportResult:
+    """Bulk-import a general dictionary (word→translation table) into the shared
+    words. Runs in the background (Celery, or in-process).
+
+    `normalize` sends messy raw_text through the LLM to extract clean pairs;
+    otherwise the pairs are split deterministically here.
+    """
+    if data.normalize and data.raw_text:
+        lines = content_lines(data.raw_text)
+        schedule_normalize_import(background, data.source_language, data.target_language, data.raw_text)
+        return DictionaryImportResult(queued=len(lines))
+
+    entries = DictionaryImportService.parse(data)
+    if entries:
+        schedule_dictionary_import(background, data.source_language, data.target_language, entries)
+    return DictionaryImportResult(queued=len(entries))
