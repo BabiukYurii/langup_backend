@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import stripe
 
@@ -47,8 +48,12 @@ class StripeProvider:
 
     def verify_webhook(self, payload: bytes, signature: str) -> WebhookEnvelope:
         try:
-            event = stripe.Webhook.construct_event(payload, signature, self._webhook_secret)
+            # Verifies the signature; raises if it doesn't match.
+            stripe.Webhook.construct_event(payload, signature, self._webhook_secret)
         except (ValueError, stripe.SignatureVerificationError) as e:
             # Bad signature or malformed body — never trust it.
             raise BadRequestException("Invalid Stripe webhook signature") from e
+        # Parse the raw (already-verified) body ourselves: construct_event returns
+        # Stripe objects, which aren't JSON-serializable for the webhook_events store.
+        event = json.loads(payload)
         return WebhookEnvelope(event_id=event["id"], event_type=event["type"], data=event["data"]["object"])

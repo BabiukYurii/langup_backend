@@ -70,8 +70,11 @@ async def test_checkout_requires_auth(client):
     assert resp.status_code == 401
 
 
-async def test_checkout_400_when_stripe_not_configured(app, client, session):
-    # Tests run with an empty STRIPE_API_KEY, so checkout can't proceed.
+async def test_checkout_400_when_stripe_not_configured(app, client, session, monkeypatch):
+    # Force the "no key" state regardless of the developer's .env.
+    from app.core import settings
+
+    monkeypatch.setattr(settings.payments, "STRIPE_API_KEY", "")
     await _seed_plan(session)
     headers = await _login(client)
     resp = await client.post("/api/payments/checkout", json={"plan_code": "premium_monthly"}, headers=headers)
