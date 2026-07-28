@@ -305,6 +305,27 @@ function iconBtn(text, title, onClick) {
   return b;
 }
 
+// ---------- dictionary import ----------
+async function importDictionary(e) {
+  e.preventDefault();
+  const body = {
+    source_language: $("di-source").value.trim(),
+    target_language: $("di-target").value.trim(),
+    raw_text: $("di-text").value,
+    normalize: $("di-normalize").checked,
+  };
+  $("di-status").textContent = "Sending…";
+  const resp = await apiFetch("/admin/dictionary/import", { method: "POST", body: JSON.stringify(body) });
+  if (bounceIfDenied(resp)) return;
+  if (!resp.ok) {
+    $("di-status").textContent = "";
+    return toast(await errText(resp, "Could not import"), "err");
+  }
+  const { queued } = await resp.json();
+  $("di-status").textContent = `Queued ${queued} entrie(s) — importing in the background.`;
+  $("di-text").value = "";
+}
+
 // ---------- boot ----------
 document.addEventListener("DOMContentLoaded", () => {
   if (!TOKENS.access) {
@@ -319,6 +340,9 @@ document.addEventListener("DOMContentLoaded", () => {
   $("new-user-btn").addEventListener("click", () => $("new-user-form").classList.toggle("hidden"));
   $("nu-cancel").addEventListener("click", () => hide($("new-user-form")));
   $("new-user-form").addEventListener("submit", createUser);
+  $("dict-import-btn").addEventListener("click", () => $("dict-import-form").classList.toggle("hidden"));
+  $("di-cancel").addEventListener("click", () => hide($("dict-import-form")));
+  $("dict-import-form").addEventListener("submit", importDictionary);
   $("back-to-users").addEventListener("click", () => {
     hide($("detail-view"));
     show($("users-view"));

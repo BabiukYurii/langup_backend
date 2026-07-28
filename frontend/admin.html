@@ -26,7 +26,24 @@
         <div class="admin__listbar">
           <input id="users-search" class="dict__search" type="text" placeholder="Search by email or name…" />
           <button id="new-user-btn" class="btn btn--primary" type="button">＋ New</button>
+          <button id="dict-import-btn" class="btn btn--ghost" type="button">Import dictionary</button>
         </div>
+
+        <form id="dict-import-form" class="admin__create hidden">
+          <div class="admin__create-actions" style="justify-content: flex-start">
+            <input id="di-source" type="text" placeholder="source lang (en)" maxlength="8" value="en" required style="max-width: 140px" />
+            <input id="di-target" type="text" placeholder="translation lang (uk)" maxlength="8" value="uk" required style="max-width: 160px" />
+            <label class="meta" style="display:flex;align-items:center;gap:6px">
+              <input id="di-normalize" type="checkbox" /> LLM normalize (messy input)
+            </label>
+          </div>
+          <textarea id="di-text" rows="6" style="width:100%" placeholder="One pair per line:&#10;occur&#9;стається&#10;demand - вимога&#10;provide, надавати"></textarea>
+          <div class="admin__create-actions">
+            <span id="di-status" class="meta"></span>
+            <button type="button" id="di-cancel" class="btn btn--ghost">Cancel</button>
+            <button type="submit" class="btn btn--primary">Import</button>
+          </div>
+        </form>
 
         <form id="new-user-form" class="admin__create hidden">
           <input id="nu-email" type="email" placeholder="Email" autocomplete="off" required />
