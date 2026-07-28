@@ -33,17 +33,23 @@ async def test_google_login_creates_new_user(app, client):
     assert body["is_email_verified"] is True
 
 
-async def test_google_login_is_idempotent_for_same_account(app, client):
+async def _user_count(session) -> int:
+    from app.repositories.user import UserRepository
+
+    _, total = await UserRepository(session).get_many(limit=100)
+    return total
+
+
+async def test_google_login_is_idempotent_for_same_account(app, client, session):
     _use_fake_verifier(app, GOOGLE_PROFILE)
 
     await client.post("/api/auth/google", json={"id_token": "fake"})
     await client.post("/api/auth/google", json={"id_token": "fake"})
 
-    users = await client.get("/api/users")
-    assert users.json()["total"] == 1  # no duplicate user created
+    assert await _user_count(session) == 1  # no duplicate user created
 
 
-async def test_google_login_links_to_existing_email(app, client):
+async def test_google_login_links_to_existing_email(app, client, session):
     # user pre-exists (e.g. created via the users endpoint), then signs in with Google
     created = await client.post(
         "/api/users",
@@ -55,8 +61,7 @@ async def test_google_login_links_to_existing_email(app, client):
     resp = await client.post("/api/auth/google", json={"id_token": "fake"})
     assert resp.status_code == 200
 
-    users = await client.get("/api/users")
-    assert users.json()["total"] == 1  # linked, not duplicated
+    assert await _user_count(session) == 1  # linked, not duplicated
 
 
 async def test_refresh_returns_new_tokens(app, client):

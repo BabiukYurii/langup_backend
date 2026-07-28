@@ -1,4 +1,5 @@
 from app.core.security.password import hash_password, verify_password
+from app.enums.user import RoleEnum
 from app.repositories.user import UserRepository
 
 NEW_USER = {
@@ -10,7 +11,17 @@ NEW_USER = {
 }
 
 
-# ---------------- endpoint tests ----------------
+async def _login(client, session, email="alice@example.com", admin=False):
+    """Create an account (public POST), optionally make it admin, and sign in."""
+    await client.post("/api/users", json={**NEW_USER, "email": email})
+    user = await UserRepository(session).get_by_email(email)
+    if admin:
+        await UserRepository(session).update_one(user, {"role": RoleEnum.ADMIN.value})
+    login = await client.post("/api/auth/login", json={"email": email, "password": NEW_USER["password"]})
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}, user.id
+
+
+# ---------------- registration (public) ----------------
 
 
 async def test_create_user(client):
@@ -18,57 +29,60 @@ async def test_create_user(client):
     assert resp.status_code == 201
     body = resp.json()
     assert body["email"] == NEW_USER["email"]
-    assert body["role"] == "USER"
-    assert body["status"] == "ACTIVE"
+    assert body["role"] == "USER" and body["status"] == "ACTIVE"
     assert "password" not in body and "hashed_password" not in body
 
 
 async def test_create_duplicate_email_conflicts(client):
     await client.post("/api/users", json=NEW_USER)
-    resp = await client.post("/api/users", json=NEW_USER)
-    assert resp.status_code == 409
-
-
-async def test_get_user(client):
-    created = (await client.post("/api/users", json=NEW_USER)).json()
-    resp = await client.get(f"/api/users/{created['id']}")
-    assert resp.status_code == 200
-    assert resp.json()["email"] == NEW_USER["email"]
-
-
-async def test_get_missing_user_404(client):
-    resp = await client.get("/api/users/999999")
-    assert resp.status_code == 404
-
-
-async def test_list_users_paginated(client):
-    for i in range(3):
-        await client.post("/api/users", json={**NEW_USER, "email": f"u{i}@example.com"})
-    resp = await client.get("/api/users", params={"page": 1, "limit": 2})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["total"] == 3
-    assert len(body["items"]) == 2
-    assert body["page"] == 1 and body["limit"] == 2
-
-
-async def test_update_user(client):
-    created = (await client.post("/api/users", json=NEW_USER)).json()
-    resp = await client.patch(f"/api/users/{created['id']}", json={"full_name": "Alice Smith"})
-    assert resp.status_code == 200
-    assert resp.json()["full_name"] == "Alice Smith"
-
-
-async def test_delete_user(client):
-    created = (await client.post("/api/users", json=NEW_USER)).json()
-    resp = await client.delete(f"/api/users/{created['id']}")
-    assert resp.status_code == 204
-    assert (await client.get(f"/api/users/{created['id']}")).status_code == 404
+    assert (await client.post("/api/users", json=NEW_USER)).status_code == 409
 
 
 async def test_create_user_short_password_422(client):
-    resp = await client.post("/api/users", json={**NEW_USER, "password": "short"})
-    assert resp.status_code == 422
+    assert (await client.post("/api/users", json={**NEW_USER, "password": "short"})).status_code == 422
+
+
+# ---------------- authorization (the fixed access-control hole) ----------------
+
+
+async def test_user_endpoints_reject_anonymous(client):
+    # Before the fix these all worked without a token (data leak + deletion).
+    assert (await client.get("/api/users")).status_code == 401
+    assert (await client.get("/api/users/1")).status_code == 401
+    assert (await client.patch("/api/users/1", json={"full_name": "x"})).status_code == 401
+    assert (await client.delete("/api/users/1")).status_code == 401
+
+
+async def test_list_users_is_admin_only(client, session):
+    headers, _ = await _login(client, session, "plain@x.com")
+    assert (await client.get("/api/users", headers=headers)).status_code == 403
+
+
+async def test_user_cannot_touch_another_account(app, client, session):
+    a_headers, _ = await _login(client, session, "a@x.com")
+    _, b_id = await _login(client, session, "b@x.com")
+    assert (await client.get(f"/api/users/{b_id}", headers=a_headers)).status_code == 403
+    assert (await client.patch(f"/api/users/{b_id}", json={"full_name": "x"}, headers=a_headers)).status_code == 403
+    assert (await client.delete(f"/api/users/{b_id}", headers=a_headers)).status_code == 403
+
+
+# ---------------- self / admin access ----------------
+
+
+async def test_self_can_read_and_update(client, session):
+    headers, uid = await _login(client, session)
+    assert (await client.get(f"/api/users/{uid}", headers=headers)).status_code == 200
+    resp = await client.patch(f"/api/users/{uid}", json={"full_name": "Alice Smith"}, headers=headers)
+    assert resp.status_code == 200 and resp.json()["full_name"] == "Alice Smith"
+
+
+async def test_admin_can_manage_others(client, session):
+    admin_h, _ = await _login(client, session, "admin@x.com", admin=True)
+    _, target = await _login(client, session, "target@x.com")
+    assert (await client.get(f"/api/users/{target}", headers=admin_h)).status_code == 200
+    assert (await client.get("/api/users", headers=admin_h)).status_code == 200
+    assert (await client.delete(f"/api/users/{target}", headers=admin_h)).status_code == 204
+    assert (await client.get(f"/api/users/{target}", headers=admin_h)).status_code == 404
 
 
 # ---------------- repository / unit tests ----------------
