@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import settings
 from app.database.postgres import get_session
-from app.enums.payments import PaymentProvider, PaymentStatus, SubscriptionStatus
+from app.enums.payments import (
+    ACTIVE_SUBSCRIPTION_STATUSES,
+    PaymentProvider,
+    PaymentStatus,
+    SubscriptionStatus,
+)
 from app.repositories.payment import PaymentRepository
 from app.repositories.subscription import SubscriptionRepository
 from app.repositories.webhook_event import WebhookEventRepository
@@ -99,14 +104,17 @@ class WebhookService:
     async def _on_subscription_changed(self, obj: dict) -> None:
         sub = await self.subscriptions.get_by_provider_id(obj.get("id"))
         if not sub:
-            # No local row yet (checkout webhook not seen); metadata still lets us create it.
+            # No local row yet (checkout webhook not seen): metadata lets us
+            # create it — but only for a live subscription. A deleted/canceled
+            # event must not resurrect a row we don't have.
+            status = _STRIPE_STATUS.get(obj.get("status"), SubscriptionStatus.ACTIVE)
             meta = obj.get("metadata") or {}
-            if meta.get("user_id") and meta.get("plan_uuid"):
+            if meta.get("user_id") and meta.get("plan_uuid") and status in ACTIVE_SUBSCRIPTION_STATUSES:
                 await self._upsert_subscription(
                     user_id=int(meta["user_id"]),
                     plan_uuid=UUID(meta["plan_uuid"]),
                     provider_subscription_id=obj.get("id"),
-                    status=_STRIPE_STATUS.get(obj.get("status"), SubscriptionStatus.ACTIVE),
+                    status=status,
                 )
             return
         # A portal "cancel at end of period" sets `cancel_at` (a date), not

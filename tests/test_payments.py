@@ -268,6 +268,24 @@ async def test_webhook_subscription_updated_changes_status(app, client, session,
     assert body["cancel_at_period_end"] is True
 
 
+async def test_webhook_deleted_without_local_row_creates_nothing(app, client, session, monkeypatch):
+    # A subscription.deleted for a row we don't have must not resurrect it.
+    from sqlalchemy import func, select
+
+    from app.models import Subscription
+    from app.services.payments import webhook_service
+
+    monkeypatch.setattr(webhook_service, "StripeProvider", FakeStripeProvider)
+    event = {
+        "id": "evt_del_orphan",
+        "type": "customer.subscription.deleted",
+        "data": {"object": {"id": "sub_gone", "status": "canceled", "metadata": {"user_id": "1", "plan_uuid": "x"}}},
+    }
+    resp = await client.post("/api/webhooks/stripe", content=json.dumps(event), headers={"Stripe-Signature": "x"})
+    assert resp.status_code == 200
+    assert (await session.execute(select(func.count()).select_from(Subscription))).scalar() == 0
+
+
 async def test_webhook_cancel_at_marks_not_renewing(app, client, session, monkeypatch):
     # A portal cancel-at-period-end sets `cancel_at` (a date), not the
     # cancel_at_period_end flag; the subscription stays active until then.
