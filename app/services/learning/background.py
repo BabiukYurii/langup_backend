@@ -48,6 +48,17 @@ def schedule_refill(background: BackgroundTasks, user_id: int) -> None:
         background.add_task(refill_pool_in_background, user_id)
 
 
+def schedule_verification_email(
+    background: BackgroundTasks, to: str, subject: str, html: str, text: str | None = None
+) -> None:
+    """Send a transactional email off the request path (Celery, else in-process)."""
+    from app.celery.tasks.email_tasks import send_email_task
+    from app.services.notifications.mailer import send_email
+
+    if _enqueue(send_email_task, to, subject, html, text) is None:
+        background.add_task(send_email, to, subject, html, text)
+
+
 def enqueue_refill(user_id: int, exercise_type: ExerciseType | None) -> str | None:
     """Queue an on-demand refill; None means the caller should do it itself."""
     from app.celery.tasks.ai_tasks import refill_pool

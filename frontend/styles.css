@@ -162,6 +162,23 @@ body {
   border-color: var(--line);
 }
 
+.verify-banner {
+  margin-top: 16px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  background: rgba(245, 176, 66, 0.12);
+  border: 1px solid rgba(245, 176, 66, 0.4);
+  color: var(--text);
+  font-size: 14px;
+}
+.verify-banner .btn {
+  flex-shrink: 0;
+}
+
 .form {
   margin-top: 24px;
   display: flex;

@@ -12,6 +12,7 @@ from app.core.security.rate_limit import login_locked, record_login_failure
 from app.core.security.tokens import create_access_token, create_refresh_token, decode_token
 from app.database.postgres import get_session
 from app.enums.auth import OAuthProvider, TokenType
+from app.models.user import User
 from app.repositories.auth import OAuthAccountRepository, RefreshTokenRepository
 from app.repositories.user import UserRepository
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenPair
@@ -48,8 +49,10 @@ class AuthService:
 
         await SubscriptionService(self.session).grant_trial(user_id)
 
-    async def register(self, data: RegisterRequest) -> TokenPair:
-        """Create a password-based account and sign the user in."""
+    async def register(self, data: RegisterRequest) -> tuple[TokenPair, User]:
+        """Create a password-based account and sign the user in. Returns the
+        token pair and the created user so the caller can send a verification
+        email (the account starts unverified)."""
         if await self.users.get_by_email(data.email):
             raise ObjectAlreadyExistsException(data.email, "User")
         user = await self.users.create_one(
@@ -60,7 +63,7 @@ class AuthService:
             }
         )
         await self._grant_trial(user.id)
-        return await self._issue_tokens(user.id)
+        return await self._issue_tokens(user.id), user
 
     async def login(self, data: LoginRequest) -> TokenPair:
         """Password sign-in. One generic 401 for unknown email, OAuth-only

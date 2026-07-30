@@ -4,6 +4,7 @@ from app.core.config.auth import AuthConfig
 from app.core.config.base import BaseConfig
 from app.core.config.celery import CeleryConfig
 from app.core.config.db import DbBaseConfig
+from app.core.config.email import EmailConfig
 from app.core.config.exercises import ExerciseConfig
 from app.core.config.jwt import JwtConfig
 from app.core.config.limits import LimitsConfig
@@ -29,6 +30,7 @@ class Settings(BaseConfig):
     rate_limit: RateLimitConfig = RateLimitConfig()
     payments: PaymentsConfig = PaymentsConfig()
     limits: LimitsConfig = LimitsConfig()
+    email: EmailConfig = EmailConfig()
 
 
 settings = Settings()

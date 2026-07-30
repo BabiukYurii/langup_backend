@@ -27,6 +27,7 @@ function renderProfile(user) {
   const verified = $("p-verified");
   verified.textContent = user.is_email_verified ? "email verified" : "not verified";
   verified.className = `badge ${user.is_email_verified ? "badge--ok" : "badge--muted"}`;
+  $("verify-banner").classList.toggle("hidden", user.is_email_verified);
 
   // The admin panel link only makes sense for privileged accounts; the API
   // still enforces the role, this just hides a door that would 403 anyway.
@@ -241,6 +242,17 @@ async function saveProfile(event) {
   }
 }
 
+// Re-send the confirmation email for an unverified account.
+async function resendVerification() {
+  const btn = $("resend-verify-btn");
+  btn.disabled = true;
+  const resp = await apiFetch("/auth/verify-email/resend", { method: "POST" });
+  btn.disabled = false;
+  if (!resp.ok) return toast("Could not send the email", "err");
+  const { status } = await resp.json();
+  toast(status === "already_verified" ? "Already verified" : "Verification email sent");
+}
+
 async function logout() {
   await logoutRequest();
   if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
@@ -279,6 +291,11 @@ document.addEventListener("DOMContentLoaded", () => {
   $("upgrade-btn").addEventListener("click", startCheckout);
   $("manage-btn").addEventListener("click", openPortal);
   $("logout-btn").addEventListener("click", logout);
+  $("resend-verify-btn").addEventListener("click", resendVerification);
+  // Landing back from the verification link.
+  const verified = new URLSearchParams(location.search).get("verified");
+  if (verified === "1") toast("Email confirmed — you're all set!");
+  else if (verified === "0") toast("That link is invalid or expired", "err");
   initGoogle();
   loadProfile();
 });

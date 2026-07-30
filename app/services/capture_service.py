@@ -13,8 +13,9 @@ from app.schemas.capture import CaptureRequest, UserWordOut
 from app.schemas.pagination import Page
 from app.utils.lemmatize import to_lemma
 
-# Machine-readable marker the client can match to prompt for language selection.
+# Machine-readable markers the client can match to prompt the right next step.
 NATIVE_LANGUAGE_REQUIRED = "native_language_required"
+EMAIL_NOT_VERIFIED = "email_not_verified"
 
 
 class CaptureService:
@@ -36,6 +37,10 @@ class CaptureService:
         user = await self.users.get_by_id(user_id)
         if not user or not user.native_language:
             raise BadRequestException(NATIVE_LANGUAGE_REQUIRED)
+        # A confirmed email is required to save words: it keeps the account
+        # tied to a real address. Google sign-ins arrive already verified.
+        if not user.is_email_verified:
+            raise BadRequestException(EMAIL_NOT_VERIFIED)
 
         # The shared dictionary is keyed by lemma, so "demands" and "demanded"
         # land on one Word; the form actually captured lives in the context.

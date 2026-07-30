@@ -7,7 +7,11 @@ celery_app = Celery(
     "langup",
     broker=settings.redis.url,
     backend=settings.redis.url,
-    include=["app.celery.tasks.ai_tasks", "app.celery.tasks.dictionary_tasks"],
+    include=[
+        "app.celery.tasks.ai_tasks",
+        "app.celery.tasks.dictionary_tasks",
+        "app.celery.tasks.email_tasks",
+    ],
 )
 
 celery_app.conf.update(

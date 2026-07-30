@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from app.core.security.rate_limit import generation_rate_limit
-from app.dependencies import CurrentUserDep, ExercisePoolServiceDep
+from app.dependencies import CurrentUserDep, ExercisePoolServiceDep, VerifiedUserDep
 from app.enums.learning import ExerciseType
 from app.schemas.exercise import (
     AttemptResultOut,
@@ -49,7 +49,7 @@ async def set_preferences(
 
 @router.post("/refill", response_model=RefillResultOut, dependencies=[Depends(generation_rate_limit)])
 async def refill_pool(
-    current_user: CurrentUserDep,
+    current_user: VerifiedUserDep,
     exercise_service: ExercisePoolServiceDep,
     exercise_type: ExerciseType | None = None,
 ) -> RefillResultOut:
@@ -77,7 +77,7 @@ async def refill_status(task_id: str, current_user: CurrentUserDep) -> RefillSta
 
 @router.get("/next", response_model=ExerciseOut)
 async def next_exercise(
-    current_user: CurrentUserDep,
+    current_user: VerifiedUserDep,
     exercise_service: ExercisePoolServiceDep,
     exercise_type: ExerciseType | None = None,
 ) -> ExerciseOut:

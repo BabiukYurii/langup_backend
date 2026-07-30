@@ -58,6 +58,14 @@ async function loadNext() {
     location.href = "index.html"; // session gone — back to login
     return;
   }
+  if (resp.status === 403) {
+    // Practice is gated until the email is confirmed — send them to the
+    // profile, where the "resend confirmation" banner lives.
+    $("empty-text").textContent = "Confirm your email to start practising. Check your inbox, or resend the link from your profile.";
+    $("empty-generate").classList.add("hidden");
+    show("empty-view");
+    return;
+  }
   if (resp.status === 404) {
     // An empty pool can mean "nothing generated yet" or "daily free limit hit".
     const quota = await apiFetch("/exercises/quota")
