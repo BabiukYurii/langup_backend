@@ -47,6 +47,49 @@ async def test_capture_sets_learning_language_once(app, client):
     assert (await client.get("/api/auth/me", headers=headers)).json()["target_language"] == "en"
 
 
+async def test_word_detail_returns_translation_and_contexts(app, client, session):
+    from app.repositories.word import WordRepository
+
+    headers = await _login(app, client)
+    uuid = (
+        await client.post(
+            "/api/vocabulary",
+            json={"word": "serendipity", "language": "en", "sentence": "A serendipity moment."},
+            headers=headers,
+        )
+    ).json()["uuid"]
+
+    repo = WordRepository(session)
+    word = await repo.get_by_lemma_language("serendipity", "en")
+    await repo.update_one(word, {"definitions": [{"lang": "uk", "translation": "щастя-знахідка"}]})
+
+    detail = (await client.get(f"/api/vocabulary/{uuid}", headers=headers)).json()
+    assert detail["translation"] == "щастя-знахідка"
+    assert any("serendipity" in c["sentence"] for c in detail["contexts"])
+
+
+async def test_remove_word_from_dictionary(app, client):
+    headers = await _login(app, client)
+    uuid = (await client.post("/api/vocabulary", json={"word": "apple", "language": "en"}, headers=headers)).json()["uuid"]
+
+    assert (await client.delete(f"/api/vocabulary/{uuid}", headers=headers)).status_code == 204
+    listing = (await client.get("/api/vocabulary", headers=headers)).json()
+    assert all(i["uuid"] != uuid for i in listing["items"])
+    assert (await client.get(f"/api/vocabulary/{uuid}", headers=headers)).status_code == 404
+
+
+async def test_word_detail_and_delete_require_auth(client):
+    fake = "00000000-0000-0000-0000-000000000000"
+    assert (await client.get(f"/api/vocabulary/{fake}")).status_code == 401
+    assert (await client.delete(f"/api/vocabulary/{fake}")).status_code == 401
+
+
+async def test_detail_unknown_word_404(app, client):
+    headers = await _login(app, client)
+    fake = "00000000-0000-0000-0000-000000000000"
+    assert (await client.get(f"/api/vocabulary/{fake}", headers=headers)).status_code == 404
+
+
 async def test_capture_creates_personal_word(app, client):
     headers = await _login(app, client)
     resp = await client.post(

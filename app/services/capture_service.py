@@ -1,7 +1,7 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exc import BadRequestException
+from app.core.exc import BadRequestException, ObjectNotFoundException
 from app.database.postgres import get_session
 from app.enums.vocabulary import SourceType
 from app.repositories.source import SourceRepository
@@ -9,8 +9,9 @@ from app.repositories.user import UserRepository
 from app.repositories.user_word import UserWordRepository
 from app.repositories.word import WordRepository
 from app.repositories.word_context import WordContextRepository
-from app.schemas.capture import CaptureRequest, UserWordOut
+from app.schemas.capture import CaptureRequest, UserWordDetailOut, UserWordOut
 from app.schemas.pagination import Page
+from app.services.vocabulary.translation_service import cached_translation
 from app.utils.lemmatize import to_lemma
 
 # Machine-readable markers the client can match to prompt the right next step.
@@ -87,6 +88,25 @@ class CaptureService:
 
         user_word = await self.user_words.get_with_word(user_word.uuid)
         return UserWordOut.from_user_word(user_word)
+
+    async def get_detail(self, user_id: int, user_word_uuid) -> UserWordDetailOut:
+        """One personal entry with its cached translation and saved sentences."""
+        uw = await self.user_words.get_for_user(user_id, user_word_uuid)
+        if not uw:
+            raise ObjectNotFoundException(user_word_uuid, "UserWord")
+        user = await self.users.get_by_id(user_id)
+        translation = cached_translation(uw.word, user.native_language) if user and user.native_language else None
+        contexts = await self.contexts.list_for_user_word(user_id, uw.word_uuid)
+        return UserWordDetailOut.build(uw, translation, contexts)
+
+    async def remove(self, user_id: int, user_word_uuid) -> None:
+        """Remove a word from THIS user's dictionary (and their saved sentences
+        for it). The shared Word row is left alone — others may still have it."""
+        uw = await self.user_words.get_for_user(user_id, user_word_uuid)
+        if not uw:
+            raise ObjectNotFoundException(user_word_uuid, "UserWord")
+        await self.contexts.delete_by(user_id=user_id, word_uuid=uw.word_uuid)
+        await self.user_words.delete_one(uw)
 
     async def list_vocabulary(
         self,

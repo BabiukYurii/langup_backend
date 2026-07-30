@@ -20,6 +20,20 @@ class WordContextRepository(BaseRepository[WordContext]):
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
+    async def list_for_user_word(self, user_id: int, word_uuid: UUID, limit: int = 10) -> list[WordContext]:
+        """Every sentence THIS user saved the word in, most recent first."""
+        stmt = (
+            select(WordContext)
+            .where(
+                WordContext.user_id == user_id,
+                WordContext.word_uuid == word_uuid,
+                WordContext.sentence.isnot(None),
+            )
+            .order_by(WordContext.created_at.desc())
+            .limit(limit)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def latest_context(self, word_uuid: UUID) -> WordContext | None:
         """The most recent captured context (sentence + surface form), if any."""
         stmt = (

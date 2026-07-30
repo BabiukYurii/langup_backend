@@ -26,6 +26,30 @@
         <ul id="dict-list" class="dict__list"></ul>
         <p id="dict-empty" class="meta hidden">Empty for now — save your first word with the extension.</p>
       </section>
+
+      <!-- word detail -->
+      <div id="word-modal" class="modal hidden">
+        <div class="modal__backdrop" data-close></div>
+        <div class="modal__card card">
+          <button class="modal__close" data-close aria-label="Close">×</button>
+          <div class="modal__head">
+            <h2 id="wd-lemma" class="card__title">—</h2>
+            <span id="wd-lang" class="badge badge--muted">—</span>
+            <span id="wd-mastery" class="badge">new</span>
+          </div>
+          <p id="wd-translation" class="wd__translation">—</p>
+
+          <h3 class="wd__subhead">Where you saw it</h3>
+          <ul id="wd-context-list" class="wd__contexts"></ul>
+          <p id="wd-no-context" class="meta hidden">No saved sentences yet.</p>
+
+          <div class="modal__actions">
+            <button id="wd-remove" class="btn btn--danger" type="button">Remove from dictionary</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast" class="toast hidden"></div>
     </main>
 
     <script src="config.js?v=dev"></script>
