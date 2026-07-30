@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 from app.core import settings
 from app.database.postgres import get_session
 from app.main import create_app
-from app.models.auth import EmailVerificationToken, OAuthAccount, RefreshToken
+from app.models.auth import EmailVerificationToken, OAuthAccount, PasswordResetToken, RefreshToken
 from app.models.exercise import Exercise
 from app.models.exercise_attempt import ExerciseAttempt
 from app.models.payment import Payment
@@ -29,6 +29,7 @@ TEST_TABLES = [
     OAuthAccount.__table__,
     RefreshToken.__table__,
     EmailVerificationToken.__table__,
+    PasswordResetToken.__table__,
     Source.__table__,
     WordContext.__table__,
     UserWord.__table__,

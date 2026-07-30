@@ -211,6 +211,25 @@ function toggleAuthMode() {
   $("a-password").autocomplete = registering ? "new-password" : "current-password";
   $("auth-submit").textContent = registering ? "Sign up" : "Sign in";
   $("auth-mode-toggle").textContent = registering ? "I already have an account" : "Create account";
+  // "Forgot password?" only makes sense when signing in.
+  $("forgot-link").classList.toggle("hidden", registering);
+}
+
+// Email a reset link for the address typed in the sign-in form. The response is
+// deliberately the same whether or not the email exists (no enumeration).
+async function onForgotPassword() {
+  const email = $("a-email").value.trim();
+  if (!email) return toast("Enter your email above first", "err");
+  try {
+    await fetch(`${CFG.API_BASE}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    /* even on a network error we don't want to hint at account existence */
+  }
+  toast("If that email is registered, we've sent a reset link.");
 }
 
 async function onEmailAuth(event) {
@@ -306,6 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("profile-form").addEventListener("submit", saveProfile);
   $("email-auth-form").addEventListener("submit", onEmailAuth);
   $("auth-mode-toggle").addEventListener("click", toggleAuthMode);
+  $("forgot-link").addEventListener("click", onForgotPassword);
   $("lang-form").addEventListener("submit", saveNativeLanguage);
   $("upgrade-btn").addEventListener("click", startCheckout);
   $("manage-btn").addEventListener("click", openPortal);

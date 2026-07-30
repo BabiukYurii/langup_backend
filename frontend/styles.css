@@ -122,6 +122,34 @@ body {
 .notice code {
   color: var(--text);
 }
+.notice--err {
+  background: rgba(224, 49, 49, 0.12);
+  border: 1px solid rgba(224, 49, 49, 0.4);
+  border-style: solid;
+  color: var(--text);
+}
+.notice--ok {
+  background: rgba(56, 193, 114, 0.12);
+  border: 1px solid rgba(56, 193, 114, 0.4);
+  border-style: solid;
+  color: var(--text);
+}
+
+/* subtle text button (e.g. "Forgot password?") */
+.link-btn {
+  align-self: flex-start;
+  margin-top: -4px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
 
 /* profile */
 .profile__head {

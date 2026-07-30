@@ -25,6 +25,17 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+    _check_password = field_validator("password")(validate_password_strength)
+
+
 class TokenPair(BaseModel):
     access_token: str
     refresh_token: str

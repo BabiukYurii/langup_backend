@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import update
 
 from app.models import OAuthAccount, RefreshToken
-from app.models.auth import EmailVerificationToken
+from app.models.auth import EmailVerificationToken, PasswordResetToken
 from app.repositories.base import BaseRepository
 
 
@@ -48,6 +48,24 @@ class EmailVerificationTokenRepository(BaseRepository[EmailVerificationToken]):
         stmt = (
             update(EmailVerificationToken)
             .where(EmailVerificationToken.user_id == user_id, EmailVerificationToken.used_at.is_(None))
+            .values(used_at=now)
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+
+class PasswordResetTokenRepository(BaseRepository[PasswordResetToken]):
+    def __init__(self, session) -> None:
+        super().__init__(session=session, model=PasswordResetToken)
+
+    async def get_by_hash(self, token_hash: str) -> PasswordResetToken | None:
+        return await self.get_one(token_hash=token_hash)
+
+    async def invalidate_for_user(self, user_id: int, now: datetime) -> None:
+        """Retire a user's still-live reset tokens so only the newest link works."""
+        stmt = (
+            update(PasswordResetToken)
+            .where(PasswordResetToken.user_id == user_id, PasswordResetToken.used_at.is_(None))
             .values(used_at=now)
         )
         await self.session.execute(stmt)

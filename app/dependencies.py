@@ -7,6 +7,7 @@ from app.schemas.user import UserOut
 from app.services.auth.auth import AuthService, get_auth_service
 from app.services.auth.dependencies import get_current_user
 from app.services.auth.email_verification import EmailVerificationService, get_email_verification_service
+from app.services.auth.password_reset import PasswordResetService, get_password_reset_service
 from app.services.capture_service import CaptureService, get_capture_service
 from app.services.learning.exercise_service import ExercisePoolService, get_exercise_pool_service
 from app.services.learning.spaced_repetition import SpacedRepetitionService, get_review_service
@@ -20,6 +21,7 @@ CaptureServiceDep = Annotated[CaptureService, Depends(get_capture_service)]
 ReviewServiceDep = Annotated[SpacedRepetitionService, Depends(get_review_service)]
 ExercisePoolServiceDep = Annotated[ExercisePoolService, Depends(get_exercise_pool_service)]
 EmailVerificationServiceDep = Annotated[EmailVerificationService, Depends(get_email_verification_service)]
+PasswordResetServiceDep = Annotated[PasswordResetService, Depends(get_password_reset_service)]
 CurrentUserDep = Annotated[UserOut, Depends(get_current_user)]
 
 # Machine-readable marker the client matches to prompt for email verification.

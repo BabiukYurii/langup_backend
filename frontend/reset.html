@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Reset password</title>
+    <link rel="stylesheet" href="styles.css?v=dev" />
+  </head>
+  <body>
+    <main class="shell">
+      <div class="auth-wrap">
+        <section class="card">
+          <header class="brand brand--center">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </header>
+
+          <!-- form -->
+          <div id="form-view">
+            <h1 class="card__title">Choose a new password</h1>
+            <p class="card__subtitle">Enter a new password for your account.</p>
+            <form id="reset-form" class="form">
+              <label class="field">
+                <span>New password</span>
+                <input id="password" type="password" autocomplete="new-password" required minlength="8" placeholder="********" />
+              </label>
+              <label class="field">
+                <span>Confirm password</span>
+                <input id="confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="********" />
+              </label>
+              <div class="form__actions">
+                <span></span>
+                <button id="submit" class="btn btn--primary" type="submit">Update password</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- success -->
+          <div id="done-view" class="hidden" style="text-align: center">
+            <h1 class="card__title">Password updated ✓</h1>
+            <p class="card__subtitle">You can now sign in with your new password.</p>
+            <p style="margin-top: 22px">
+              <a href="index.html" class="btn btn--primary">Go to sign in →</a>
+            </p>
+          </div>
+
+          <!-- bad link -->
+          <div id="invalid-view" class="hidden" style="text-align: center">
+            <h1 class="card__title">Link expired</h1>
+            <p class="card__subtitle">This reset link is invalid or has expired. Request a new one from the sign-in page.</p>
+            <p style="margin-top: 22px">
+              <a href="index.html" class="btn btn--ghost">Back to sign in</a>
+            </p>
+          </div>
+
+          <p id="status" class="notice hidden"></p>
+        </section>
+      </div>
+    </main>
+
+    <script src="config.js?v=dev"></script>
+    <script src="api.js?v=dev"></script>
+    <script src="reset.js?v=dev"></script>
+  </body>
+</html>

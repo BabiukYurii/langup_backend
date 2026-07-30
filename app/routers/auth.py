@@ -3,8 +3,21 @@ from fastapi.responses import RedirectResponse
 
 from app.core import settings
 from app.core.security.rate_limit import auth_rate_limit
-from app.dependencies import AuthServiceDep, CurrentUserDep, EmailVerificationServiceDep
-from app.schemas.auth import GoogleLoginRequest, LoginRequest, RefreshRequest, RegisterRequest, TokenPair
+from app.dependencies import (
+    AuthServiceDep,
+    CurrentUserDep,
+    EmailVerificationServiceDep,
+    PasswordResetServiceDep,
+)
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    GoogleLoginRequest,
+    LoginRequest,
+    RefreshRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenPair,
+)
 from app.schemas.user import UserOut
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -52,6 +65,28 @@ async def resend_verification(
 async def login(data: LoginRequest, auth_service: AuthServiceDep) -> TokenPair:
     """Sign in with email + password."""
     return await auth_service.login(data)
+
+
+@router.post("/forgot-password", status_code=202, dependencies=[Depends(auth_rate_limit)])
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    reset_service: PasswordResetServiceDep,
+    background: BackgroundTasks,
+) -> dict:
+    """Email a password-reset link. Always 202 — the response never reveals
+    whether the address belongs to an account."""
+    await reset_service.request_reset(data.email, background)
+    return {"status": "sent"}
+
+
+@router.post("/reset-password", status_code=200, dependencies=[Depends(auth_rate_limit)])
+async def reset_password(data: ResetPasswordRequest, reset_service: PasswordResetServiceDep) -> dict:
+    """Set a new password from a reset link. 400 for a stale or invalid link."""
+    if not await reset_service.reset(data.token, data.password):
+        from app.core.exc import BadRequestException
+
+        raise BadRequestException("This reset link is invalid or has expired")
+    return {"status": "reset"}
 
 
 @router.post("/google", response_model=TokenPair, dependencies=[Depends(auth_rate_limit)])

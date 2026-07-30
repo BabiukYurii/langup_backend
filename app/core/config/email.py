@@ -20,6 +20,8 @@ class EmailConfig(BaseConfig):
     EMAIL_FROM_NAME: str = Field("LangUp", alias="EMAIL_FROM_NAME")
     # How long an email-verification link stays valid.
     VERIFICATION_TTL_HOURS: int = Field(48, alias="EMAIL_VERIFICATION_TTL_HOURS")
+    # Password-reset links are shorter-lived — they grant account access.
+    PASSWORD_RESET_TTL_HOURS: int = Field(2, alias="PASSWORD_RESET_TTL_HOURS")
 
     @property
     def enabled(self) -> bool:
