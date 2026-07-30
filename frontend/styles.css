@@ -897,6 +897,33 @@ a.btn {
   color: #ff6b81;
 }
 
+/* compact plan widget in the top bar */
+.plan-widget {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+}
+.plan-widget__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.btn--sm {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+}
+
+/* home: the settings card stands alone, capped so the form isn't stretched */
+.home-main {
+  max-width: 560px;
+}
+
 /* hero row */
 .hero {
   display: flex;
@@ -1054,6 +1081,12 @@ a.btn {
   }
   .account {
     margin-left: auto;
+  }
+  /* give the plan chip its own row so it never crowds the brand + avatar */
+  .plan-widget {
+    order: 2;
+    width: 100%;
+    justify-content: center;
   }
   .hero__title {
     font-size: 22px;

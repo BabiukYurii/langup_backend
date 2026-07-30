@@ -58,7 +58,7 @@ function toggleAccountMenu(force) {
 
 // Show the current plan and, for free accounts, an Upgrade button.
 async function loadSubscription() {
-  const box = $("sub-box");
+  const box = $("plan-widget");
   const resp = await apiFetch("/payments/subscription");
   if (!resp.ok) return hide(box);
   const sub = await resp.json();
@@ -76,7 +76,7 @@ async function loadSubscription() {
     renew.textContent = when ? `Trial ends on ${when}` : "";
     renew.classList.toggle("hidden", !when);
   } else if (sub.is_active) {
-    $("sub-status").textContent = "Premium — active";
+    $("sub-status").textContent = "Premium";
     hide(upgrade);
     show(manage);
     renew.textContent = when ? (sub.cancel_at_period_end ? `Ends on ${when}` : `Renews on ${when}`) : "";

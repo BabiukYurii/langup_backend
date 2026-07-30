@@ -80,6 +80,11 @@
             <a href="words.html" class="topbar__link">Dictionary</a>
             <a href="practice.html" class="topbar__link">Practice</a>
           </div>
+          <div id="plan-widget" class="plan-widget hidden">
+            <span id="sub-status" class="plan-widget__label">—</span>
+            <button id="upgrade-btn" class="btn btn--primary btn--sm hidden" type="button">Upgrade</button>
+            <button id="manage-btn" class="btn btn--ghost btn--sm hidden" type="button">Manage</button>
+          </div>
           <div id="account" class="account">
             <button id="account-btn" class="account__btn" type="button" aria-haspopup="true" aria-expanded="false">
               <span id="avatar" class="avatar avatar--sm">?</span>
@@ -92,6 +97,7 @@
                   <span id="p-role" class="badge">USER</span>
                   <span id="p-verified" class="badge badge--muted">not verified</span>
                 </div>
+                <span id="sub-renew" class="meta hidden"></span>
               </div>
               <a href="#settings-card" class="account__item">Account settings</a>
               <a id="admin-link" href="admin.html" class="account__item hidden">Admin panel</a>
@@ -116,7 +122,7 @@
           </div>
         </div>
 
-        <div class="grid grid--2">
+        <div class="home-main">
           <!-- Account settings -->
           <section id="settings-card" class="card">
             <h2 class="card__title">Account settings</h2>
@@ -141,21 +147,6 @@
                 <button class="btn btn--primary" type="submit">Save changes</button>
               </div>
             </form>
-          </section>
-
-          <!-- Subscription -->
-          <section class="card">
-            <h2 class="card__title">Your plan</h2>
-            <p class="card__subtitle">Premium unlocks unlimited AI practice.</p>
-            <div id="sub-box" class="sub-box hidden">
-              <div class="sub-box__info">
-                <span class="sub-box__label">Plan</span>
-                <span id="sub-status" class="sub-box__status">—</span>
-                <span id="sub-renew" class="meta hidden"></span>
-              </div>
-              <button id="upgrade-btn" class="btn btn--primary hidden" type="button">Upgrade to Premium</button>
-              <button id="manage-btn" class="btn btn--ghost hidden" type="button">Manage subscription</button>
-            </div>
           </section>
         </div>
       </section>
