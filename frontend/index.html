@@ -3,130 +3,160 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LangUp — Dashboard</title>
+    <title>LangUp — Home</title>
     <link rel="stylesheet" href="styles.css?v=dev" />
   </head>
   <body>
     <main class="shell">
-      <header class="brand">
-        <span class="brand__logo">L</span>
-        <span class="brand__name">LangUp</span>
-      </header>
+      <!-- ===================== AUTH (narrow, centered) ===================== -->
+      <div class="auth-wrap">
+        <!-- LOGIN -->
+        <section id="login-view" class="card hidden">
+          <header class="brand brand--center">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </header>
+          <h1 class="card__title">Sign in</h1>
+          <p class="card__subtitle">Create an account or sign in with Google.</p>
 
-      <!-- LOGIN -->
-      <section id="login-view" class="card hidden">
-        <h1 class="card__title">Sign in</h1>
-        <p class="card__subtitle">Create an account or sign in with Google.</p>
+          <div id="google-btn" class="google-btn"></div>
+          <p id="google-missing" class="notice hidden">
+            Google Sign-In is disabled: add <code>GOOGLE_CLIENT_ID</code> in
+            <code>frontend/config.js</code>.
+          </p>
 
-        <div id="google-btn" class="google-btn"></div>
-        <p id="google-missing" class="notice hidden">
-          Google Sign-In is disabled: add <code>GOOGLE_CLIENT_ID</code> in
-          <code>frontend/config.js</code>.
-        </p>
+          <div class="auth-divider"><span>or</span></div>
 
-        <div class="auth-divider"><span>or</span></div>
+          <form id="email-auth-form" class="form">
+            <label class="field">
+              <span>Email</span>
+              <input id="a-email" type="email" autocomplete="email" required placeholder="you@example.com" />
+            </label>
+            <label class="field">
+              <span>Password</span>
+              <input id="a-password" type="password" autocomplete="current-password" required minlength="8" placeholder="********" />
+            </label>
+            <label class="field hidden" id="a-name-field">
+              <span>Name (optional)</span>
+              <input id="a-name" type="text" autocomplete="name" placeholder="Your name" />
+            </label>
+            <div class="form__actions">
+              <button id="auth-mode-toggle" class="btn btn--ghost" type="button">Create account</button>
+              <button id="auth-submit" class="btn btn--primary" type="submit">Sign in</button>
+            </div>
+          </form>
+        </section>
 
-        <form id="email-auth-form" class="form">
-          <label class="field">
-            <span>Email</span>
-            <input id="a-email" type="email" autocomplete="email" required placeholder="you@example.com" />
-          </label>
-          <label class="field">
-            <span>Password</span>
-            <input id="a-password" type="password" autocomplete="current-password" required minlength="8" placeholder="********" />
-          </label>
-          <label class="field hidden" id="a-name-field">
-            <span>Name (optional)</span>
-            <input id="a-name" type="text" autocomplete="name" placeholder="Your name" />
-          </label>
-          <div class="form__actions">
-            <button id="auth-mode-toggle" class="btn btn--ghost" type="button">Create account</button>
-            <button id="auth-submit" class="btn btn--primary" type="submit">Sign in</button>
+        <!-- NATIVE LANGUAGE (required for new accounts) -->
+        <section id="lang-view" class="card hidden">
+          <header class="brand brand--center">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </header>
+          <h1 class="card__title">Choose your native language</h1>
+          <p class="card__subtitle">We translate saved words into it. You only need to set this once.</p>
+          <form id="lang-form" class="form">
+            <label class="field">
+              <span>Native language — the one you speak</span>
+              <select id="l-native_language" required></select>
+            </label>
+            <div class="form__actions">
+              <span></span>
+              <button class="btn btn--primary" type="submit">Continue</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <!-- ===================== HOME (wide app) ===================== -->
+      <section id="profile-view" class="app hidden">
+        <nav class="topbar">
+          <a href="index.html" class="brand">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </a>
+          <div class="topbar__nav">
+            <a href="dashboard.html" class="topbar__link">Dashboard</a>
+            <a href="words.html" class="topbar__link">Dictionary</a>
+            <a href="practice.html" class="topbar__link">Practice</a>
           </div>
-        </form>
-      </section>
-
-      <!-- NATIVE LANGUAGE (required for new accounts) -->
-      <section id="lang-view" class="card hidden">
-        <h1 class="card__title">Choose your native language</h1>
-        <p class="card__subtitle">We translate saved words into it. You only need to set this once.</p>
-        <form id="lang-form" class="form">
-          <label class="field">
-            <span>Native language</span>
-            <select id="l-native_language" required>
-              <option value="" disabled selected>Select a language…</option>
-              <option value="uk">Ukrainian</option>
-              <option value="pl">Polish</option>
-              <option value="en">English</option>
-              <option value="de">German</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="it">Italian</option>
-              <option value="pt">Portuguese</option>
-            </select>
-          </label>
-          <div class="form__actions">
-            <span></span>
-            <button class="btn btn--primary" type="submit">Continue</button>
-          </div>
-        </form>
-      </section>
-
-      <!-- PROFILE -->
-      <section id="profile-view" class="card hidden">
-        <div class="profile__head">
-          <div id="avatar" class="avatar">?</div>
-          <div class="profile__id">
-            <h1 id="p-name" class="card__title">—</h1>
-            <p id="p-email" class="card__subtitle">—</p>
-            <div class="badges">
-              <span id="p-role" class="badge">USER</span>
-              <span id="p-verified" class="badge badge--muted">not verified</span>
+          <div id="account" class="account">
+            <button id="account-btn" class="account__btn" type="button" aria-haspopup="true" aria-expanded="false">
+              <span id="avatar" class="avatar avatar--sm">?</span>
+            </button>
+            <div id="account-dropdown" class="account__dropdown hidden">
+              <div class="account__head">
+                <span id="p-name" class="account__name">—</span>
+                <span id="p-email" class="account__email">—</span>
+                <div class="badges">
+                  <span id="p-role" class="badge">USER</span>
+                  <span id="p-verified" class="badge badge--muted">not verified</span>
+                </div>
+              </div>
+              <a href="#settings-card" class="account__item">Account settings</a>
+              <a id="admin-link" href="admin.html" class="account__item hidden">Admin panel</a>
+              <button id="logout-btn" class="account__item account__item--danger" type="button">Sign out</button>
             </div>
           </div>
-          <button id="logout-btn" class="btn btn--ghost" type="button">Sign out</button>
-        </div>
+        </nav>
 
         <div id="verify-banner" class="verify-banner hidden">
           <span>Confirm your email to save words and practise.</span>
           <button id="resend-verify-btn" class="btn btn--ghost" type="button">Resend email</button>
         </div>
 
-        <form id="profile-form" class="form">
-          <label class="field">
-            <span>Name</span>
-            <input id="f-full_name" type="text" placeholder="Your name" />
-          </label>
-          <div class="field-row">
-            <label class="field">
-              <span>Native language</span>
-              <input id="f-native_language" type="text" maxlength="8" placeholder="uk" />
-            </label>
-            <label class="field">
-              <span>Learning</span>
-              <input id="f-target_language" type="text" maxlength="8" placeholder="en" />
-            </label>
+        <div class="hero">
+          <div>
+            <h1 class="hero__title">Welcome back<span id="hero-name"></span></h1>
+            <p class="hero__subtitle">Pick up where you left off, or check your progress.</p>
           </div>
-          <div class="form__actions">
-            <span id="p-created" class="meta">—</span>
-            <button class="btn btn--primary" type="submit">Save</button>
+          <div class="hero__actions">
+            <a href="dashboard.html" class="btn btn--primary">View dashboard →</a>
+            <a href="practice.html" class="btn btn--ghost">Practice</a>
           </div>
-        </form>
-
-        <div class="links-row">
-          <a href="words.html" class="btn btn--primary words-link">My dictionary →</a>
-          <a href="practice.html" class="btn btn--primary words-link">Practice →</a>
-          <a id="admin-link" href="admin.html" class="btn btn--ghost words-link hidden">Admin panel →</a>
         </div>
 
-        <div id="sub-box" class="sub-box hidden">
-          <div class="sub-box__info">
-            <span class="sub-box__label">Plan</span>
-            <span id="sub-status" class="sub-box__status">—</span>
-            <span id="sub-renew" class="meta hidden"></span>
-          </div>
-          <button id="upgrade-btn" class="btn btn--primary hidden" type="button">Upgrade to Premium</button>
-          <button id="manage-btn" class="btn btn--ghost hidden" type="button">Manage subscription</button>
+        <div class="grid grid--2">
+          <!-- Account settings -->
+          <section id="settings-card" class="card">
+            <h2 class="card__title">Account settings</h2>
+            <p class="card__subtitle">Your name and the two languages we work with.</p>
+            <form id="profile-form" class="form">
+              <label class="field">
+                <span>Name</span>
+                <input id="f-full_name" type="text" placeholder="Your name" />
+              </label>
+              <div class="field-row">
+                <label class="field">
+                  <span>I speak (native)</span>
+                  <select id="f-native_language"></select>
+                </label>
+                <label class="field">
+                  <span>I'm learning</span>
+                  <select id="f-target_language"></select>
+                </label>
+              </div>
+              <div class="form__actions">
+                <span id="p-created" class="meta">—</span>
+                <button class="btn btn--primary" type="submit">Save changes</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- Subscription -->
+          <section class="card">
+            <h2 class="card__title">Your plan</h2>
+            <p class="card__subtitle">Premium unlocks unlimited AI practice.</p>
+            <div id="sub-box" class="sub-box hidden">
+              <div class="sub-box__info">
+                <span class="sub-box__label">Plan</span>
+                <span id="sub-status" class="sub-box__status">—</span>
+                <span id="sub-renew" class="meta hidden"></span>
+              </div>
+              <button id="upgrade-btn" class="btn btn--primary hidden" type="button">Upgrade to Premium</button>
+              <button id="manage-btn" class="btn btn--ghost hidden" type="button">Manage subscription</button>
+            </div>
+          </section>
         </div>
       </section>
 

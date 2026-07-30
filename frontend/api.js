@@ -80,3 +80,55 @@ async function apiFetch(path, options = {}, retry = true) {
   }
   return resp;
 }
+
+// ---------- languages ----------
+// One curated list, shared by every language <select> in the cabinet. These are
+// the languages the AI model handles well (Russian intentionally excluded).
+const LANGUAGES = [
+  { code: "uk", name: "Ukrainian" },
+  { code: "pl", name: "Polish" },
+  { code: "en", name: "English" },
+  { code: "de", name: "German" },
+  { code: "es", name: "Spanish" },
+  { code: "fr", name: "French" },
+  { code: "it", name: "Italian" },
+  { code: "pt", name: "Portuguese" },
+];
+
+function languageName(code) {
+  const found = LANGUAGES.find((l) => l.code === code);
+  return found ? found.name : code || "—";
+}
+
+// Make sure a stored language code is selectable even if it's not in our
+// curated list (older accounts may hold legacy codes like "ua"). Without this,
+// the <select> would fall back to the placeholder and a profile save would
+// silently blank the user's language.
+function ensureLanguageOption(select, code) {
+  if (!select || !code) return;
+  if ([...select.options].some((o) => o.value === code)) return;
+  const opt = document.createElement("option");
+  opt.value = code;
+  opt.textContent = languageName(code);
+  select.appendChild(opt);
+}
+
+// Populate a <select> from LANGUAGES, optionally with a disabled placeholder.
+function fillLanguageSelect(select, placeholder) {
+  if (!select) return;
+  select.innerHTML = "";
+  if (placeholder) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.disabled = true;
+    opt.selected = true;
+    opt.textContent = placeholder;
+    select.appendChild(opt);
+  }
+  for (const lang of LANGUAGES) {
+    const opt = document.createElement("option");
+    opt.value = lang.code;
+    opt.textContent = lang.name;
+    select.appendChild(opt);
+  }
+}

@@ -19,13 +19,15 @@ function toast(message, kind = "ok") {
 // ---------- views ----------
 function renderProfile(user) {
   currentUser = user;
+  const firstName = (user.full_name || "").trim().split(" ")[0];
+  $("hero-name").textContent = firstName ? ", " + firstName : "";
   $("p-name").textContent = user.full_name || "No name";
   $("p-email").textContent = user.email;
   $("avatar").textContent = (user.full_name || user.email || "?").trim().charAt(0).toUpperCase();
   $("p-role").textContent = user.role;
 
   const verified = $("p-verified");
-  verified.textContent = user.is_email_verified ? "email verified" : "not verified";
+  verified.textContent = user.is_email_verified ? "verified" : "not verified";
   verified.className = `badge ${user.is_email_verified ? "badge--ok" : "badge--muted"}`;
   $("verify-banner").classList.toggle("hidden", user.is_email_verified);
 
@@ -34,6 +36,8 @@ function renderProfile(user) {
   $("admin-link").classList.toggle("hidden", user.role !== "ADMIN" && user.role !== "SUPER_ADMIN");
 
   $("f-full_name").value = user.full_name || "";
+  ensureLanguageOption($("f-native_language"), user.native_language);
+  ensureLanguageOption($("f-target_language"), user.target_language);
   $("f-native_language").value = user.native_language || "";
   $("f-target_language").value = user.target_language || "";
   $("p-created").textContent = "With us since " + new Date(user.created_at).toLocaleDateString();
@@ -42,6 +46,14 @@ function renderProfile(user) {
   hide($("lang-view"));
   show($("profile-view"));
   loadSubscription();
+}
+
+// Open/close the account dropdown; close it on any outside click.
+function toggleAccountMenu(force) {
+  const dd = $("account-dropdown");
+  const open = force !== undefined ? force : dd.classList.contains("hidden");
+  dd.classList.toggle("hidden", !open);
+  $("account-btn").setAttribute("aria-expanded", String(open));
 }
 
 // Show the current plan and, for free accounts, an Upgrade button.
@@ -227,8 +239,8 @@ async function saveProfile(event) {
   if (!currentUser) return;
   const payload = {
     full_name: $("f-full_name").value.trim() || null,
-    native_language: $("f-native_language").value.trim() || null,
-    target_language: $("f-target_language").value.trim() || null,
+    native_language: $("f-native_language").value || null,
+    target_language: $("f-target_language").value || null,
   };
   const resp = await apiFetch(`/users/${currentUser.id}`, {
     method: "PATCH",
@@ -284,6 +296,11 @@ function initGoogle() {
 
 // ---------- boot ----------
 document.addEventListener("DOMContentLoaded", () => {
+  // One shared language list for every dropdown in the cabinet.
+  fillLanguageSelect($("l-native_language"), "Select a language…");
+  fillLanguageSelect($("f-native_language"), "— not set —");
+  fillLanguageSelect($("f-target_language"), "— not set —");
+
   $("profile-form").addEventListener("submit", saveProfile);
   $("email-auth-form").addEventListener("submit", onEmailAuth);
   $("auth-mode-toggle").addEventListener("click", toggleAuthMode);
@@ -292,6 +309,16 @@ document.addEventListener("DOMContentLoaded", () => {
   $("manage-btn").addEventListener("click", openPortal);
   $("logout-btn").addEventListener("click", logout);
   $("resend-verify-btn").addEventListener("click", resendVerification);
+
+  // Account dropdown: toggle on the avatar, close on any outside click.
+  $("account-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleAccountMenu();
+  });
+  document.addEventListener("click", (e) => {
+    if (!$("account").contains(e.target)) toggleAccountMenu(false);
+  });
+
   // Landing back from the verification link.
   const verified = new URLSearchParams(location.search).get("verified");
   if (verified === "1") toast("Email confirmed — you're all set!");
