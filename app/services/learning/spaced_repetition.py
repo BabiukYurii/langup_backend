@@ -4,11 +4,14 @@ from uuid import UUID
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import settings
 from app.core.exc import ObjectNotFoundException
 from app.database.postgres import get_session
 from app.enums.vocabulary import MasteryLevel
+from app.repositories.user import UserRepository
 from app.repositories.user_word import UserWordRepository
 from app.schemas.learning import DueWordOut, ReviewResultOut
+from app.services.vocabulary.translation_service import cached_translation
 
 
 def _utcnow() -> datetime:
@@ -21,10 +24,17 @@ class SpacedRepetitionService:
 
     def __init__(self, session: AsyncSession) -> None:
         self.user_words = UserWordRepository(session)
+        self.users = UserRepository(session)
+
+    async def _translation_language(self, user_id: int) -> str:
+        """The language a user's words are translated into (their native one)."""
+        user = await self.users.get_by_id(user_id)
+        return (user and user.native_language) or settings.exercises.EXERCISE_FALLBACK_TRANSLATION_LANGUAGE
 
     async def get_due(self, user_id: int, limit: int = 20) -> list[DueWordOut]:
         rows = await self.user_words.list_due(user_id, _utcnow(), limit)
-        return [DueWordOut.from_user_word(uw) for uw in rows]
+        target = await self._translation_language(user_id)
+        return [DueWordOut.from_user_word(uw, cached_translation(uw.word, target)) for uw in rows]
 
     async def review(self, user_id: int, user_word_uuid: UUID, quality: int) -> ReviewResultOut:
         uw = await self.user_words.get_for_user(user_id, user_word_uuid)

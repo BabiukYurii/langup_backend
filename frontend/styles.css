@@ -928,9 +928,16 @@ a.btn {
   gap: 20px;
 }
 
-/* hero heading above the settings card */
+/* hero heading (block by default; --split puts actions on the right) */
 .hero {
   padding: 4px 6px;
+}
+.hero--split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 .hero__title {
   margin: 0;
@@ -939,6 +946,11 @@ a.btn {
 .hero__subtitle {
   margin: 6px 0 0;
   color: var(--muted);
+}
+.hero__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 /* responsive card grid */
@@ -1028,6 +1040,63 @@ a.btn {
 .dot--review { background: var(--primary); }
 .dot--mastered { background: var(--ok); }
 
+/* ===================== review (spaced repetition) ======================== */
+.review-card {
+  display: flex;
+  flex-direction: column;
+}
+.review-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.review-card__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 180px;
+  padding: 24px 8px;
+  text-align: center;
+}
+.rc__word {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 800;
+}
+.rc__translation {
+  margin: 0;
+  font-size: 22px;
+  color: var(--primary);
+}
+.rc__translation--muted {
+  font-size: 15px;
+  color: var(--muted);
+}
+.rc__show {
+  align-self: center;
+  min-width: 200px;
+}
+.rc__grades {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.grade {
+  font-weight: 700;
+  color: #fff;
+  border: none;
+}
+.grade--again { background: #e03131; }
+.grade--again:hover { background: #c92a2a; }
+.grade--hard { background: #e8850c; }
+.grade--hard:hover { background: #d9770b; }
+.grade--good { background: var(--primary); }
+.grade--good:hover { background: var(--primary-press); }
+.grade--easy { background: var(--ok); }
+.grade--easy:hover { background: #2fa561; }
+
 /* --- phones --------------------------------------------------------------- */
 /* The layout is a single column at every size; on small screens it just gives
    back the padding and type scale that desktop can afford. */
@@ -1059,6 +1128,13 @@ a.btn {
   .grid--3,
   .grid--4 {
     grid-template-columns: 1fr;
+  }
+  /* four grade buttons don't fit a phone row — two per row */
+  .rc__grades {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rc__word {
+    font-size: 28px;
   }
   .topbar {
     flex-wrap: wrap;

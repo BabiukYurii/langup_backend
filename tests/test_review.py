@@ -70,6 +70,21 @@ async def test_failed_review_resets(app, client):
     assert body["mastery_level"] == "LEARNING"
 
 
+async def test_due_word_carries_cached_translation(app, client, session):
+    # The queue serves a cached translation for the card's back, without any AI.
+    from app.repositories.word import WordRepository
+
+    headers = await _login(app, client)  # native language uk
+    await _capture(client, headers, "serendipity")
+    repo = WordRepository(session)
+    word = await repo.get_by_lemma_language("serendipity", "en")
+    await repo.update_one(word, {"definitions": [{"lang": "uk", "translation": "щастя-знахідка"}]})
+
+    due = (await client.get("/api/review/next", headers=headers)).json()
+    item = next(i for i in due if i["lemma"] == "serendipity")
+    assert item["translation"] == "щастя-знахідка"
+
+
 async def test_review_unknown_word_404(app, client):
     headers = await _login(app, client)
     resp = await client.post(

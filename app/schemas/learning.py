@@ -17,15 +17,19 @@ class DueWordOut(BaseModel):
     language: str
     mastery_level: MasteryLevel
     due_at: datetime | None
+    # Cached translation into the user's native language, for the card's back.
+    # None when nothing is cached yet (no AI call is made to serve the queue).
+    translation: str | None = None
 
     @classmethod
-    def from_user_word(cls, uw) -> "DueWordOut":
+    def from_user_word(cls, uw, translation: str | None = None) -> "DueWordOut":
         return cls(
             uuid=uw.uuid,
             lemma=uw.word.lemma,
             language=uw.word.language,
             mastery_level=uw.mastery_level,
             due_at=uw.due_at,
+            translation=translation,
         )
 
 
