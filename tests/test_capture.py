@@ -36,6 +36,17 @@ async def test_capture_allowed_after_setting_native_language(app, client):
     assert resp.status_code == 201
 
 
+async def test_capture_sets_learning_language_once(app, client):
+    # "I'm learning" starts empty and is filled from the first captured word.
+    headers = await _login(app, client)
+    assert (await client.get("/api/auth/me", headers=headers)).json()["target_language"] is None
+    await client.post("/api/vocabulary", json={"word": "hello", "language": "en"}, headers=headers)
+    assert (await client.get("/api/auth/me", headers=headers)).json()["target_language"] == "en"
+    # A later capture in another language must not overwrite the choice.
+    await client.post("/api/vocabulary", json={"word": "bonjour", "language": "fr"}, headers=headers)
+    assert (await client.get("/api/auth/me", headers=headers)).json()["target_language"] == "en"
+
+
 async def test_capture_creates_personal_word(app, client):
     headers = await _login(app, client)
     resp = await client.post(

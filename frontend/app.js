@@ -31,9 +31,11 @@ function renderProfile(user) {
   verified.className = `badge ${user.is_email_verified ? "badge--ok" : "badge--muted"}`;
   $("verify-banner").classList.toggle("hidden", user.is_email_verified);
 
-  // The admin panel link only makes sense for privileged accounts; the API
-  // still enforces the role, this just hides a door that would 403 anyway.
-  $("admin-link").classList.toggle("hidden", user.role !== "ADMIN" && user.role !== "SUPER_ADMIN");
+  // The admin panel links only make sense for privileged accounts; the API
+  // still enforces the role, this just hides doors that would 403 anyway.
+  const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+  $("admin-link").classList.toggle("hidden", !isAdmin);
+  $("nav-admin").classList.toggle("hidden", !isAdmin);
 
   $("f-full_name").value = user.full_name || "";
   ensureLanguageOption($("f-native_language"), user.native_language);

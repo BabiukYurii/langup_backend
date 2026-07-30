@@ -42,6 +42,11 @@ class CaptureService:
         if not user.is_email_verified:
             raise BadRequestException(EMAIL_NOT_VERIFIED)
 
+        # "I'm learning" is simply the language of the words you save. Set it on
+        # the first capture so the profile reflects reality without asking.
+        if not user.target_language:
+            await self.users.update_one(user, {"target_language": data.language})
+
         # The shared dictionary is keyed by lemma, so "demands" and "demanded"
         # land on one Word; the form actually captured lives in the context.
         surface = data.word.strip()
