@@ -42,6 +42,22 @@ async def test_create_user_short_password_422(client):
     assert (await client.post("/api/users", json={**NEW_USER, "password": "short"})).status_code == 422
 
 
+async def test_create_user_rejects_weak_passwords(client):
+    for weak in ("12345678", "aaaaaaaa", "password", "qwerty123"):
+        resp = await client.post("/api/users", json={**NEW_USER, "email": f"{weak}@x.com", "password": weak})
+        assert resp.status_code == 422, weak
+
+
+async def test_register_rejects_weak_password(client):
+    resp = await client.post("/api/auth/register", json={"email": "w@x.com", "password": "12345678"})
+    assert resp.status_code == 422
+
+
+async def test_register_accepts_a_reasonable_password(client):
+    resp = await client.post("/api/auth/register", json={"email": "ok@x.com", "password": "sunflower7"})
+    assert resp.status_code == 201
+
+
 # ---------------- authorization (the fixed access-control hole) ----------------
 
 

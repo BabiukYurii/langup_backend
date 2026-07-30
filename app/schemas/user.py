@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.core.security.password import validate_password_strength
 from app.enums.user import RoleEnum, UserStatus
 
 
@@ -11,6 +12,8 @@ class UserCreate(BaseModel):
     full_name: str | None = None
     native_language: str | None = None
     target_language: str | None = None
+
+    _check_password = field_validator("password")(validate_password_strength)
 
 
 class UserUpdate(BaseModel):

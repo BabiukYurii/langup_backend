@@ -1,8 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.core.security.password import validate_password_strength
 from app.enums.learning import ExerciseStatus, ExerciseType
 from app.enums.user import RoleEnum, UserStatus
 
@@ -13,6 +14,8 @@ class AdminUserCreate(BaseModel):
     full_name: str | None = None
     role: RoleEnum = RoleEnum.USER
     status: UserStatus = UserStatus.ACTIVE
+
+    _check_password = field_validator("password")(validate_password_strength)
 
 
 class AdminUserUpdate(BaseModel):

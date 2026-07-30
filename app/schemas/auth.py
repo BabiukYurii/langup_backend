@@ -1,10 +1,14 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.core.security.password import validate_password_strength
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     full_name: str | None = None
+
+    _check_password = field_validator("password")(validate_password_strength)
 
 
 class LoginRequest(BaseModel):

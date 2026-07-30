@@ -156,6 +156,16 @@ async function saveNativeLanguage(event) {
   }
 }
 
+// Pull a readable message out of an error body: a plain string detail, or the
+// first field message from a 422 validation error (e.g. a weak password).
+function detailMsg(err, fallback) {
+  if (typeof err?.detail === "string") return err.detail;
+  if (Array.isArray(err?.detail) && err.detail[0]?.msg) {
+    return err.detail[0].msg.replace(/^Value error, /, "");
+  }
+  return fallback;
+}
+
 // ---------- actions ----------
 async function onGoogleCredential(response) {
   try {
@@ -201,7 +211,7 @@ async function onEmailAuth(event) {
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
       const fallback = authMode === "register" ? "Could not sign up" : "Invalid email or password";
-      return toast(typeof err.detail === "string" ? err.detail : fallback, "err");
+      return toast(detailMsg(err, fallback), "err");
     }
     TOKENS.set(await resp.json());
     await loadProfile();
