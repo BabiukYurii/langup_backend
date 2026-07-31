@@ -373,7 +373,7 @@ async def test_flashcard_uses_a_cached_translation_without_calling_the_ai(sessio
     assert service.generator.calls == calls_before  # no inference at all
     rows, _ = await service.exercises.get_many(user_id=user_id)
     card = next(r for r in rows if r.exercise_type == "FLASHCARD")
-    assert card.payload == {"word": "resilient", "sentence": None, "translation": "стійкий"}
+    assert card.payload == {"word": "resilient", "surface_form": None, "sentence": None, "translation": "стійкий"}
 
 
 async def test_flashcard_shows_the_captured_sentence(session):
@@ -392,7 +392,37 @@ async def test_flashcard_shows_the_captured_sentence(session):
 
     rows, _ = await service.exercises.get_many(user_id=user_id)
     card = next(r for r in rows if r.exercise_type == "FLASHCARD")
-    assert card.payload == {"word": "resilient", "sentence": sentence, "translation": "стійкий"}
+    assert card.payload == {
+        "word": "resilient",
+        "surface_form": "resilient",
+        "sentence": sentence,
+        "translation": "стійкий",
+    }
+
+
+async def test_flashcard_carries_the_captured_surface_form(session):
+    # The card highlights the exact form seen in the sentence, not the lemma:
+    # a hyphenated/inflected occurrence ("sweet-tasting") must survive to the
+    # payload so the client can bold it (the lemma often won't match verbatim).
+    user_id = await _seed_vocab(session, "f4@x.com", ["taste"])
+    service = ExercisePoolService(session, StubGenerator())
+    word = await service.words_repo.get_by_lemma_language("taste", "en")
+    await service.words_repo.update_one(word, {"definitions": [{"lang": "uk", "translation": "смак"}]})
+    await service.word_contexts.create_one(
+        {
+            "user_id": user_id,
+            "word_uuid": word.uuid,
+            "surface_form": "sweet-tasting",
+            "sentence": "Its sweet-tasting fruit was famous.",
+        }
+    )
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.FLASHCARD]))
+    await service.replenish(user_id)
+
+    rows, _ = await service.exercises.get_many(user_id=user_id)
+    card = next(r for r in rows if r.exercise_type == "FLASHCARD")
+    assert card.payload["word"] == "taste"
+    assert card.payload["surface_form"] == "sweet-tasting"
 
 
 async def test_flashcard_is_skipped_without_a_translation(session):

@@ -363,8 +363,16 @@ class ExercisePoolService:
                 # Without a translation there is nothing to reveal; skip and let
                 # another type take the slot (translation is normally cached).
                 raise AIResponseValidationError(f"No translation for {lemma!r}")
-            sentence = await self.word_contexts.latest_sentence(uw.word_uuid)
-            payload = {"word": lemma, "sentence": sentence, "translation": translation}
+            # Use the context (sentence + the exact form seen in it) so the card
+            # can bold the real form: the lemma may be inflected or hyphenated in
+            # the sentence ("sweet-tasting" vs a lemma), which a lemma match misses.
+            ctx = await self.word_contexts.latest_context(uw.word_uuid)
+            payload = {
+                "word": lemma,
+                "surface_form": ctx.surface_form if ctx else None,
+                "sentence": ctx.sentence if ctx else None,
+                "translation": translation,
+            }
         elif ex_type == ExerciseType.TYPING:
             # The learner's own sentence with the word blanked out, to be typed
             # back from memory. The translation is the only hint. No inference.

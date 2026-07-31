@@ -459,16 +459,25 @@ function boldWordInto(el, sentence, word) {
   if (from < sentence.length) el.appendChild(document.createTextNode(sentence.slice(from)));
 }
 
+// Which form to bold: prefer whichever candidate actually appears in the
+// sentence (the captured surface form, e.g. "sweet-tasting" or "occurs", beats
+// the lemma, which may be inflected/hyphenated differently there).
+function highlightTerm(sentence, ...candidates) {
+  const lower = (sentence || "").toLowerCase();
+  return candidates.find((c) => c && lower.includes(c.toLowerCase())) || candidates.find(Boolean) || "";
+}
+
 function renderFlashcard(ex) {
   // A card is the sentence the word was met in, the word in bold; the
   // translation is the answer, revealed on demand. Review only, no grading.
   const card = document.createElement("p");
   card.className = "ex__sentence";
+  const term = highlightTerm(ex.payload.sentence, ex.payload.surface_form, ex.payload.word);
   if (ex.payload.sentence) {
-    boldWordInto(card, ex.payload.sentence, ex.payload.word);
+    boldWordInto(card, ex.payload.sentence, term);
   } else {
     const only = document.createElement("strong");
-    only.textContent = ex.payload.word;
+    only.textContent = term;
     card.appendChild(only);
   }
   $("ex-text").appendChild(card);
