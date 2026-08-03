@@ -25,7 +25,9 @@ class UserWordRepository(BaseRepository[UserWord]):
         result = await self.session.execute(stmt)
         return result.unique().scalar_one_or_none()
 
-    async def list_due(self, user_id: int, now: datetime, limit: int = 20) -> list[UserWord]:
+    async def list_due(
+        self, user_id: int, now: datetime, limit: int = 20, language: str | None = None
+    ) -> list[UserWord]:
         # New words (due_at IS NULL) and words whose due date has passed, soonest first.
         stmt = (
             select(UserWord)
@@ -36,8 +38,23 @@ class UserWordRepository(BaseRepository[UserWord]):
             .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc())
             .limit(limit)
         )
+        if language:
+            stmt = stmt.where(Word.language == language)
         rows = (await self.session.execute(stmt)).unique().scalars().all()
         return list(rows)
+
+    async def languages_for_user(self, user_id: int) -> list[tuple[str, int]]:
+        """Distinct languages in the user's vocabulary with word counts, most
+        words first — the set of languages they can practise."""
+        stmt = (
+            select(Word.language, func.count())
+            .join(UserWord, UserWord.word_uuid == Word.uuid)
+            .where(UserWord.user_id == user_id)
+            .group_by(Word.language)
+            .order_by(func.count().desc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [(lang, count) for lang, count in rows]
 
     async def get_with_word(self, uuid: UUID) -> UserWord | None:
         stmt = (
@@ -55,6 +72,7 @@ class UserWordRepository(BaseRepository[UserWord]):
         page: int = 1,
         limit: int = 20,
         query: str | None = None,
+        language: str | None = None,
     ) -> tuple[list[UserWord], int]:
         offset = (page - 1) * limit
 
@@ -64,12 +82,19 @@ class UserWordRepository(BaseRepository[UserWord]):
             .options(contains_eager(UserWord.word))
             .where(UserWord.user_id == user_id)
         )
-        count_stmt = select(func.count()).select_from(UserWord).where(UserWord.user_id == user_id)
+        count_stmt = (
+            select(func.count()).select_from(UserWord).join(Word, UserWord.word_uuid == Word.uuid)
+            if (query or language)
+            else select(func.count()).select_from(UserWord)
+        ).where(UserWord.user_id == user_id)
 
         if query:
             cond = Word.lemma.ilike(f"{query}%")
             stmt = stmt.where(cond)
-            count_stmt = count_stmt.join(Word, UserWord.word_uuid == Word.uuid).where(cond)
+            count_stmt = count_stmt.where(cond)
+        if language:
+            stmt = stmt.where(Word.language == language)
+            count_stmt = count_stmt.where(Word.language == language)
 
         stmt = stmt.order_by(UserWord.created_at.desc()).offset(offset).limit(limit)
 

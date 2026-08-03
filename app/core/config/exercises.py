@@ -19,6 +19,13 @@ class ExerciseConfig(BaseConfig):
     # tests and CI never reach the AI gateway; enabled in deployments.
     TRANSLATE_ON_CAPTURE: bool = False
 
+    # Ask the AI which language a captured word is, so words are grouped by their
+    # real language (the extension only sends a hint). Off by default so tests/CI
+    # never reach the gateway; enabled in deployments. A short timeout keeps a
+    # slow gateway from holding up a capture — it falls back to the hint.
+    DETECT_LANGUAGE_ON_CAPTURE: bool = False
+    DETECT_LANGUAGE_TIMEOUT_SECONDS: float = 8.0
+
     # Match-pairs: how many pairs are on screen, how many the round holds in
     # total, and how many wrong taps end it.
     MATCH_PAIRS_VISIBLE: int = 4

@@ -90,12 +90,12 @@ def translate_word(user_id: int, word_uuid: str) -> int:
 
 
 @celery_app.task(name="ai.refill_pool", **_RETRY_KWARGS)
-def refill_pool(user_id: int, exercise_type: str | None = None) -> int:
+def refill_pool(user_id: int, exercise_type: str | None = None, language: str | None = None) -> int:
     """Top a user's exercise pool back up; returns how many were added."""
 
     async def job(session: AsyncSession) -> int:
         wanted = ExerciseType(exercise_type) if exercise_type else None
-        created = await _pool_service(session).replenish(user_id, wanted)
+        created = await _pool_service(session).replenish(user_id, wanted, language)
         logger.info("Refilled pool for user %s: %d exercise(s)", user_id, created)
         return created
 

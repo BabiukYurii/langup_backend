@@ -38,6 +38,12 @@ class UserWordOut(BaseModel):
         )
 
 
+class LanguageCountOut(BaseModel):
+    # One language the user is learning, with how many words they have in it.
+    language: str
+    count: int
+
+
 class WordContextOut(BaseModel):
     # One sentence the user saved this word in.
     sentence: str

@@ -147,3 +147,32 @@ def build_translation_prompt(word: str, source_language: str, target_language: s
         source=language_name(source_language),
         target=language_name(target_language),
     )
+
+
+# --- language detection ----------------------------------------------------
+LANGUAGE_DETECTION_SYSTEM = (
+    "You identify the language of a short text. Always respond with a single "
+    "valid JSON object and nothing else."
+)
+
+LANGUAGE_DETECTION_USER = """\
+What language is the word "{word}" written in? Use the surrounding sentence to decide:
+"{sentence}"
+
+Answer with its ISO 639-1 two-letter code, one of: uk, pl, en, de, es, fr, it, pt.
+
+Respond as {{"language": "xx"}}
+"""
+
+LANGUAGE_DETECTION_WORD_ONLY = """\
+What language is the word "{word}" written in?
+
+Answer with its ISO 639-1 two-letter code, one of: uk, pl, en, de, es, fr, it, pt.
+
+Respond as {{"language": "xx"}}
+"""
+
+
+def build_language_detection_prompt(word: str, sentence: str | None = None) -> str:
+    template = LANGUAGE_DETECTION_USER if sentence else LANGUAGE_DETECTION_WORD_ONLY
+    return template.format(word=word, sentence=sentence)

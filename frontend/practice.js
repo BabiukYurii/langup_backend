@@ -8,6 +8,8 @@ let currentExercise = null;
 let chosen = {}; // blank index (string) -> chosen word
 let shownAt = 0; // for response_time_ms
 let activeType = null; // null = practise whatever comes next
+let activeLang = null; // null = the user's current practice language (server default)
+let languages = []; // [{language, count}] the user is learning
 
 const TYPE_LABELS = {
   FILL_IN_BLANKS: "Blanks",
@@ -48,10 +50,58 @@ function selectType(type) {
   loadNext();
 }
 
+// Language switcher — shown only when the learner has words in 2+ languages.
+function renderLangs() {
+  const bar = $("langs-bar");
+  if (languages.length < 2) {
+    bar.classList.add("hidden");
+    return;
+  }
+  const list = $("langs-list");
+  list.innerHTML = "";
+  for (const { language } of languages) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip" + (activeLang === language ? " chip--on" : "");
+    btn.textContent = languageName(language);
+    btn.addEventListener("click", () => selectLang(language));
+    list.appendChild(btn);
+  }
+  bar.classList.remove("hidden");
+}
+
+function selectLang(language) {
+  stopClock();
+  activeLang = language;
+  localStorage.setItem("langup_practice_lang", language);
+  renderLangs();
+  loadNext();
+}
+
+async function loadLanguages() {
+  const resp = await apiFetch("/vocabulary/languages");
+  if (!resp.ok) return;
+  languages = await resp.json();
+  const codes = languages.map((l) => l.language);
+  const saved = localStorage.getItem("langup_practice_lang");
+  // Restore the last choice if still learned, else default to the most-studied.
+  activeLang = codes.includes(saved) ? saved : codes[0] || null;
+  renderLangs();
+}
+
+// Build the ?exercise_type=&language= query for the exercise endpoints.
+function practiceQuery() {
+  const params = new URLSearchParams();
+  if (activeType) params.set("exercise_type", activeType);
+  if (activeLang) params.set("language", activeLang);
+  const s = params.toString();
+  return s ? "?" + s : "";
+}
+
 async function loadNext() {
   stopClock();
   show("loading");
-  const query = activeType ? "?exercise_type=" + activeType : "";
+  const query = practiceQuery();
   const resp = await apiFetch("/exercises/next" + query);
 
   if (resp.status === 401) {
@@ -628,7 +678,7 @@ async function generateMore(statusId) {
   };
 
   // ask for the type the learner is looking at, not just "anything"
-  const query = activeType ? "?exercise_type=" + activeType : "";
+  const query = practiceQuery();
   const resp = await apiFetch("/exercises/refill" + query, { method: "POST" });
   if (!resp.ok) return done("Could not generate. Try again.");
 
@@ -671,5 +721,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("empty-generate").addEventListener("click", () => generateMore("empty-status"));
   $("res-generate").addEventListener("click", () => generateMore("res-mastery"));
   renderTypes();
-  loadNext();
+  // Load the language switcher first so the first exercise respects the choice.
+  loadLanguages().then(loadNext);
 });

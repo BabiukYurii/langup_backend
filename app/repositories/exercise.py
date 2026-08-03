@@ -17,7 +17,9 @@ class ExerciseRepository(BaseRepository[Exercise]):
 
     _PENDING = (ExerciseStatus.READY.value, ExerciseStatus.SERVED.value)
 
-    async def next_pending(self, user_id: int, exercise_type: str | None = None) -> Exercise | None:
+    async def next_pending(
+        self, user_id: int, exercise_type: str | None = None, language: str | None = None
+    ) -> Exercise | None:
         # Served-but-unanswered first (so a page refresh re-serves the same
         # exercise instead of burning a new one), then the oldest READY item.
         stmt = (
@@ -28,9 +30,11 @@ class ExerciseRepository(BaseRepository[Exercise]):
         )
         if exercise_type:
             stmt = stmt.where(Exercise.exercise_type == exercise_type)
+        if language:
+            stmt = stmt.where(Exercise.language == language)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
-    async def has_pending_of_type(self, user_id: int, exercise_type: str) -> bool:
+    async def has_pending_of_type(self, user_id: int, exercise_type: str, language: str | None = None) -> bool:
         stmt = (
             select(Exercise.uuid)
             .where(
@@ -40,15 +44,19 @@ class ExerciseRepository(BaseRepository[Exercise]):
             )
             .limit(1)
         )
+        if language:
+            stmt = stmt.where(Exercise.language == language)
         return (await self.session.execute(stmt)).scalar_one_or_none() is not None
 
-    async def count_pending(self, user_id: int) -> int:
+    async def count_pending(self, user_id: int, language: str | None = None) -> int:
         # Unanswered inventory (READY + SERVED) — what replenish tops up to target.
         stmt = (
             select(func.count())
             .select_from(Exercise)
             .where(Exercise.user_id == user_id, Exercise.status.in_(self._PENDING))
         )
+        if language:
+            stmt = stmt.where(Exercise.language == language)
         return (await self.session.execute(stmt)).scalar() or 0
 
     async def drop_ready_of_types(self, user_id: int, exercise_types: Sequence[str]) -> int:

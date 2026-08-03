@@ -90,6 +90,28 @@ async def test_detail_unknown_word_404(app, client):
     assert (await client.get(f"/api/vocabulary/{fake}", headers=headers)).status_code == 404
 
 
+async def test_list_languages(app, client):
+    # The languages the user is learning, derived from their words' languages.
+    headers = await _login(app, client)  # native uk
+    await client.post("/api/vocabulary", json={"word": "house", "language": "en"}, headers=headers)
+    await client.post("/api/vocabulary", json={"word": "haus", "language": "de"}, headers=headers)
+    await client.post("/api/vocabulary", json={"word": "hund", "language": "de"}, headers=headers)
+
+    resp = await client.get("/api/vocabulary/languages", headers=headers)
+    assert resp.status_code == 200
+    counts = {r["language"]: r["count"] for r in resp.json()}
+    assert counts == {"de": 2, "en": 1}
+
+
+async def test_vocabulary_filtered_by_language(app, client):
+    headers = await _login(app, client)
+    await client.post("/api/vocabulary", json={"word": "house", "language": "en"}, headers=headers)
+    await client.post("/api/vocabulary", json={"word": "haus", "language": "de"}, headers=headers)
+
+    de = (await client.get("/api/vocabulary?language=de", headers=headers)).json()
+    assert de["total"] == 1 and de["items"][0]["language"] == "de"
+
+
 async def test_capture_creates_personal_word(app, client):
     headers = await _login(app, client)
     resp = await client.post(

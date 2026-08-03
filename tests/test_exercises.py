@@ -893,3 +893,61 @@ async def test_http_serve_and_answer_flow(app, client, sessionmaker):
     result = answered.json()
     assert result["is_correct"] is True
     assert result["correct_answers"] == {"1": "resilient"}
+
+
+# --- multi-language ---------------------------------------------------------
+
+
+async def test_exercises_are_scoped_by_language(session):
+    # A learner with words in two languages practises one at a time: refilling
+    # for German builds only German exercises, and serving is language-scoped.
+    from app.models import Source, WordContext
+
+    user = User(email="ml@x.com", native_language="uk", target_language="de")
+    session.add(user)
+    await session.flush()
+    src = Source(user_id=user.id, url="http://x", language="en")
+    session.add(src)
+    await session.flush()
+    for lang, lemmas in {"de": ["haus", "hund", "katze", "buch"], "en": ["house", "dog"]}.items():
+        for lemma in lemmas:
+            w = Word(lemma=lemma, language=lang, definitions=[{"lang": "uk", "translation": f"{lemma}-п"}])
+            session.add(w)
+            await session.flush()
+            session.add(UserWord(user_id=user.id, word_uuid=w.uuid))
+            session.add(
+                WordContext(
+                    user_id=user.id, word_uuid=w.uuid, source_uuid=src.uuid,
+                    surface_form=lemma, sentence=f"A {lemma} is here.",
+                )
+            )
+    await session.commit()
+
+    service = ExercisePoolService(session, StubGenerator())
+    await service.set_preferences(user.id, ExercisePreferences(exercise_types=[ExerciseType.MULTIPLE_CHOICE]))
+
+    created = await service.replenish(user.id, ExerciseType.MULTIPLE_CHOICE, language="de")
+    assert created > 0
+    rows, _ = await service.exercises.get_many(user_id=user.id)
+    assert rows and all(r.language == "de" for r in rows)
+
+    # Default serve uses the user's practice language (de) and finds one.
+    assert await service.get_next(user.id) is not None
+    # No English exercises were built, so serving English is empty.
+    with pytest.raises(ObjectNotFoundException):
+        await service.get_next(user.id, language="en")
+
+
+async def test_detect_language_returns_supported_or_none():
+    from app.services.ai.exercise_generation import ExerciseGenerationService
+
+    class _Stub:
+        def __init__(self, content):
+            self.content = content
+
+        async def chat_json(self, *a, **k):
+            return {"content": self.content, "model": "stub"}
+
+    assert await ExerciseGenerationService(_Stub('{"language": "de"}')).detect_language("haus", "Das haus.") == "de"
+    assert await ExerciseGenerationService(_Stub('{"language": "xx"}')).detect_language("foo") is None  # unsupported
+    assert await ExerciseGenerationService(_Stub("not json")).detect_language("foo") is None

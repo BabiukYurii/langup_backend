@@ -52,6 +52,7 @@ async def refill_pool(
     current_user: VerifiedUserDep,
     exercise_service: ExercisePoolServiceDep,
     exercise_type: ExerciseType | None = None,
+    language: str | None = None,
 ) -> RefillResultOut:
     """Generate exercises on demand.
 
@@ -60,12 +61,12 @@ async def refill_pool(
     `exercise_type` to get that specific kind. Generation is CPU-bound, so the
     request can take a while.
     """
-    task_id = enqueue_refill(current_user.id, exercise_type)
+    task_id = enqueue_refill(current_user.id, exercise_type, language)
     if task_id:
         return RefillResultOut(status="queued", task_id=task_id)
     # No worker: generating inline keeps the button working, at the cost of a
     # request that can run for a while.
-    created = await exercise_service.replenish(current_user.id, exercise_type)
+    created = await exercise_service.replenish(current_user.id, exercise_type, language)
     return RefillResultOut(status="done", created=created)
 
 
@@ -80,12 +81,14 @@ async def next_exercise(
     current_user: VerifiedUserDep,
     exercise_service: ExercisePoolServiceDep,
     exercise_type: ExerciseType | None = None,
+    language: str | None = None,
 ) -> ExerciseOut:
     """Serve the next pre-generated exercise from MY pool (404 if empty).
 
-    Pass `exercise_type` to practise one specific type right now.
+    Pass `exercise_type` to practise one specific type, `language` to practise a
+    specific language (defaults to your current one).
     """
-    return await exercise_service.get_next(current_user.id, exercise_type)
+    return await exercise_service.get_next(current_user.id, exercise_type, language)
 
 
 @router.post("/{exercise_uuid}/attempt", response_model=AttemptResultOut)

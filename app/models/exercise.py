@@ -20,6 +20,9 @@ class Exercise(Base, UUIDMixin, TimestampMixin):
     word_uuid = Column(UUIDType, ForeignKey("words.uuid", ondelete="SET NULL"), nullable=True)
     context_uuid = Column(UUIDType, ForeignKey("word_contexts.uuid", ondelete="SET NULL"), nullable=True)
     exercise_type = Column(String(32), nullable=False, index=True)  # ExerciseType
+    # Language being practised (the target word's language). Lets the pool be
+    # served per-language when a learner studies several at once.
+    language = Column(String(8), nullable=True, index=True)  # LanguageCode
     status = Column(String(16), nullable=False, server_default="READY", index=True)  # ExerciseStatus
     difficulty = Column(Numeric(4, 2), nullable=True)  # DifficultyLevel score
     prompt = Column(Text, nullable=True)  # question/instruction text

@@ -45,7 +45,7 @@ TEST_TABLES = [
 
 # Background tasks open their OWN session and AI client, so they bypass the
 # sqlite override and would hit the real database and the real gateway.
-_BACKGROUND_AI_FLAGS = ("EXERCISE_POOL_AUTOFILL", "TRANSLATE_ON_CAPTURE")
+_BACKGROUND_AI_FLAGS = ("EXERCISE_POOL_AUTOFILL", "TRANSLATE_ON_CAPTURE", "DETECT_LANGUAGE_ON_CAPTURE")
 
 
 @pytest.fixture(autouse=True)

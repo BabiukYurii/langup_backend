@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, status
 
 from app.core import settings
 from app.dependencies import CaptureServiceDep, CurrentUserDep
-from app.schemas.capture import CaptureRequest, UserWordDetailOut, UserWordOut
+from app.schemas.capture import CaptureRequest, LanguageCountOut, UserWordDetailOut, UserWordOut
 from app.schemas.pagination import Page
 from app.services.learning.background import schedule_refill, schedule_translation
 
@@ -37,8 +37,21 @@ async def list_my_vocabulary(
     page: int = 1,
     limit: int = 20,
     query: str | None = None,
+    language: str | None = None,
 ) -> Page[UserWordOut]:
-    return await capture_service.list_vocabulary(current_user.id, page=page, limit=limit, query=query)
+    return await capture_service.list_vocabulary(
+        current_user.id, page=page, limit=limit, query=query, language=language
+    )
+
+
+@router.get("/languages", response_model=list[LanguageCountOut])
+async def my_languages(
+    current_user: CurrentUserDep,
+    capture_service: CaptureServiceDep,
+) -> list[LanguageCountOut]:
+    """The languages I'm learning (distinct word languages) with word counts —
+    what the practice/dictionary language switcher is built from."""
+    return await capture_service.list_languages(current_user.id)
 
 
 @router.get("/{user_word_uuid}", response_model=UserWordDetailOut)

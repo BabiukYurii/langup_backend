@@ -1,6 +1,10 @@
+import asyncio
+import logging
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import settings
 from app.core.exc import BadRequestException, ObjectNotFoundException
 from app.database.postgres import get_session
 from app.enums.vocabulary import SourceType
@@ -9,10 +13,12 @@ from app.repositories.user import UserRepository
 from app.repositories.user_word import UserWordRepository
 from app.repositories.word import WordRepository
 from app.repositories.word_context import WordContextRepository
-from app.schemas.capture import CaptureRequest, UserWordDetailOut, UserWordOut
+from app.schemas.capture import CaptureRequest, LanguageCountOut, UserWordDetailOut, UserWordOut
 from app.schemas.pagination import Page
 from app.services.vocabulary.translation_service import cached_translation
 from app.utils.lemmatize import to_lemma
+
+logger = logging.getLogger(__name__)
 
 # Machine-readable markers the client can match to prompt the right next step.
 NATIVE_LANGUAGE_REQUIRED = "native_language_required"
@@ -43,19 +49,24 @@ class CaptureService:
         if not user.is_email_verified:
             raise BadRequestException(EMAIL_NOT_VERIFIED)
 
-        # "I'm learning" is simply the language of the words you save. Set it on
-        # the first capture so the profile reflects reality without asking.
+        # The extension only sends a hint ("en"); ask the AI what language the
+        # word really is so words group by their true language. Falls back to
+        # the hint if detection is off or the gateway is slow/unavailable.
+        surface = data.word.strip()
+        language = await self._detect_language(surface, data.sentence, data.language)
+
+        # "I'm learning" is the language of the words you save. Set it on the
+        # first capture so the profile reflects reality without asking.
         if not user.target_language:
-            await self.users.update_one(user, {"target_language": data.language})
+            await self.users.update_one(user, {"target_language": language})
 
         # The shared dictionary is keyed by lemma, so "demands" and "demanded"
         # land on one Word; the form actually captured lives in the context.
-        surface = data.word.strip()
-        lemma = to_lemma(surface, data.language)
+        lemma = to_lemma(surface, language)
 
-        word = await self.words.get_by_lemma_language(lemma, data.language)
+        word = await self.words.get_by_lemma_language(lemma, language)
         if not word:
-            word = await self.words.create_one({"lemma": lemma, "language": data.language})
+            word = await self.words.create_one({"lemma": lemma, "language": language})
 
         source = None
         if data.source_url:
@@ -66,7 +77,7 @@ class CaptureService:
                         "user_id": user_id,
                         "url": data.source_url,
                         "title": data.source_title,
-                        "language": data.language,
+                        "language": language,
                         "source_type": SourceType.WEB_PAGE.value,
                     }
                 )
@@ -89,6 +100,27 @@ class CaptureService:
         user_word = await self.user_words.get_with_word(user_word.uuid)
         return UserWordOut.from_user_word(user_word)
 
+    async def _detect_language(self, word: str, sentence: str | None, fallback: str) -> str:
+        """The captured word's language per the AI, or the extension's hint.
+
+        Best-effort: gated by a flag (off in tests/CI), given a short timeout,
+        and any failure falls back to the hint — a save must never hang or fail
+        because language detection was slow or the gateway was down.
+        """
+        if not settings.exercises.DETECT_LANGUAGE_ON_CAPTURE:
+            return fallback
+        from app.services.ai.client import AIClient
+        from app.services.ai.exercise_generation import ExerciseGenerationService
+
+        timeout = settings.exercises.DETECT_LANGUAGE_TIMEOUT_SECONDS
+        try:
+            detector = ExerciseGenerationService(AIClient(timeout=timeout))
+            code = await asyncio.wait_for(detector.detect_language(word, sentence), timeout=timeout + 1)
+        except Exception:  # noqa: BLE001 — detection is best-effort, never blocks a save
+            logger.warning("Language detection failed for %r; using hint %r", word, fallback)
+            return fallback
+        return code or fallback
+
     async def get_detail(self, user_id: int, user_word_uuid) -> UserWordDetailOut:
         """One personal entry with its cached translation and saved sentences."""
         uw = await self.user_words.get_for_user(user_id, user_word_uuid)
@@ -108,14 +140,22 @@ class CaptureService:
         await self.contexts.delete_by(user_id=user_id, word_uuid=uw.word_uuid)
         await self.user_words.delete_one(uw)
 
+    async def list_languages(self, user_id: int) -> list[LanguageCountOut]:
+        """The languages the user is learning (distinct word languages) + counts."""
+        rows = await self.user_words.languages_for_user(user_id)
+        return [LanguageCountOut(language=lang, count=count) for lang, count in rows]
+
     async def list_vocabulary(
         self,
         user_id: int,
         page: int = 1,
         limit: int = 20,
         query: str | None = None,
+        language: str | None = None,
     ) -> Page[UserWordOut]:
-        rows, total = await self.user_words.list_for_user(user_id, page=page, limit=limit, query=query)
+        rows, total = await self.user_words.list_for_user(
+            user_id, page=page, limit=limit, query=query, language=language
+        )
         return Page[UserWordOut](
             items=[UserWordOut.from_user_word(uw) for uw in rows],
             total=total,

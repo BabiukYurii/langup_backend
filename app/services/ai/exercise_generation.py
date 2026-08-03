@@ -5,6 +5,7 @@ import re
 from fastapi import Depends
 
 from app.core.exc import AIResponseValidationError
+from app.core.languages import is_supported
 from app.schemas.ai import (
     Blank,
     FillInBlankParams,
@@ -19,10 +20,12 @@ from app.services.ai.client import AIClient, get_ai_client
 from app.services.ai.prompts import (
     FILL_IN_BLANK_SYSTEM,
     FLASHCARD_SYSTEM,
+    LANGUAGE_DETECTION_SYSTEM,
     MULTIPLE_CHOICE_SYSTEM,
     TRANSLATION_SYSTEM,
     build_fill_in_blank_prompt,
     build_flashcard_prompt,
+    build_language_detection_prompt,
     build_multiple_choice_prompt,
     build_translation_prompt,
 )
@@ -59,6 +62,21 @@ class ExerciseGenerationService:
         # Translation is a lookup, not a creative task — keep it near-deterministic.
         reply = await self.ai.chat_json(TRANSLATION_SYSTEM, user_prompt, temperature=0.1)
         return _normalize_translation(_parse_translation(reply), params.word)
+
+    async def detect_language(self, word: str, sentence: str | None = None) -> str | None:
+        """Best guess at the language of a captured word (ISO 639-1), or None.
+
+        Returns None for anything outside the supported set so a stray guess
+        can't create a word under a language the product doesn't handle.
+        """
+        prompt = build_language_detection_prompt(word, sentence)
+        reply = await self.ai.chat_json(LANGUAGE_DETECTION_SYSTEM, prompt, temperature=0.0)
+        try:
+            payload = json.loads(reply["content"])
+            code = str(payload.get("language", "")).strip().lower()[:2]
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            return None
+        return code if is_supported(code) else None
 
     @staticmethod
     def _parse(reply: dict, words: list[str]) -> GeneratedFillInBlank:

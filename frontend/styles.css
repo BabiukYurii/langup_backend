@@ -1125,6 +1125,21 @@ a.btn {
 .grade--easy { background: var(--ok); }
 .grade--easy:hover { background: #2fa561; }
 
+/* language switcher on the practice page */
+#langs-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.langs__label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+}
+
 /* ===================== word detail modal ================================= */
 .btn--danger {
   background: #e03131;

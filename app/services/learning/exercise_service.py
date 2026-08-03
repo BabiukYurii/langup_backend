@@ -115,9 +115,15 @@ class ExercisePoolService:
         await self.exercises.drop_ready_of_types(user_id, disabled)
         return ExercisePreferences(exercise_types=prefs.exercise_types)
 
-    async def get_next(self, user_id: int, exercise_type: ExerciseType | None = None) -> ExerciseOut:
-        """Hand out the next pending exercise (re-serving an unanswered one first)."""
-        ex = await self.exercises.next_pending(user_id, exercise_type.value if exercise_type else None)
+    async def get_next(
+        self, user_id: int, exercise_type: ExerciseType | None = None, language: str | None = None
+    ) -> ExerciseOut:
+        """Hand out the next pending exercise (re-serving an unanswered one first).
+
+        Scoped to the language being practised (explicit, else the user's current
+        one) so switching languages shows that language's exercises."""
+        lang = await self._active_language(user_id, language)
+        ex = await self.exercises.next_pending(user_id, exercise_type.value if exercise_type else None, lang)
         if not ex:
             raise ObjectNotFoundException(None, "Exercise")
         if ex.status != ExerciseStatus.SERVED.value:
@@ -165,7 +171,9 @@ class ExercisePoolService:
             mastery_level=mastery,
         )
 
-    async def replenish(self, user_id: int, exercise_type: ExerciseType | None = None) -> int:
+    async def replenish(
+        self, user_id: int, exercise_type: ExerciseType | None = None, language: str | None = None
+    ) -> int:
         """Top the pool back up to EXERCISE_POOL_TARGET unanswered exercises.
 
         Best-effort: words the AI service can't turn into a valid exercise are
@@ -173,10 +181,12 @@ class ExercisePoolService:
 
         `exercise_type` serves an explicit "I want this kind now" request and
         ignores the overall target: a full pool of other types is exactly the
-        situation where the learner cannot get the type they picked.
+        situation where the learner cannot get the type they picked. `language`
+        (explicit, else the user's current one) builds only that language.
         """
+        lang = await self._active_language(user_id, language)
         if exercise_type:
-            return await self._generate_of_type(user_id, exercise_type)
+            return await self._generate_of_type(user_id, exercise_type, lang)
 
         enabled = (await self.get_preferences(user_id)).exercise_types
         created = 0
@@ -194,12 +204,12 @@ class ExercisePoolService:
         # enough the pool was already full of single-word exercises.
         if ExerciseType.MATCH_PAIRS in enabled and (budget is None or created < budget):
             try:
-                created += int(await self._generate_match_pairs(user_id))
+                created += int(await self._generate_match_pairs(user_id, lang))
             except (AIProviderError, AIResponseValidationError) as e:
                 logger.warning("Skipping match-pairs round: %s: %s", type(e).__name__, e)
 
         cycle = [t for t in enabled if t != ExerciseType.MATCH_PAIRS]
-        need = settings.exercises.EXERCISE_POOL_TARGET - await self.exercises.count_pending(user_id)
+        need = settings.exercises.EXERCISE_POOL_TARGET - await self.exercises.count_pending(user_id, lang)
         if budget is not None:
             need = min(need, budget - created)
         if not cycle or need <= 0:
@@ -209,7 +219,7 @@ class ExercisePoolService:
         # Rotate the remaining types; offset by the user's total so the same
         # word gets different types across refills.
         _, total_ever = await self.exercises.get_many(user_id=user_id, limit=1)
-        queue = await self._candidate_words(user_id, need)
+        queue = await self._candidate_words(user_id, need, lang)
 
         for i in range(need):
             if not queue:
@@ -224,14 +234,14 @@ class ExercisePoolService:
         await self.usage.consume_generations(user_id, created)
         return created
 
-    async def _generate_of_type(self, user_id: int, ex_type: ExerciseType) -> int:
+    async def _generate_of_type(self, user_id: int, ex_type: ExerciseType, language: str | None = None) -> int:
         """Make exercises of one type because the learner asked for that type."""
         budget = await self.usage.generation_budget(user_id)
         if budget is not None and budget <= 0:
             return 0
 
         if ex_type == ExerciseType.MATCH_PAIRS:
-            created = int(await self._generate_match_pairs(user_id))
+            created = int(await self._generate_match_pairs(user_id, language))
             await self.usage.consume_generations(user_id, created)
             return created
 
@@ -239,7 +249,7 @@ class ExercisePoolService:
         # repeating a known word is what practice is, and refusing to build the
         # requested type would leave the learner with an empty screen.
         want = _ON_DEMAND_PER_TYPE if budget is None else min(_ON_DEMAND_PER_TYPE, budget)
-        words = (await self._candidate_words(user_id, _ON_DEMAND_PER_TYPE))[:want]
+        words = (await self._candidate_words(user_id, _ON_DEMAND_PER_TYPE, language))[:want]
         created = 0
         for uw in words:
             try:
@@ -251,39 +261,52 @@ class ExercisePoolService:
         await self.usage.consume_generations(user_id, created)
         return created
 
-    async def _candidate_words(self, user_id: int, limit: int) -> list[UserWord]:
+    async def _candidate_words(self, user_id: int, limit: int, language: str | None = None) -> list[UserWord]:
         """Words to build exercises from: due ones first, topped up to `limit`.
 
         Once a learner has practised, SM-2 schedules most words into the future,
         so only a handful stay due. Returning just those starved match-pairs
         (which needs several) and left the pool half-empty — so the rest of the
-        vocabulary fills the gap when there are not enough due words.
+        vocabulary fills the gap when there are not enough due words. Restricted
+        to `language` when set, so a refill builds only the language being studied.
         """
-        due = await self.user_words.list_due(user_id, _utcnow(), limit=limit)
+        due = await self.user_words.list_due(user_id, _utcnow(), limit=limit, language=language)
         if len(due) >= limit:
             return due
 
-        rows, _ = await self.user_words.list_for_user(user_id, page=1, limit=limit)
+        rows, _ = await self.user_words.list_for_user(user_id, page=1, limit=limit, language=language)
         seen = {uw.uuid for uw in due}
         return due + [uw for uw in rows if uw.uuid not in seen][: limit - len(due)]
+
+    async def _active_language(self, user_id: int, language: str | None) -> str | None:
+        """The language to generate/serve for: the explicit choice, else the
+        user's current practice language (target_language). None = any."""
+        if language:
+            return language
+        user = await self.users.get_by_id(user_id)
+        return user.target_language if user else None
 
     async def _translation_language(self, user_id: int) -> str:
         return await translation_language_for(self.session, user_id)
 
-    async def _generate_match_pairs(self, user_id: int) -> bool:
+    async def _generate_match_pairs(self, user_id: int, language: str | None = None) -> bool:
         """Build one match-pairs round out of several words. Returns False when
         there is not enough usable vocabulary — that is normal, not an error."""
         # A round is a whole session over many words, not a single card. Queuing
-        # several at once would just repeat the same words, so keep one pending.
-        if await self.exercises.has_pending_of_type(user_id, ExerciseType.MATCH_PAIRS.value):
+        # several at once would just repeat the same words, so keep one pending
+        # per language being studied.
+        if await self.exercises.has_pending_of_type(user_id, ExerciseType.MATCH_PAIRS.value, language):
             return False
 
         visible = settings.exercises.MATCH_PAIRS_VISIBLE
-        user_words = await self._candidate_words(user_id, settings.exercises.MATCH_PAIRS_TOTAL)
+        user_words = await self._candidate_words(user_id, settings.exercises.MATCH_PAIRS_TOTAL, language)
         if len(user_words) < visible:
             logger.info("Not enough vocabulary for a match-pairs round (%d words)", len(user_words))
             return False
 
+        # The round is all one practice language; its exercise row is tagged with
+        # it (the words' language), not the native translation target.
+        practice_language = language or (user_words[0].word.language if user_words else None)
         target_language = await self._translation_language(user_id)
         translations = await self.translations.translate_words([uw.word for uw in user_words], target_language)
 
@@ -313,6 +336,7 @@ class ExercisePoolService:
             {
                 "user_id": user_id,
                 "word_uuid": None,  # a round spans many words
+                "language": practice_language,
                 "exercise_type": ExerciseType.MATCH_PAIRS.value,
                 "status": ExerciseStatus.READY.value,
                 "prompt": "Match each word with its translation.",
@@ -404,6 +428,7 @@ class ExercisePoolService:
             {
                 "user_id": user_id,
                 "word_uuid": uw.word_uuid,
+                "language": uw.word.language,
                 "exercise_type": ex_type.value,
                 "status": ExerciseStatus.READY.value,
                 "prompt": prompt,
