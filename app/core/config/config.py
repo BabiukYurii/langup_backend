@@ -1,8 +1,16 @@
+from app.core.config.ai import AIConfig
 from app.core.config.app import AppBaseConfig
 from app.core.config.auth import AuthConfig
 from app.core.config.base import BaseConfig
+from app.core.config.celery import CeleryConfig
 from app.core.config.db import DbBaseConfig
+from app.core.config.email import EmailConfig
+from app.core.config.exercises import ExerciseConfig
 from app.core.config.jwt import JwtConfig
+from app.core.config.limits import LimitsConfig
+from app.core.config.payments import PaymentsConfig
+from app.core.config.rate_limit import RateLimitConfig
+from app.core.config.redis import RedisConfig
 
 __all__ = ["Settings", "settings"]
 
@@ -15,6 +23,14 @@ class Settings(BaseConfig):
     db: DbBaseConfig = DbBaseConfig()
     jwt: JwtConfig = JwtConfig()
     auth: AuthConfig = AuthConfig()
+    ai: AIConfig = AIConfig()
+    exercises: ExerciseConfig = ExerciseConfig()
+    redis: RedisConfig = RedisConfig()
+    celery: CeleryConfig = CeleryConfig()
+    rate_limit: RateLimitConfig = RateLimitConfig()
+    payments: PaymentsConfig = PaymentsConfig()
+    limits: LimitsConfig = LimitsConfig()
+    email: EmailConfig = EmailConfig()
 
 
 settings = Settings()

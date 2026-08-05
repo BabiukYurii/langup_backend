@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Admin</title>
+    <link rel="stylesheet" href="styles.css?v=dev" />
+  </head>
+  <body>
+    <main class="shell shell--narrow">
+      <header class="brand">
+        <span class="brand__logo">L</span>
+        <span class="brand__name">LangUp</span>
+      </header>
+
+      <!-- USERS LIST -->
+      <section id="users-view" class="card">
+        <div class="words-bar">
+          <a href="index.html" class="btn btn--ghost">← Profile</a>
+          <div class="dict__head">
+            <h1 class="card__title">Users</h1>
+            <span id="users-count" class="meta"></span>
+          </div>
+        </div>
+
+        <div class="admin__listbar">
+          <input id="users-search" class="dict__search" type="text" placeholder="Search by email or name…" />
+          <button id="new-user-btn" class="btn btn--primary" type="button">＋ New</button>
+          <button id="dict-import-btn" class="btn btn--ghost" type="button">Import dictionary</button>
+        </div>
+
+        <form id="dict-import-form" class="admin__create hidden">
+          <div class="admin__create-actions" style="justify-content: flex-start">
+            <input id="di-source" type="text" placeholder="source lang (en)" maxlength="8" value="en" required style="max-width: 140px" />
+            <input id="di-target" type="text" placeholder="translation lang (uk)" maxlength="8" value="uk" required style="max-width: 160px" />
+            <label class="meta" style="display:flex;align-items:center;gap:6px">
+              <input id="di-normalize" type="checkbox" /> LLM normalize (messy input)
+            </label>
+          </div>
+          <textarea id="di-text" rows="6" style="width:100%" placeholder="One pair per line:&#10;occur&#9;стається&#10;demand - вимога&#10;provide, надавати"></textarea>
+          <div class="admin__create-actions">
+            <span id="di-status" class="meta"></span>
+            <button type="button" id="di-cancel" class="btn btn--ghost">Cancel</button>
+            <button type="submit" class="btn btn--primary">Import</button>
+          </div>
+        </form>
+
+        <form id="new-user-form" class="admin__create hidden">
+          <input id="nu-email" type="email" placeholder="Email" autocomplete="off" required />
+          <input id="nu-password" type="password" placeholder="Password (min. 8)" minlength="8" autocomplete="new-password" required />
+          <input id="nu-name" type="text" placeholder="Name (optional)" />
+          <select id="nu-role">
+            <option value="USER">USER</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+          </select>
+          <div class="admin__create-actions">
+            <button type="button" id="nu-cancel" class="btn btn--ghost">Cancel</button>
+            <button type="submit" class="btn btn--primary">Create</button>
+          </div>
+        </form>
+
+        <ul id="users-list" class="dict__list"></ul>
+        <p id="users-empty" class="meta hidden">No one found.</p>
+      </section>
+
+      <!-- USER DETAIL -->
+      <section id="detail-view" class="card hidden">
+        <div class="words-bar">
+          <button id="back-to-users" class="btn btn--ghost" type="button">← List</button>
+          <div class="dict__head">
+            <h1 id="d-email" class="card__title">—</h1>
+            <span id="d-id" class="meta"></span>
+          </div>
+        </div>
+
+        <div class="admin__controls">
+          <label class="field">
+            <span>Name</span>
+            <input id="d-name" type="text" placeholder="—" />
+          </label>
+          <label class="field">
+            <span>Role</span>
+            <select id="d-role">
+              <option value="USER">USER</option>
+              <option value="ADMIN">ADMIN</option>
+              <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Status</span>
+            <select id="d-status">
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+              <option value="DELETED">DELETED</option>
+            </select>
+          </label>
+          <button id="d-save" class="btn btn--primary" type="button">Save</button>
+          <button id="d-delete" class="btn btn--danger" type="button">Delete</button>
+        </div>
+
+        <div class="admin__tabs">
+          <button id="tab-vocab" class="chip chip--on" type="button">Vocabulary</button>
+          <button id="tab-exercises" class="chip" type="button">Exercises</button>
+        </div>
+
+        <form id="add-word-form" class="admin__addword">
+          <input id="aw-word" type="text" placeholder="Word" required />
+          <input id="aw-lang" type="text" placeholder="language (en)" maxlength="8" value="en" required />
+          <button type="submit" class="btn btn--primary">＋ Add</button>
+        </form>
+
+        <ul id="d-vocab" class="dict__list"></ul>
+        <ul id="d-exercises" class="dict__list hidden"></ul>
+        <p id="d-empty" class="meta hidden">Empty.</p>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
+    </main>
+
+    <script src="config.js?v=dev"></script>
+    <script src="api.js?v=dev"></script>
+    <script src="admin.js?v=dev"></script>
+  </body>
+</html>

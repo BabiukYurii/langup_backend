@@ -6,10 +6,9 @@ from sqlalchemy import (
     Integer,
     String,
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.base import Base, TimestampMixin, UUIDMixin, UUIDType
 
 
 class Subscription(Base, UUIDMixin, TimestampMixin):
@@ -17,7 +16,7 @@ class Subscription(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "subscriptions"
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True, nullable=False)
-    plan_uuid = Column(UUID(as_uuid=True), ForeignKey("plans.uuid", ondelete="RESTRICT"), nullable=False)
+    plan_uuid = Column(UUIDType, ForeignKey("plans.uuid", ondelete="RESTRICT"), nullable=False)
     provider = Column(String(16), nullable=True)  # PaymentProvider
     provider_subscription_id = Column(String(255), nullable=True, index=True)
     status = Column(String(16), nullable=False, server_default="TRIALING")  # SubscriptionStatus

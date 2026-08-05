@@ -1,26 +1,8 @@
 "use strict";
 
-const CFG = window.LANGUP_CONFIG || { API_BASE: "/api", GOOGLE_CLIENT_ID: "" };
-const TOKENS = {
-  get access() {
-    return localStorage.getItem("langup_access");
-  },
-  get refresh() {
-    return localStorage.getItem("langup_refresh");
-  },
-  set({ access_token, refresh_token }) {
-    localStorage.setItem("langup_access", access_token);
-    localStorage.setItem("langup_refresh", refresh_token);
-  },
-  clear() {
-    localStorage.removeItem("langup_access");
-    localStorage.removeItem("langup_refresh");
-  },
-};
-
+// Profile page. Shared CFG/TOKENS/apiFetch come from api.js.
 let currentUser = null;
 
-// ---------- DOM helpers ----------
 const $ = (id) => document.getElementById(id);
 const show = (el) => el.classList.remove("hidden");
 const hide = (el) => el.classList.add("hidden");
@@ -34,71 +16,169 @@ function toast(message, kind = "ok") {
   toast._t = setTimeout(() => hide(el), 2600);
 }
 
-// ---------- API ----------
-async function apiFetch(path, options = {}, retry = true) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-  if (TOKENS.access) headers.Authorization = `Bearer ${TOKENS.access}`;
-
-  const resp = await fetch(`${CFG.API_BASE}${path}`, { ...options, headers });
-
-  if (resp.status === 401 && retry && TOKENS.refresh) {
-    const refreshed = await tryRefresh();
-    if (refreshed) return apiFetch(path, options, false);
-  }
-  return resp;
-}
-
-async function tryRefresh() {
-  try {
-    const resp = await fetch(`${CFG.API_BASE}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: TOKENS.refresh }),
-    });
-    if (!resp.ok) return false;
-    TOKENS.set(await resp.json());
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // ---------- views ----------
 function renderProfile(user) {
   currentUser = user;
-  $("p-name").textContent = user.full_name || "Без імені";
+  const firstName = (user.full_name || "").trim().split(" ")[0];
+  $("hero-name").textContent = firstName ? ", " + firstName : "";
+  $("p-name").textContent = user.full_name || "No name";
   $("p-email").textContent = user.email;
   $("avatar").textContent = (user.full_name || user.email || "?").trim().charAt(0).toUpperCase();
   $("p-role").textContent = user.role;
 
   const verified = $("p-verified");
-  verified.textContent = user.is_email_verified ? "email підтверджено" : "не підтверджено";
+  verified.textContent = user.is_email_verified ? "verified" : "not verified";
   verified.className = `badge ${user.is_email_verified ? "badge--ok" : "badge--muted"}`;
+  $("verify-banner").classList.toggle("hidden", user.is_email_verified);
+
+  // The admin panel links only make sense for privileged accounts; the API
+  // still enforces the role, this just hides doors that would 403 anyway.
+  const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+  $("admin-link").classList.toggle("hidden", !isAdmin);
+  $("nav-admin").classList.toggle("hidden", !isAdmin);
 
   $("f-full_name").value = user.full_name || "";
+  ensureLanguageOption($("f-native_language"), user.native_language);
+  ensureLanguageOption($("f-target_language"), user.target_language);
   $("f-native_language").value = user.native_language || "";
   $("f-target_language").value = user.target_language || "";
-  $("p-created").textContent = "З нами з " + new Date(user.created_at).toLocaleDateString();
+  $("p-created").textContent = "With us since " + new Date(user.created_at).toLocaleDateString();
 
   hide($("login-view"));
+  hide($("lang-view"));
   show($("profile-view"));
+  loadSubscription();
+}
+
+// Open/close the account dropdown; close it on any outside click.
+function toggleAccountMenu(force) {
+  const dd = $("account-dropdown");
+  const open = force !== undefined ? force : dd.classList.contains("hidden");
+  dd.classList.toggle("hidden", !open);
+  $("account-btn").setAttribute("aria-expanded", String(open));
+}
+
+// Show the current plan and, for free accounts, an Upgrade button.
+async function loadSubscription() {
+  const box = $("plan-widget");
+  const resp = await apiFetch("/payments/subscription");
+  if (!resp.ok) return hide(box);
+  const sub = await resp.json();
+  show(box);
+  const upgrade = $("upgrade-btn");
+  const manage = $("manage-btn");
+  const renew = $("sub-renew");
+  const when = sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : null;
+
+  if (sub.status === "TRIALING" && sub.is_active) {
+    // Free trial: still premium, but nothing to manage in Stripe yet — nudge to subscribe.
+    $("sub-status").textContent = "Premium trial";
+    show(upgrade);
+    hide(manage);
+    renew.textContent = when ? `Trial ends on ${when}` : "";
+    renew.classList.toggle("hidden", !when);
+  } else if (sub.is_active) {
+    $("sub-status").textContent = "Premium";
+    hide(upgrade);
+    show(manage);
+    renew.textContent = when ? (sub.cancel_at_period_end ? `Ends on ${when}` : `Renews on ${when}`) : "";
+    renew.classList.toggle("hidden", !when);
+  } else {
+    $("sub-status").textContent = "Free";
+    show(upgrade);
+    hide(manage);
+    hide(renew);
+  }
+}
+
+// Open Stripe's Customer Portal to manage or cancel the subscription.
+async function openPortal() {
+  const btn = $("manage-btn");
+  btn.disabled = true;
+  const resp = await apiFetch("/payments/portal", { method: "POST" });
+  btn.disabled = false;
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    return toast(typeof err.detail === "string" ? err.detail : "Could not open the portal", "err");
+  }
+  const { portal_url } = await resp.json();
+  window.location.href = portal_url;
+}
+
+// Open Stripe Checkout for the premium plan and send the browser there.
+async function startCheckout() {
+  const btn = $("upgrade-btn");
+  btn.disabled = true;
+  const resp = await apiFetch("/payments/checkout", {
+    method: "POST",
+    body: JSON.stringify({ plan_code: "premium_monthly" }),
+  });
+  btn.disabled = false;
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    return toast(typeof err.detail === "string" ? err.detail : "Could not start checkout", "err");
+  }
+  const { checkout_url } = await resp.json();
+  window.location.href = checkout_url;
 }
 
 function showLogin() {
   currentUser = null;
   hide($("profile-view"));
+  hide($("lang-view"));
   show($("login-view"));
+}
+
+// A native language is mandatory: a brand-new account must pick one before it
+// reaches the cabinet. An account that already has it (set here or elsewhere)
+// skips this — which is why the extension never needs to ask again.
+function showLangGate(user) {
+  currentUser = user;
+  hide($("login-view"));
+  hide($("profile-view"));
+  show($("lang-view"));
+}
+
+function routeAfterAuth(user) {
+  if (!user.native_language) return showLangGate(user);
+  renderProfile(user);
 }
 
 async function loadProfile() {
   if (!TOKENS.access) return showLogin();
   const resp = await apiFetch("/auth/me");
   if (resp.ok) {
-    renderProfile(await resp.json());
+    routeAfterAuth(await resp.json());
   } else {
     TOKENS.clear();
     showLogin();
   }
+}
+
+async function saveNativeLanguage(event) {
+  event.preventDefault();
+  const native_language = $("l-native_language").value;
+  if (!native_language || !currentUser) return;
+  const resp = await apiFetch(`/users/${currentUser.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ native_language }),
+  });
+  if (resp.ok) {
+    renderProfile(await resp.json());
+    toast("Done!");
+  } else {
+    toast("Could not save the language", "err");
+  }
+}
+
+// Pull a readable message out of an error body: a plain string detail, or the
+// first field message from a 422 validation error (e.g. a weak password).
+function detailMsg(err, fallback) {
+  if (typeof err?.detail === "string") return err.detail;
+  if (Array.isArray(err?.detail) && err.detail[0]?.msg) {
+    return err.detail[0].msg.replace(/^Value error, /, "");
+  }
+  return fallback;
 }
 
 // ---------- actions ----------
@@ -111,13 +191,67 @@ async function onGoogleCredential(response) {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      return toast(err.detail || "Не вдалося увійти", "err");
+      return toast(err.detail || "Could not sign in", "err");
     }
     TOKENS.set(await resp.json());
     await loadProfile();
-    toast("Вітаємо у LangUp!");
+    toast("Welcome to LangUp!");
   } catch {
-    toast("Помилка мережі", "err");
+    toast("Network error", "err");
+  }
+}
+
+// ---------- email + password ----------
+let authMode = "login"; // "login" | "register"
+
+function toggleAuthMode() {
+  authMode = authMode === "login" ? "register" : "login";
+  const registering = authMode === "register";
+  $("a-name-field").classList.toggle("hidden", !registering);
+  $("a-password").autocomplete = registering ? "new-password" : "current-password";
+  $("auth-submit").textContent = registering ? "Sign up" : "Sign in";
+  $("auth-mode-toggle").textContent = registering ? "I already have an account" : "Create account";
+  // "Forgot password?" only makes sense when signing in.
+  $("forgot-link").classList.toggle("hidden", registering);
+}
+
+// Email a reset link for the address typed in the sign-in form. The response is
+// deliberately the same whether or not the email exists (no enumeration).
+async function onForgotPassword() {
+  const email = $("a-email").value.trim();
+  if (!email) return toast("Enter your email above first", "err");
+  try {
+    await fetch(`${CFG.API_BASE}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    /* even on a network error we don't want to hint at account existence */
+  }
+  toast("If that email is registered, we've sent a reset link.");
+}
+
+async function onEmailAuth(event) {
+  event.preventDefault();
+  const body = { email: $("a-email").value.trim(), password: $("a-password").value };
+  if (authMode === "register") body.full_name = $("a-name").value.trim() || null;
+  try {
+    const resp = await fetch(`${CFG.API_BASE}/auth/${authMode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      const fallback = authMode === "register" ? "Could not sign up" : "Invalid email or password";
+      return toast(detailMsg(err, fallback), "err");
+    }
+    TOKENS.set(await resp.json());
+    await loadProfile();
+    toast("Welcome to LangUp!");
+  } catch {
+    toast("Network error", "err");
   }
 }
 
@@ -126,8 +260,8 @@ async function saveProfile(event) {
   if (!currentUser) return;
   const payload = {
     full_name: $("f-full_name").value.trim() || null,
-    native_language: $("f-native_language").value.trim() || null,
-    target_language: $("f-target_language").value.trim() || null,
+    native_language: $("f-native_language").value || null,
+    target_language: $("f-target_language").value || null,
   };
   const resp = await apiFetch(`/users/${currentUser.id}`, {
     method: "PATCH",
@@ -135,17 +269,28 @@ async function saveProfile(event) {
   });
   if (resp.ok) {
     renderProfile(await resp.json());
-    toast("Збережено");
+    toast("Saved");
   } else {
-    toast("Не вдалося зберегти", "err");
+    toast("Could not save", "err");
   }
 }
 
-function logout() {
-  TOKENS.clear();
+// Re-send the confirmation email for an unverified account.
+async function resendVerification() {
+  const btn = $("resend-verify-btn");
+  btn.disabled = true;
+  const resp = await apiFetch("/auth/verify-email/resend", { method: "POST" });
+  btn.disabled = false;
+  if (!resp.ok) return toast("Could not send the email", "err");
+  const { status } = await resp.json();
+  toast(status === "already_verified" ? "Already verified" : "Verification email sent");
+}
+
+async function logout() {
+  await logoutRequest();
   if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
   showLogin();
-  toast("Ви вийшли");
+  toast("Signed out");
 }
 
 // ---------- Google Sign-In init ----------
@@ -155,7 +300,6 @@ function initGoogle() {
     return;
   }
   if (!window.google?.accounts?.id) {
-    // GIS script not ready yet — retry shortly.
     return setTimeout(initGoogle, 200);
   }
   window.google.accounts.id.initialize({
@@ -173,8 +317,34 @@ function initGoogle() {
 
 // ---------- boot ----------
 document.addEventListener("DOMContentLoaded", () => {
+  // One shared language list for every dropdown in the cabinet.
+  fillLanguageSelect($("l-native_language"), "Select a language…");
+  fillLanguageSelect($("f-native_language"), "— not set —");
+  fillLanguageSelect($("f-target_language"), "— not set —");
+
   $("profile-form").addEventListener("submit", saveProfile);
+  $("email-auth-form").addEventListener("submit", onEmailAuth);
+  $("auth-mode-toggle").addEventListener("click", toggleAuthMode);
+  $("forgot-link").addEventListener("click", onForgotPassword);
+  $("lang-form").addEventListener("submit", saveNativeLanguage);
+  $("upgrade-btn").addEventListener("click", startCheckout);
+  $("manage-btn").addEventListener("click", openPortal);
   $("logout-btn").addEventListener("click", logout);
+  $("resend-verify-btn").addEventListener("click", resendVerification);
+
+  // Account dropdown: toggle on the avatar, close on any outside click.
+  $("account-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleAccountMenu();
+  });
+  document.addEventListener("click", (e) => {
+    if (!$("account").contains(e.target)) toggleAccountMenu(false);
+  });
+
+  // Landing back from the verification link.
+  const verified = new URLSearchParams(location.search).get("verified");
+  if (verified === "1") toast("Email confirmed — you're all set!");
+  else if (verified === "0") toast("That link is invalid or expired", "err");
   initGoogle();
   loadProfile();
 });

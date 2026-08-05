@@ -10,6 +10,10 @@ engine = create_async_engine(
     echo=settings.db.ECHO,
     future=True,
     connect_args=settings.db.connect_args,
+    # Neon (serverless) closes idle connections; verify liveness before use and
+    # recycle connections before they can go stale — avoids "connection is closed".
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

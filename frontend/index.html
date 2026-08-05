@@ -1,72 +1,159 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LangUp — Особистий кабінет</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>LangUp — Home</title>
+    <link rel="stylesheet" href="styles.css?v=dev" />
   </head>
   <body>
     <main class="shell">
-      <header class="brand">
-        <span class="brand__logo">L</span>
-        <span class="brand__name">LangUp</span>
-      </header>
+      <!-- ===================== AUTH (narrow, centered) ===================== -->
+      <div class="auth-wrap">
+        <!-- LOGIN -->
+        <section id="login-view" class="card hidden">
+          <header class="brand brand--center">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </header>
+          <h1 class="card__title">Sign in</h1>
+          <p class="card__subtitle">Create an account or sign in with Google.</p>
 
-      <!-- LOGIN -->
-      <section id="login-view" class="card hidden">
-        <h1 class="card__title">Вхід до кабінету</h1>
-        <p class="card__subtitle">Створи акаунт або увійди за допомогою Google.</p>
+          <div id="google-btn" class="google-btn"></div>
+          <p id="google-missing" class="notice hidden">
+            Google Sign-In is disabled: add <code>GOOGLE_CLIENT_ID</code> in
+            <code>frontend/config.js</code>.
+          </p>
 
-        <div id="google-btn" class="google-btn"></div>
-        <p id="google-missing" class="notice hidden">
-          Google Sign-In вимкнено: додай <code>GOOGLE_CLIENT_ID</code> у
-          <code>frontend/config.js</code>.
-        </p>
-      </section>
+          <div class="auth-divider"><span>or</span></div>
 
-      <!-- PROFILE -->
-      <section id="profile-view" class="card hidden">
-        <div class="profile__head">
-          <div id="avatar" class="avatar">?</div>
-          <div class="profile__id">
-            <h1 id="p-name" class="card__title">—</h1>
-            <p id="p-email" class="card__subtitle">—</p>
-            <div class="badges">
-              <span id="p-role" class="badge">USER</span>
-              <span id="p-verified" class="badge badge--muted">не підтверджено</span>
+          <form id="email-auth-form" class="form">
+            <label class="field">
+              <span>Email</span>
+              <input id="a-email" type="email" autocomplete="email" required placeholder="you@example.com" />
+            </label>
+            <label class="field">
+              <span>Password</span>
+              <input id="a-password" type="password" autocomplete="current-password" required minlength="8" placeholder="********" />
+            </label>
+            <label class="field hidden" id="a-name-field">
+              <span>Name (optional)</span>
+              <input id="a-name" type="text" autocomplete="name" placeholder="Your name" />
+            </label>
+            <div class="form__actions">
+              <button id="auth-mode-toggle" class="btn btn--ghost" type="button">Create account</button>
+              <button id="auth-submit" class="btn btn--primary" type="submit">Sign in</button>
+            </div>
+            <button id="forgot-link" class="link-btn" type="button">Forgot password?</button>
+          </form>
+        </section>
+
+        <!-- NATIVE LANGUAGE (required for new accounts) -->
+        <section id="lang-view" class="card hidden">
+          <header class="brand brand--center">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </header>
+          <h1 class="card__title">Choose your native language</h1>
+          <p class="card__subtitle">We translate saved words into it. You only need to set this once.</p>
+          <form id="lang-form" class="form">
+            <label class="field">
+              <span>Native language — the one you speak</span>
+              <select id="l-native_language" required></select>
+            </label>
+            <div class="form__actions">
+              <span></span>
+              <button class="btn btn--primary" type="submit">Continue</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <!-- ===================== HOME (wide app) ===================== -->
+      <section id="profile-view" class="app hidden">
+        <nav class="topbar">
+          <a href="index.html" class="brand">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </a>
+          <div class="topbar__nav">
+            <a href="dashboard.html" class="topbar__link">Dashboard</a>
+            <a href="review.html" class="topbar__link">Review</a>
+            <a href="words.html" class="topbar__link">Dictionary</a>
+            <a href="practice.html" class="topbar__link">Practice</a>
+            <a id="nav-admin" href="admin.html" class="topbar__link hidden">Admin</a>
+          </div>
+          <div id="plan-widget" class="plan-widget hidden">
+            <span id="sub-status" class="plan-widget__label">—</span>
+            <button id="upgrade-btn" class="btn btn--primary btn--sm hidden" type="button">Upgrade</button>
+            <button id="manage-btn" class="btn btn--ghost btn--sm hidden" type="button">Manage</button>
+          </div>
+          <div id="account" class="account">
+            <button id="account-btn" class="account__btn" type="button" aria-haspopup="true" aria-expanded="false">
+              <span id="avatar" class="avatar avatar--sm">?</span>
+            </button>
+            <div id="account-dropdown" class="account__dropdown hidden">
+              <div class="account__head">
+                <span id="p-name" class="account__name">—</span>
+                <span id="p-email" class="account__email">—</span>
+                <div class="badges">
+                  <span id="p-role" class="badge">USER</span>
+                  <span id="p-verified" class="badge badge--muted">not verified</span>
+                </div>
+                <span id="sub-renew" class="meta hidden"></span>
+              </div>
+              <a href="#settings-card" class="account__item">Account settings</a>
+              <a id="admin-link" href="admin.html" class="account__item hidden">Admin panel</a>
+              <button id="logout-btn" class="account__item account__item--danger" type="button">Sign out</button>
             </div>
           </div>
-          <button id="logout-btn" class="btn btn--ghost" type="button">Вийти</button>
+        </nav>
+
+        <div id="verify-banner" class="verify-banner hidden">
+          <span>Confirm your email to save words and practise.</span>
+          <button id="resend-verify-btn" class="btn btn--ghost" type="button">Resend email</button>
         </div>
 
-        <form id="profile-form" class="form">
-          <label class="field">
-            <span>Ім'я</span>
-            <input id="f-full_name" type="text" placeholder="Ваше ім'я" />
-          </label>
-          <div class="field-row">
-            <label class="field">
-              <span>Рідна мова</span>
-              <input id="f-native_language" type="text" maxlength="8" placeholder="uk" />
-            </label>
-            <label class="field">
-              <span>Вивчаю</span>
-              <input id="f-target_language" type="text" maxlength="8" placeholder="en" />
-            </label>
+        <div class="home-main">
+          <div class="hero">
+            <h1 class="hero__title">Welcome back<span id="hero-name"></span></h1>
+            <p class="hero__subtitle">Pick up where you left off, or check your progress.</p>
           </div>
-          <div class="form__actions">
-            <span id="p-created" class="meta">—</span>
-            <button class="btn btn--primary" type="submit">Зберегти</button>
-          </div>
-        </form>
+
+          <!-- Account settings -->
+          <section id="settings-card" class="card">
+            <h2 class="card__title">Account settings</h2>
+            <p class="card__subtitle">Your name and the two languages we work with.</p>
+            <form id="profile-form" class="form">
+              <label class="field">
+                <span>Name</span>
+                <input id="f-full_name" type="text" placeholder="Your name" />
+              </label>
+              <div class="field-row">
+                <label class="field">
+                  <span>I speak (native)</span>
+                  <select id="f-native_language"></select>
+                </label>
+                <label class="field">
+                  <span>I'm learning</span>
+                  <select id="f-target_language"></select>
+                </label>
+              </div>
+              <div class="form__actions">
+                <span id="p-created" class="meta">—</span>
+                <button class="btn btn--primary" type="submit">Save changes</button>
+              </div>
+            </form>
+          </section>
+        </div>
       </section>
 
       <div id="toast" class="toast hidden"></div>
     </main>
 
     <script src="https://accounts.google.com/gsi/client" async></script>
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="config.js?v=dev"></script>
+    <script src="api.js?v=dev"></script>
+    <script src="app.js?v=dev"></script>
   </body>
 </html>

@@ -50,6 +50,7 @@ dependencies = [
     "jinja2>=3.1.4",
     # --- di ---
     "dependency-injector>=4.45.0",
+    "simplemma>=1.2.0",
 ]
 
 [dependency-groups]

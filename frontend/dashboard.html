@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Dashboard</title>
+    <link rel="stylesheet" href="styles.css?v=dev" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="app">
+        <nav class="topbar">
+          <a href="index.html" class="brand">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </a>
+          <div class="topbar__nav">
+            <a href="dashboard.html" class="topbar__link is-active">Dashboard</a>
+            <a href="review.html" class="topbar__link">Review</a>
+            <a href="words.html" class="topbar__link">Dictionary</a>
+            <a href="practice.html" class="topbar__link">Practice</a>
+            <a href="index.html" class="topbar__link">Home</a>
+          </div>
+        </nav>
+
+        <div class="hero hero--split">
+          <div>
+            <h1 class="hero__title">Your progress</h1>
+            <p class="hero__subtitle">A snapshot of your vocabulary and daily practice.</p>
+          </div>
+          <div class="hero__actions">
+            <a href="review.html" class="btn btn--primary">Review now →</a>
+            <a href="practice.html" class="btn btn--ghost">Practice</a>
+          </div>
+        </div>
+
+        <!-- key numbers -->
+        <div class="grid grid--4">
+          <div class="stat stat--accent">
+            <span id="stat-total" class="stat__value">—</span>
+            <span class="stat__label">Words saved</span>
+          </div>
+          <div class="stat">
+            <span id="stat-due" class="stat__value">—</span>
+            <span class="stat__label">Due for review</span>
+          </div>
+          <div class="stat">
+            <span id="stat-mastered" class="stat__value">—</span>
+            <span class="stat__label">Mastered</span>
+          </div>
+          <div class="stat">
+            <span id="stat-gen" class="stat__value">—</span>
+            <span class="stat__label">AI generations today</span>
+          </div>
+        </div>
+
+        <div class="grid grid--2">
+          <!-- mastery breakdown -->
+          <section class="card">
+            <h2 class="card__title">Mastery breakdown</h2>
+            <p class="card__subtitle">How far along each of your words is.</p>
+            <div id="mastery-empty" class="notice hidden">
+              No words yet — save your first one with the extension to see progress here.
+            </div>
+            <div id="mastery-wrap">
+              <div class="mastery">
+                <div id="seg-new" class="mastery__seg mastery__seg--new"></div>
+                <div id="seg-learning" class="mastery__seg mastery__seg--learning"></div>
+                <div id="seg-review" class="mastery__seg mastery__seg--review"></div>
+                <div id="seg-mastered" class="mastery__seg mastery__seg--mastered"></div>
+              </div>
+              <div class="mastery-legend">
+                <span><i class="dot dot--new"></i>New <b id="cnt-new">0</b></span>
+                <span><i class="dot dot--learning"></i>Learning <b id="cnt-learning">0</b></span>
+                <span><i class="dot dot--review"></i>Review <b id="cnt-review">0</b></span>
+                <span><i class="dot dot--mastered"></i>Mastered <b id="cnt-mastered">0</b></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- plan + actions -->
+          <section class="card">
+            <h2 class="card__title">Plan &amp; quick actions</h2>
+            <div id="sub-box" class="sub-box">
+              <div class="sub-box__info">
+                <span class="sub-box__label">Plan</span>
+                <span id="sub-status" class="sub-box__status">—</span>
+                <span id="sub-renew" class="meta hidden"></span>
+              </div>
+            </div>
+            <div class="links-row" style="margin-top: 18px">
+              <a href="practice.html" class="btn btn--primary words-link">Practice →</a>
+              <a href="words.html" class="btn btn--ghost words-link">My dictionary →</a>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
+    </main>
+
+    <script src="config.js?v=dev"></script>
+    <script src="api.js?v=dev"></script>
+    <script src="dashboard.js?v=dev"></script>
+  </body>
+</html>

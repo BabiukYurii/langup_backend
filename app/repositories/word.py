@@ -11,6 +11,13 @@ class WordRepository(BaseRepository[Word]):
     async def get_by_lemma_language(self, lemma: str, language: str) -> Word | None:
         return await self.get_one(lemma=lemma, language=language)
 
+    async def get_by_lemmas(self, lemmas: list[str], language: str) -> list[Word]:
+        """Fetch every existing word for a batch of lemmas in one query (bulk import)."""
+        if not lemmas:
+            return []
+        stmt = select(Word).where(Word.language == language, Word.lemma.in_(lemmas))
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def search(
         self,
         page: int = 1,

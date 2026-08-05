@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Practice</title>
+    <link rel="stylesheet" href="styles.css?v=dev" />
+  </head>
+  <body>
+    <main class="shell shell--narrow">
+      <header class="brand">
+        <span class="brand__logo">L</span>
+        <span class="brand__name">LangUp</span>
+      </header>
+
+      <section class="card">
+        <div class="words-bar">
+          <a href="index.html" class="btn btn--ghost">← Profile</a>
+          <div class="dict__head">
+            <h1 class="card__title">Practice</h1>
+          </div>
+        </div>
+
+        <!-- language picker (shown only when learning more than one) -->
+        <div id="langs-bar" class="types hidden">
+          <span class="langs__label">Language</span>
+          <div id="langs-list" class="types__list"></div>
+        </div>
+
+        <!-- type picker -->
+        <div id="types-bar" class="types hidden">
+          <div id="types-list" class="types__list"></div>
+        </div>
+
+        <!-- exercise -->
+        <div id="ex-view" class="hidden">
+          <p id="ex-prompt" class="card__subtitle"></p>
+          <div id="ex-meter" class="meter hidden">
+            <div id="ex-lives" class="lives"></div>
+            <span id="ex-timer" class="timer"></span>
+          </div>
+          <p id="ex-text" class="ex__text"></p>
+          <div id="ex-blanks"></div>
+          <div class="form__actions">
+            <span id="ex-status" class="meta"></span>
+            <button id="ex-submit" class="btn btn--primary" type="button" disabled>Answer</button>
+          </div>
+        </div>
+
+        <!-- result -->
+        <div id="res-view" class="hidden">
+          <div id="res-banner" class="ex__result"></div>
+          <div class="form__actions">
+            <span id="res-mastery" class="meta"></span>
+            <div class="links-row">
+              <button id="res-generate" class="btn btn--ghost" type="button">Generate more</button>
+              <button id="res-next" class="btn btn--primary" type="button">Next exercise →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- empty pool -->
+        <div id="empty-view" class="hidden">
+          <p id="empty-text" class="card__subtitle">
+            No exercises ready yet. They're generated automatically after you save
+            new words with the extension — this usually takes up to a minute.
+          </p>
+          <div class="form__actions">
+            <span id="empty-status" class="meta"></span>
+            <div class="links-row">
+              <button id="empty-retry" class="btn btn--ghost" type="button">Refresh</button>
+              <button id="empty-generate" class="btn btn--primary" type="button">Generate more</button>
+            </div>
+          </div>
+        </div>
+
+        <p id="loading" class="meta">Loading…</p>
+      </section>
+    </main>
+
+    <script src="config.js?v=dev"></script>
+    <script src="api.js?v=dev"></script>
+    <script src="practice.js?v=dev"></script>
+  </body>
+</html>

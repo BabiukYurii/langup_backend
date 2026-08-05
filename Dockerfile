@@ -1,25 +1,45 @@
-# Multi-stage image using uv for fast, reproducible installs.
-FROM python:3.13-slim AS base
+# Dockerfile — production image for Render (Docker runtime).
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS base
 
-# Install uv (standalone binary).
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    curl \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
+FROM base AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/app/venv
 
 WORKDIR /app
 
 # Install dependencies first (cached layer) using the lockfile.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
 
-# Copy the application source.
-COPY . .
-RUN uv sync --frozen --no-dev
+# Copy the source and install the project itself.
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
-ENV PATH="/app/.venv/bin:$PATH"
+FROM base
+
+ENV UV_PROJECT_ENVIRONMENT=/app/venv
+
+COPY --from=builder /app /app
+
+WORKDIR /app
+ENV PATH="/app/venv/bin:$PATH"
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8000
-CMD ["./start.sh"]
+
+ENTRYPOINT ["/entrypoint.sh"]

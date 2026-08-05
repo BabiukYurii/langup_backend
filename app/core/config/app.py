@@ -11,4 +11,5 @@ class AppBaseConfig(BaseConfig):
     PORT: int = Field(8000, alias="PORT")
     WORKERS: int = Field(1, alias="WORKERS")
     API_PREFIX: str = Field("/api", alias="API_PREFIX")
+    BASE_URL: str = Field("http://localhost:8000", alias="BASE_URL")
     ALLOWED_ORIGINS: list[str] = Field(default_factory=lambda: ["*"], alias="ALLOWED_ORIGINS")

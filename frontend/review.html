@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LangUp — Review</title>
+    <link rel="stylesheet" href="styles.css?v=dev" />
+  </head>
+  <body>
+    <main class="shell shell--narrow">
+      <section class="app">
+        <nav class="topbar">
+          <a href="index.html" class="brand">
+            <span class="brand__logo">L</span>
+            <span class="brand__name">LangUp</span>
+          </a>
+          <div class="topbar__nav">
+            <a href="dashboard.html" class="topbar__link">Dashboard</a>
+            <a href="review.html" class="topbar__link is-active">Review</a>
+            <a href="words.html" class="topbar__link">Dictionary</a>
+            <a href="practice.html" class="topbar__link">Practice</a>
+          </div>
+        </nav>
+
+        <div class="hero">
+          <h1 class="hero__title">Review</h1>
+          <p class="hero__subtitle">Recall each word, then grade yourself. We schedule the next review for you.</p>
+        </div>
+
+        <!-- loading -->
+        <div id="loading" class="card meta">Loading your review queue…</div>
+
+        <!-- nothing due -->
+        <section id="done-view" class="card hidden" style="text-align: center">
+          <h2 class="card__title">All caught up 🎉</h2>
+          <p id="done-text" class="card__subtitle">Nothing is due right now. Save more words or come back later.</p>
+          <div class="links-row" style="justify-content: center; margin-top: 20px">
+            <a href="dashboard.html" class="btn btn--ghost">Dashboard</a>
+            <a href="practice.html" class="btn btn--primary">Practice instead →</a>
+          </div>
+        </section>
+
+        <!-- the card -->
+        <section id="card-view" class="card review-card hidden">
+          <div class="review-card__top">
+            <span id="rc-lang" class="badge badge--muted">en</span>
+            <span id="rc-progress" class="meta">1 / 1</span>
+          </div>
+
+          <div class="review-card__body">
+            <p id="rc-word" class="rc__word">—</p>
+            <p id="rc-translation" class="rc__translation hidden">—</p>
+          </div>
+
+          <button id="show-btn" class="btn btn--primary rc__show" type="button">Show answer</button>
+
+          <div id="grades" class="rc__grades hidden">
+            <button class="btn grade grade--again" data-q="1" type="button">Forgot</button>
+            <button class="btn grade grade--hard" data-q="3" type="button">Hard</button>
+            <button class="btn grade grade--good" data-q="4" type="button">Good</button>
+            <button class="btn grade grade--easy" data-q="5" type="button">Easy</button>
+          </div>
+        </section>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
+    </main>
+
+    <script src="config.js?v=dev"></script>
+    <script src="api.js?v=dev"></script>
+    <script src="review.js?v=dev"></script>
+  </body>
+</html>
