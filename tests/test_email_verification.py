@@ -51,9 +51,15 @@ async def test_token_is_single_use(client, session):
     await _register(client)
     user = await UserRepository(session).get_by_email(REGISTER["email"])
     raw = await EmailVerificationService(session)._issue_token(user.id)
-    assert "verified=1" in (await client.get(f"/api/auth/verify-email?token={raw}", follow_redirects=False)).headers["location"]
+    assert (
+        "verified=1"
+        in (await client.get(f"/api/auth/verify-email?token={raw}", follow_redirects=False)).headers["location"]
+    )
     # Second use of the same link fails.
-    assert "verified=0" in (await client.get(f"/api/auth/verify-email?token={raw}", follow_redirects=False)).headers["location"]
+    assert (
+        "verified=0"
+        in (await client.get(f"/api/auth/verify-email?token={raw}", follow_redirects=False)).headers["location"]
+    )
 
 
 async def test_resend_reports_status(client, session):

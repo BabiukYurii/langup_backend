@@ -5,9 +5,7 @@ The AI model handles these well and the cabinet's dropdowns offer exactly these
 set so a stray guess can't create words under an unsupported language.
 """
 
-SUPPORTED_LANGUAGES: frozenset[str] = frozenset(
-    {"uk", "pl", "en", "de", "es", "fr", "it", "pt"}
-)
+SUPPORTED_LANGUAGES: frozenset[str] = frozenset({"uk", "pl", "en", "de", "es", "fr", "it", "pt"})
 
 
 def is_supported(code: str | None) -> bool:

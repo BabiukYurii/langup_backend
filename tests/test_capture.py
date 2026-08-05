@@ -70,7 +70,9 @@ async def test_word_detail_returns_translation_and_contexts(app, client, session
 
 async def test_remove_word_from_dictionary(app, client):
     headers = await _login(app, client)
-    uuid = (await client.post("/api/vocabulary", json={"word": "apple", "language": "en"}, headers=headers)).json()["uuid"]
+    uuid = (await client.post("/api/vocabulary", json={"word": "apple", "language": "en"}, headers=headers)).json()[
+        "uuid"
+    ]
 
     assert (await client.delete(f"/api/vocabulary/{uuid}", headers=headers)).status_code == 204
     listing = (await client.get("/api/vocabulary", headers=headers)).json()

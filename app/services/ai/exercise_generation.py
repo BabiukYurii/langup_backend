@@ -20,14 +20,14 @@ from app.services.ai.client import AIClient, get_ai_client
 from app.services.ai.prompts import (
     FILL_IN_BLANK_SYSTEM,
     FLASHCARD_SYSTEM,
-    LANGUAGE_DETECTION_SYSTEM,
     MULTIPLE_CHOICE_SYSTEM,
     TRANSLATION_SYSTEM,
+    WORD_ANALYSIS_SYSTEM,
     build_fill_in_blank_prompt,
     build_flashcard_prompt,
-    build_language_detection_prompt,
     build_multiple_choice_prompt,
     build_translation_prompt,
+    build_word_analysis_prompt,
 )
 
 # Low temperature: exercises need format compliance, not creative writing.
@@ -63,20 +63,24 @@ class ExerciseGenerationService:
         reply = await self.ai.chat_json(TRANSLATION_SYSTEM, user_prompt, temperature=0.1)
         return _normalize_translation(_parse_translation(reply), params.word)
 
-    async def detect_language(self, word: str, sentence: str | None = None) -> str | None:
-        """Best guess at the language of a captured word (ISO 639-1), or None.
+    async def analyze_word(self, word: str, sentence: str | None = None) -> tuple[str | None, str | None]:
+        """A captured word's (language, dictionary base form).
 
-        Returns None for anything outside the supported set so a stray guess
-        can't create a word under a language the product doesn't handle.
+        language is None for anything outside the supported set, so a stray guess
+        can't create a word under a language the product doesn't handle. lemma is
+        None when the model gives nothing usable, so the caller can fall back to
+        offline lemmatization. The AI base form is far better than a rule-based
+        lemmatizer for inflected languages (Polish "barki" -> "bark").
         """
-        prompt = build_language_detection_prompt(word, sentence)
-        reply = await self.ai.chat_json(LANGUAGE_DETECTION_SYSTEM, prompt, temperature=0.0)
+        prompt = build_word_analysis_prompt(word, sentence)
+        reply = await self.ai.chat_json(WORD_ANALYSIS_SYSTEM, prompt, temperature=0.0)
         try:
             payload = json.loads(reply["content"])
             code = str(payload.get("language", "")).strip().lower()[:2]
+            lemma = str(payload.get("lemma", "")).strip()
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-            return None
-        return code if is_supported(code) else None
+            return None, None
+        return (code if is_supported(code) else None), (lemma or None)
 
     @staticmethod
     def _parse(reply: dict, words: list[str]) -> GeneratedFillInBlank:

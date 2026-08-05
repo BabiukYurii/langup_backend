@@ -50,10 +50,11 @@ class CaptureService:
             raise BadRequestException(EMAIL_NOT_VERIFIED)
 
         # The extension only sends a hint ("en"); ask the AI what language the
-        # word really is so words group by their true language. Falls back to
-        # the hint if detection is off or the gateway is slow/unavailable.
+        # word really is (so words group by their true language) and its base
+        # form (far better than a rule-based lemmatizer for inflected languages).
+        # Falls back to the hint + offline lemmatization if the AI is off/slow.
         surface = data.word.strip()
-        language = await self._detect_language(surface, data.sentence, data.language)
+        language, ai_lemma = await self._analyze_word(surface, data.sentence, data.language)
 
         # "I'm learning" is the language of the words you save. Set it on the
         # first capture so the profile reflects reality without asking.
@@ -62,7 +63,8 @@ class CaptureService:
 
         # The shared dictionary is keyed by lemma, so "demands" and "demanded"
         # land on one Word; the form actually captured lives in the context.
-        lemma = to_lemma(surface, language)
+        # Lowercased to match offline lemmatization and keep the key case-stable.
+        lemma = (ai_lemma or to_lemma(surface, language)).strip().lower()
 
         word = await self.words.get_by_lemma_language(lemma, language)
         if not word:
@@ -100,26 +102,27 @@ class CaptureService:
         user_word = await self.user_words.get_with_word(user_word.uuid)
         return UserWordOut.from_user_word(user_word)
 
-    async def _detect_language(self, word: str, sentence: str | None, fallback: str) -> str:
-        """The captured word's language per the AI, or the extension's hint.
+    async def _analyze_word(self, word: str, sentence: str | None, fallback: str) -> tuple[str, str | None]:
+        """The captured word's (language, AI base form) — else (hint, None).
 
         Best-effort: gated by a flag (off in tests/CI), given a short timeout,
-        and any failure falls back to the hint — a save must never hang or fail
-        because language detection was slow or the gateway was down.
+        and any failure falls back to the extension's language hint with no AI
+        lemma (the caller then lemmatizes offline). A save must never hang or
+        fail because the gateway was slow or down.
         """
         if not settings.exercises.DETECT_LANGUAGE_ON_CAPTURE:
-            return fallback
+            return fallback, None
         from app.services.ai.client import AIClient
         from app.services.ai.exercise_generation import ExerciseGenerationService
 
         timeout = settings.exercises.DETECT_LANGUAGE_TIMEOUT_SECONDS
         try:
             detector = ExerciseGenerationService(AIClient(timeout=timeout))
-            code = await asyncio.wait_for(detector.detect_language(word, sentence), timeout=timeout + 1)
-        except Exception:  # noqa: BLE001 — detection is best-effort, never blocks a save
-            logger.warning("Language detection failed for %r; using hint %r", word, fallback)
-            return fallback
-        return code or fallback
+            code, lemma = await asyncio.wait_for(detector.analyze_word(word, sentence), timeout=timeout + 1)
+        except Exception:  # noqa: BLE001 — analysis is best-effort, never blocks a save
+            logger.warning("Word analysis failed for %r; using hint %r", word, fallback)
+            return fallback, None
+        return (code or fallback), lemma
 
     async def get_detail(self, user_id: int, user_word_uuid) -> UserWordDetailOut:
         """One personal entry with its cached translation and saved sentences."""

@@ -59,9 +59,7 @@ def schedule_verification_email(
         background.add_task(send_email, to, subject, html, text)
 
 
-def enqueue_refill(
-    user_id: int, exercise_type: ExerciseType | None, language: str | None = None
-) -> str | None:
+def enqueue_refill(user_id: int, exercise_type: ExerciseType | None, language: str | None = None) -> str | None:
     """Queue an on-demand refill; None means the caller should do it itself."""
     from app.celery.tasks.ai_tasks import refill_pool
 

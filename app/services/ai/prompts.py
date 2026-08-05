@@ -49,8 +49,10 @@ For the {language} word "{word}" (CEFR level {level}):
    - have the same style and similar length as the correct one,
    - be clearly wrong for "{word}" — never a synonym or a close meaning.
 3. Never use the word "{word}" or its forms inside any definition.
+4. Write ALL FOUR definitions in {language}, and nothing else — this is an
+   immersion exercise, so the meanings stay in the language being learned.
 
-Example for the word "reluctant":
+Example (word "reluctant", definitions in English):
 {{
   "definition": "unwilling to do something and hesitating about it",
   "distractors": [
@@ -60,12 +62,13 @@ Example for the word "reluctant":
   ]
 }}
 
-Now respond with one JSON object in exactly that shape for the word "{word}".
+Now respond with one JSON object in that exact shape for "{word}", with every
+definition written in {language}.
 """
 
 
 def build_multiple_choice_prompt(word: str, level: str, language: str) -> str:
-    return MULTIPLE_CHOICE_USER.format(word=word, level=level, language=language)
+    return MULTIPLE_CHOICE_USER.format(word=word, level=level, language=language_name(language))
 
 
 FLASHCARD_SYSTEM = (
@@ -149,30 +152,36 @@ def build_translation_prompt(word: str, source_language: str, target_language: s
     )
 
 
-# --- language detection ----------------------------------------------------
-LANGUAGE_DETECTION_SYSTEM = (
-    "You identify the language of a short text. Always respond with a single "
-    "valid JSON object and nothing else."
+# --- word analysis: language + dictionary base form ------------------------
+WORD_ANALYSIS_SYSTEM = (
+    "You are a multilingual dictionary. Always respond with a single valid JSON object and nothing else."
 )
 
-LANGUAGE_DETECTION_USER = """\
-What language is the word "{word}" written in? Use the surrounding sentence to decide:
+WORD_ANALYSIS_USER = """\
+Analyse the word "{word}" as it appears in this sentence:
 "{sentence}"
 
-Answer with its ISO 639-1 two-letter code, one of: uk, pl, en, de, es, fr, it, pt.
+Return:
+1. "language": its ISO 639-1 two-letter code, one of: uk, pl, en, de, es, fr, it, pt.
+2. "lemma": its dictionary base form IN THAT LANGUAGE — singular nominative for
+   nouns, infinitive for verbs (e.g. Polish "barki" -> "bark", "biegł" -> "biec";
+   German "Hunde" -> "Hund"). Keep the language's normal casing.
 
-Respond as {{"language": "xx"}}
+Respond as {{"language": "xx", "lemma": "..."}}
 """
 
-LANGUAGE_DETECTION_WORD_ONLY = """\
-What language is the word "{word}" written in?
+WORD_ANALYSIS_WORD_ONLY = """\
+Analyse the word "{word}".
 
-Answer with its ISO 639-1 two-letter code, one of: uk, pl, en, de, es, fr, it, pt.
+Return:
+1. "language": its ISO 639-1 two-letter code, one of: uk, pl, en, de, es, fr, it, pt.
+2. "lemma": its dictionary base form in that language (singular nominative for
+   nouns, infinitive for verbs).
 
-Respond as {{"language": "xx"}}
+Respond as {{"language": "xx", "lemma": "..."}}
 """
 
 
-def build_language_detection_prompt(word: str, sentence: str | None = None) -> str:
-    template = LANGUAGE_DETECTION_USER if sentence else LANGUAGE_DETECTION_WORD_ONLY
+def build_word_analysis_prompt(word: str, sentence: str | None = None) -> str:
+    template = WORD_ANALYSIS_USER if sentence else WORD_ANALYSIS_WORD_ONLY
     return template.format(word=word, sentence=sentence)

@@ -29,7 +29,7 @@ class WordExerciseParams(BaseModel):
     # Single-word exercise generation (multiple-choice, flashcard).
     word: str = Field(min_length=1, max_length=128)
     level: CEFRLevel = "B1"
-    language: str = "en"
+    language: str = "en"  # the word's language — definitions are written in it too
 
 
 class GeneratedMultipleChoice(BaseModel):

@@ -368,6 +368,8 @@ class ExercisePoolService:
             }
             answer = {str(b.index): b.answer for b in generated.blanks}
         elif ex_type == ExerciseType.MULTIPLE_CHOICE:
+            # Definitions are written in the language being learned (immersion),
+            # not English or the native language.
             generated = await self.generator.generate_multiple_choice(
                 WordExerciseParams(word=lemma, level=level, language=language)
             )

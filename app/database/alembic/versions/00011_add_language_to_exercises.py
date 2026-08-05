@@ -18,8 +18,7 @@ def upgrade() -> None:
     op.create_index("ix_exercises_language", "exercises", ["language"])
     # Backfill from the exercise's word so the existing pool is filterable too.
     op.execute(
-        "UPDATE exercises e SET language = w.language "
-        "FROM words w WHERE e.word_uuid = w.uuid AND e.language IS NULL"
+        "UPDATE exercises e SET language = w.language FROM words w WHERE e.word_uuid = w.uuid AND e.language IS NULL"
     )
 
 

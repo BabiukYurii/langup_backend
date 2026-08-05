@@ -917,8 +917,11 @@ async def test_exercises_are_scoped_by_language(session):
             session.add(UserWord(user_id=user.id, word_uuid=w.uuid))
             session.add(
                 WordContext(
-                    user_id=user.id, word_uuid=w.uuid, source_uuid=src.uuid,
-                    surface_form=lemma, sentence=f"A {lemma} is here.",
+                    user_id=user.id,
+                    word_uuid=w.uuid,
+                    source_uuid=src.uuid,
+                    surface_form=lemma,
+                    sentence=f"A {lemma} is here.",
                 )
             )
     await session.commit()
@@ -938,7 +941,7 @@ async def test_exercises_are_scoped_by_language(session):
         await service.get_next(user.id, language="en")
 
 
-async def test_detect_language_returns_supported_or_none():
+async def test_analyze_word_returns_language_and_lemma():
     from app.services.ai.exercise_generation import ExerciseGenerationService
 
     class _Stub:
@@ -948,6 +951,38 @@ async def test_detect_language_returns_supported_or_none():
         async def chat_json(self, *a, **k):
             return {"content": self.content, "model": "stub"}
 
-    assert await ExerciseGenerationService(_Stub('{"language": "de"}')).detect_language("haus", "Das haus.") == "de"
-    assert await ExerciseGenerationService(_Stub('{"language": "xx"}')).detect_language("foo") is None  # unsupported
-    assert await ExerciseGenerationService(_Stub("not json")).detect_language("foo") is None
+    svc = ExerciseGenerationService(_Stub('{"language": "pl", "lemma": "bark"}'))
+    assert await svc.analyze_word("barki", "Bolą mnie barki.") == ("pl", "bark")
+    # Unsupported language -> None language; bad JSON -> (None, None).
+    assert await ExerciseGenerationService(_Stub('{"language": "xx", "lemma": "z"}')).analyze_word("z") == (None, "z")
+    assert await ExerciseGenerationService(_Stub("not json")).analyze_word("foo") == (None, None)
+
+
+async def test_multiple_choice_definitions_use_the_learned_language(session):
+    # A Polish word's options are generated for Polish (immersion), not English.
+    from app.services.ai.prompts import build_multiple_choice_prompt
+
+    captured = {}
+
+    class RecordingGen(StubGenerator):
+        async def generate_multiple_choice(self, params):
+            captured["language"] = params.language
+            return await super().generate_multiple_choice(params)
+
+    user = User(email="mc@x.com", native_language="uk", target_language="pl")
+    session.add(user)
+    await session.flush()
+    w = Word(lemma="barka", language="pl")
+    session.add(w)
+    await session.flush()
+    session.add(UserWord(user_id=user.id, word_uuid=w.uuid))
+    await session.commit()
+
+    service = ExercisePoolService(session, RecordingGen())
+    await service.set_preferences(user.id, ExercisePreferences(exercise_types=[ExerciseType.MULTIPLE_CHOICE]))
+    await service.replenish(user.id, ExerciseType.MULTIPLE_CHOICE, language="pl")
+
+    assert captured["language"] == "pl"  # definitions are generated for Polish
+    # The prompt names the language and demands the definitions be in it.
+    prompt = build_multiple_choice_prompt("barka", "B1", "pl")
+    assert "Polish" in prompt and "definitions in Polish" in prompt

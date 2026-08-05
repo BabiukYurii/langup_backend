@@ -49,8 +49,12 @@ async def test_reset_sets_new_password_and_revokes_sessions(client, session):
     assert resp.status_code == 200 and resp.json()["status"] == "reset"
 
     # Old password no longer works; new one does.
-    assert (await client.post("/api/auth/login", json={"email": USER["email"], "password": USER["password"]})).status_code == 401
-    assert (await client.post("/api/auth/login", json={"email": USER["email"], "password": "newpass987"})).status_code == 200
+    assert (
+        await client.post("/api/auth/login", json={"email": USER["email"], "password": USER["password"]})
+    ).status_code == 401
+    assert (
+        await client.post("/api/auth/login", json={"email": USER["email"], "password": "newpass987"})
+    ).status_code == 200
 
 
 async def test_reset_token_is_single_use(client, session):
@@ -64,8 +68,12 @@ async def test_reset_token_is_single_use(client, session):
     await PasswordResetTokenRepository(session).create_one(
         {"user_id": user.id, "token_hash": _fingerprint(raw), "expires_at": _utcnow() + timedelta(hours=1)}
     )
-    assert (await client.post("/api/auth/reset-password", json={"token": raw, "password": "newpass987"})).status_code == 200
-    assert (await client.post("/api/auth/reset-password", json={"token": raw, "password": "another987"})).status_code == 400
+    assert (
+        await client.post("/api/auth/reset-password", json={"token": raw, "password": "newpass987"})
+    ).status_code == 200
+    assert (
+        await client.post("/api/auth/reset-password", json={"token": raw, "password": "another987"})
+    ).status_code == 400
 
 
 async def test_reset_rejects_unknown_token(client):
@@ -84,4 +92,6 @@ async def test_reset_rejects_weak_password(client, session):
     await PasswordResetTokenRepository(session).create_one(
         {"user_id": user.id, "token_hash": _fingerprint(raw), "expires_at": _utcnow() + timedelta(hours=1)}
     )
-    assert (await client.post("/api/auth/reset-password", json={"token": raw, "password": "12345678"})).status_code == 422
+    assert (
+        await client.post("/api/auth/reset-password", json={"token": raw, "password": "12345678"})
+    ).status_code == 422
