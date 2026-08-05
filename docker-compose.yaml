@@ -78,15 +78,6 @@ services:
       redis: { condition: service_healthy }
     restart: unless-stopped
 
-  event_consumer:
-    image: langup-app
-    container_name: langup-event-consumer
-    env_file: [.env]
-    entrypoint: ["uv", "run", "python", "-m", "app.events.consumer"]
-    depends_on:
-      redis: { condition: service_healthy }
-    restart: unless-stopped
-
 volumes:
   pgdata:
   redisdata:
