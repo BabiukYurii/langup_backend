@@ -10,22 +10,13 @@ Redis being down must never lock users out, so failures are logged and allowed.
 
 import logging
 
-import redis.asyncio as redis
 from fastapi import Request
 
 from app.core import settings
 from app.core.exc import RateLimitedException
+from app.core.redis_client import get_redis as _redis
 
 logger = logging.getLogger(__name__)
-
-_client: redis.Redis | None = None
-
-
-def _redis() -> redis.Redis:
-    global _client
-    if _client is None:
-        _client = redis.from_url(settings.redis.url, socket_connect_timeout=2, socket_timeout=2)
-    return _client
 
 
 def client_ip(request: Request) -> str:

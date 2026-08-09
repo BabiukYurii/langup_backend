@@ -20,7 +20,11 @@ async def get_current_user(
     if credentials is None:
         raise UnauthorizedException("Missing bearer token")
     payload = decode_token(credentials.credentials, settings.jwt.ACCESS_SECRET_KEY, TokenType.ACCESS)
-    user = await UserRepository(session).get_by_id(int(payload["sub"]))
+    try:
+        user_id = int(payload["sub"])
+    except (KeyError, TypeError, ValueError):
+        raise UnauthorizedException("Invalid token") from None
+    user = await UserRepository(session).get_by_id(user_id)
     if not user:
         raise UnauthorizedException("User not found")
     return UserOut.model_validate(user)

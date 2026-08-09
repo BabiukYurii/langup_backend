@@ -7,12 +7,13 @@ from app.enums.vocabulary import MasteryLevel
 
 
 class CaptureRequest(BaseModel):
-    # Structured payload emitted by the browser extension / cabinet.
+    # Structured payload emitted by the browser extension / cabinet. Lengths are
+    # bounded so an oversized field can't bloat storage or the AI prompts.
     word: str = Field(min_length=1, max_length=128)
     language: str = Field(min_length=2, max_length=8)
-    sentence: str | None = None
-    source_url: str | None = None
-    source_title: str | None = None
+    sentence: str | None = Field(default=None, max_length=2000)
+    source_url: str | None = Field(default=None, max_length=2048)
+    source_title: str | None = Field(default=None, max_length=512)
 
 
 class UserWordOut(BaseModel):
