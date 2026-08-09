@@ -986,3 +986,34 @@ async def test_multiple_choice_definitions_use_the_learned_language(session):
     # The prompt names the language and demands the definitions be in it.
     prompt = build_multiple_choice_prompt("barka", "B1", "pl")
     assert "Polish" in prompt and "definitions in Polish" in prompt
+
+
+async def test_refill_status_is_scoped_to_the_task_owner(app, client, monkeypatch):
+    # Polling a refill task you don't own returns 404, not its status.
+    import app.routers.exercises as ex_router
+    from app.schemas.exercise import RefillStatusOut
+
+    headers = await _login(app, client)
+    me = (await client.get("/api/auth/me", headers=headers)).json()["id"]
+
+    async def owned_by_someone_else(task_id):
+        return me + 999
+
+    monkeypatch.setattr(ex_router, "refill_owner", owned_by_someone_else)
+    assert (await client.get("/api/exercises/refill/some-task", headers=headers)).status_code == 404
+
+    async def owned_by_me(task_id):
+        return me
+
+    monkeypatch.setattr(ex_router, "refill_owner", owned_by_me)
+    monkeypatch.setattr(ex_router, "refill_task_status", lambda tid: RefillStatusOut(status="pending", created=None))
+    resp = await client.get("/api/exercises/refill/some-task", headers=headers)
+    assert resp.status_code == 200 and resp.json()["status"] == "pending"
+
+
+async def test_refill_owner_helpers_survive_redis_down():
+    # No Redis in tests: recording is a no-op and owner reads as None (-> 404).
+    from app.services.learning.background import refill_owner, remember_refill_owner
+
+    await remember_refill_owner("t1", 5)  # must not raise
+    assert await refill_owner("t1") is None

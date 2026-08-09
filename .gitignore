@@ -6,6 +6,7 @@ venv/
 
 # env / secrets
 .env
+.env.prod
 *.local
 
 # tooling caches

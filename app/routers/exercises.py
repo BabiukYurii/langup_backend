@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
+from app.core.exc import ObjectNotFoundException
 from app.core.security.rate_limit import generation_rate_limit
 from app.dependencies import CurrentUserDep, ExercisePoolServiceDep, VerifiedUserDep
 from app.enums.learning import ExerciseType
@@ -14,7 +15,7 @@ from app.schemas.exercise import (
     RefillStatusOut,
     SubmitAttemptRequest,
 )
-from app.services.learning.background import enqueue_refill, refill_task_status
+from app.services.learning.background import enqueue_refill, refill_owner, refill_task_status, remember_refill_owner
 
 router = APIRouter(prefix="/exercises", tags=["Exercises"])
 
@@ -63,6 +64,8 @@ async def refill_pool(
     """
     task_id = enqueue_refill(current_user.id, exercise_type, language)
     if task_id:
+        # Tie the task to its owner so only they can poll its status.
+        await remember_refill_owner(task_id, current_user.id)
         return RefillResultOut(status="queued", task_id=task_id)
     # No worker: generating inline keeps the button working, at the cost of a
     # request that can run for a while.
@@ -72,7 +75,12 @@ async def refill_pool(
 
 @router.get("/refill/{task_id}", response_model=RefillStatusOut)
 async def refill_status(task_id: str, current_user: CurrentUserDep) -> RefillStatusOut:
-    """Progress of a queued refill, so the UI can poll instead of waiting."""
+    """Progress of a queued refill, so the UI can poll instead of waiting.
+
+    Scoped to the task's owner: another user can't read this task's status
+    (404 as if it didn't exist, rather than confirming it belongs to someone)."""
+    if await refill_owner(task_id) != current_user.id:
+        raise ObjectNotFoundException(task_id, "Refill task")
     return refill_task_status(task_id)
 
 
