@@ -306,6 +306,8 @@ function iconBtn(text, title, onClick) {
 }
 
 // ---------- dictionary import ----------
+const IMPORT_TASK_KEY = "langup_import_task"; // survives a page reload so we can resume
+
 async function importDictionary(e) {
   e.preventDefault();
   const body = {
@@ -314,58 +316,95 @@ async function importDictionary(e) {
     raw_text: $("di-text").value,
     normalize: $("di-normalize").checked,
   };
-  // Show the (indeterminate) progress bar while the request is in flight and the
-  // background import runs. LLM normalize can take a while, so lock the button
-  // to prevent a double-submit.
   $("di-submit").disabled = true;
-  show($("di-progress"));
-  $("di-status").textContent = body.normalize
-    ? "Sending… (LLM normalize is slower)"
-    : "Sending…";
+  showBar(true);
+  $("di-status").textContent = body.normalize ? "Sending… (LLM normalize is slower)" : "Sending…";
 
   const resp = await apiFetch("/admin/dictionary/import", { method: "POST", body: JSON.stringify(body) });
   if (bounceIfDenied(resp)) return;
   if (!resp.ok) {
-    finishImport(false);
+    finishImport();
     return toast(await errText(resp, "Could not import"), "err");
   }
   const { queued, task_id } = await resp.json();
   if (!task_id) {
-    // Ran in-process (no worker): it's already done by the time we're here.
+    // Ran in-process (no worker): already done by the time we're here.
     $("di-status").textContent = `Imported ${queued} entrie(s).`;
-    return finishImport(true);
+    return finishImport();
   }
-  $("di-status").textContent = `Queued ${queued} entrie(s) — importing…`;
-  pollImport(task_id, queued); // keeps button locked + bar running until it finishes
+  // Remember it so a reload can resume the progress instead of losing it.
+  localStorage.setItem(IMPORT_TASK_KEY, task_id);
+  trackImport(task_id);
 }
 
-// Poll the import task until it finishes; only then unlock the form.
-async function pollImport(taskId, queued) {
-  const until = Date.now() + 45 * 60 * 1000; // LLM normalize can be slow
+// The bar is determinate (width = %) when we know the chunk count, else it slides.
+function showBar(indeterminate, pct) {
+  const bar = $("di-progress");
+  show(bar);
+  bar.classList.toggle("progress--indeterminate", !!indeterminate);
+  bar.firstElementChild.style.width = indeterminate ? "" : `${pct || 0}%`;
+}
+
+// Poll the task until it finishes; keep the button locked + bar running meanwhile.
+async function trackImport(taskId) {
+  $("di-submit").disabled = true;
+  const until = Date.now() + 60 * 60 * 1000;
   while (Date.now() < until) {
-    await new Promise((r) => setTimeout(r, 2000));
     const resp = await apiFetch(`/admin/dictionary/import/${taskId}`);
-    if (!resp.ok) continue;
-    const { status, created, updated } = await resp.json();
-    if (status === "done") {
-      $("di-status").textContent = `Done — ${created ?? 0} added, ${updated ?? 0} updated (of ${queued}).`;
-      $("di-text").value = "";
-      return finishImport(true);
+    if (resp.ok) {
+      const { status, done, total, created, updated } = await resp.json();
+      if (status === "done") {
+        $("di-status").textContent = `Done — ${created ?? 0} added, ${updated ?? 0} updated.`;
+        $("di-text").value = "";
+        localStorage.removeItem(IMPORT_TASK_KEY);
+        return finishImport();
+      }
+      if (status === "failed") {
+        $("di-status").textContent = "Import failed — check the server logs.";
+        localStorage.removeItem(IMPORT_TASK_KEY);
+        return finishImport();
+      }
+      if (total) {
+        const pct = Math.round((done / total) * 100);
+        showBar(false, pct);
+        $("di-status").textContent = `Importing… chunk ${done}/${total} (${pct}%)`;
+      } else {
+        showBar(true);
+        $("di-status").textContent = "Importing… (starting)";
+      }
     }
-    if (status === "failed") {
-      $("di-status").textContent = "Import failed — check the server logs.";
-      return finishImport(false);
-    }
-    // still pending/running — the bar keeps animating
+    await new Promise((r) => setTimeout(r, 2000));
   }
-  $("di-status").textContent = "Still importing… (took too long to confirm here).";
-  finishImport(true);
+  $("di-status").textContent = "Still importing… reopen the panel later to check.";
+  finishImport();
 }
 
-function finishImport(ok) {
+// Cancel: revoke a running import; if nothing is running, just close the form.
+async function cancelImport() {
+  const taskId = localStorage.getItem(IMPORT_TASK_KEY);
+  if (!taskId) {
+    hide($("dict-import-form"));
+    return;
+  }
+  await apiFetch(`/admin/dictionary/import/${taskId}`, { method: "DELETE" });
+  localStorage.removeItem(IMPORT_TASK_KEY);
+  $("di-status").textContent = "Import cancelled.";
+  finishImport();
+}
+
+function finishImport() {
   hide($("di-progress"));
   $("di-submit").disabled = false;
-  if (!ok && !$("di-status").textContent) $("di-status").textContent = "";
+}
+
+// On load, resume tracking an import that was still running before a reload.
+function resumeImportIfAny() {
+  const taskId = localStorage.getItem(IMPORT_TASK_KEY);
+  if (!taskId) return;
+  show($("dict-import-form"));
+  showBar(true);
+  $("di-status").textContent = "Resuming import progress…";
+  trackImport(taskId);
 }
 
 // ---------- boot ----------
@@ -388,7 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("di-source").value = "en";
   $("di-target").value = "uk";
   $("dict-import-btn").addEventListener("click", () => $("dict-import-form").classList.toggle("hidden"));
-  $("di-cancel").addEventListener("click", () => hide($("dict-import-form")));
+  $("di-cancel").addEventListener("click", cancelImport);
   $("dict-import-form").addEventListener("submit", importDictionary);
   $("back-to-users").addEventListener("click", () => {
     hide($("detail-view"));
@@ -400,4 +439,5 @@ document.addEventListener("DOMContentLoaded", () => {
   $("tab-vocab").addEventListener("click", () => selectTab("vocab"));
   $("tab-exercises").addEventListener("click", () => selectTab("exercises"));
   loadUsers();
+  resumeImportIfAny(); // pick up an import that was still running before a reload
 });

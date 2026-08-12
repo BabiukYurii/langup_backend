@@ -151,3 +151,11 @@ async def import_dictionary(
 async def dictionary_import_status(task_id: str, admin: AdminUserDep) -> DictionaryImportStatus:
     """Progress of a queued dictionary import, so the admin panel can poll it."""
     return DictionaryImportStatus(**import_task_status(task_id))
+
+
+@router.delete("/dictionary/import/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_dictionary_import(task_id: str, admin: AdminUserDep) -> None:
+    """Cancel a running import: terminate the task so it can't be redelivered."""
+    from app.celery.config import celery_app
+
+    celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")

@@ -35,5 +35,7 @@ class DictionaryImportResult(BaseModel):
 
 class DictionaryImportStatus(BaseModel):
     status: str  # pending | running | done | failed
+    done: int | None = None  # chunks processed so far
+    total: int | None = None  # total chunks
     created: int | None = None
     updated: int | None = None

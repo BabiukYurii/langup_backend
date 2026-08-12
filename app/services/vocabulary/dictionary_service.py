@@ -66,7 +66,7 @@ class DictionaryImportService:
     # --- LLM normalization -------------------------------------------------
 
     async def normalize_via_llm(
-        self, source_language: str, target_language: str, raw_text: str, ai_client
+        self, source_language: str, target_language: str, raw_text: str, ai_client, on_progress=None
     ) -> list[DictionaryEntry]:
         """Turn messy raw text into clean {word, translation} entries via the LLM.
 
@@ -85,8 +85,9 @@ class DictionaryImportService:
             f"Skip lines that are not a word/translation pair."
         )
         lines = content_lines(raw_text)
+        total = (len(lines) + _LLM_CHUNK - 1) // _LLM_CHUNK  # number of LLM calls
         entries: list[DictionaryEntry] = []
-        for i in range(0, len(lines), _LLM_CHUNK):
+        for idx, i in enumerate(range(0, len(lines), _LLM_CHUNK)):
             chunk = "\n".join(lines[i : i + _LLM_CHUNK])
             try:
                 reply = await ai_client.chat_json(system, chunk, temperature=0.0)
@@ -98,6 +99,8 @@ class DictionaryImportService:
                         entries.append(DictionaryEntry(word=word[:128], translation=translation[:256]))
             except Exception:  # noqa: BLE001 — one bad chunk must not abort the whole import
                 logger.exception("LLM normalization failed for a chunk; skipping it")
+            if on_progress:
+                on_progress(idx + 1, total)  # report LLM chunks done, so the admin sees real progress
         logger.info("LLM normalized %d line(s) into %d entrie(s)", len(lines), len(entries))
         return entries
 
@@ -109,7 +112,9 @@ class DictionaryImportService:
         senses.append({"lang": lang, "translation": translation})
         return senses
 
-    async def import_entries(self, source_language: str, target_language: str, entries: list[DictionaryEntry]) -> dict:
+    async def import_entries(
+        self, source_language: str, target_language: str, entries: list[DictionaryEntry], on_progress=None
+    ) -> dict:
         """Upsert every entry into `words`, merging translations. Returns counts."""
         # Lemmatize + dedupe (a later line for the same lemma wins).
         by_lemma: dict[str, str] = {}
@@ -118,7 +123,8 @@ class DictionaryImportService:
 
         created = updated = 0
         lemmas = list(by_lemma)
-        for i in range(0, len(lemmas), _CHUNK):
+        total = (len(lemmas) + _CHUNK - 1) // _CHUNK
+        for idx, i in enumerate(range(0, len(lemmas), _CHUNK)):
             chunk = lemmas[i : i + _CHUNK]
             existing = {w.lemma: w for w in await self.words.get_by_lemmas(chunk, source_language)}
             new_rows = []
@@ -139,6 +145,8 @@ class DictionaryImportService:
                     created += 1
             self.session.add_all(new_rows)
             await self.session.flush()
+            if on_progress:
+                on_progress(idx + 1, total)
         await self.session.commit()
         logger.info(
             "Dictionary import (%s→%s): %d created, %d updated", source_language, target_language, created, updated
@@ -215,12 +223,18 @@ def import_task_status(task_id: str) -> dict:
 
     result = celery_app.AsyncResult(task_id)
     state = result.state
-    done = state == "SUCCESS" and isinstance(result.result, dict)
-    status = {"PENDING": "pending", "RECEIVED": "pending", "RETRY": "running", "STARTED": "running"}.get(
-        state, "done" if state == "SUCCESS" else "failed"
-    )
-    return {
-        "status": status,
-        "created": result.result.get("created") if done else None,
-        "updated": result.result.get("updated") if done else None,
-    }
+    out = {"status": "pending", "done": None, "total": None, "created": None, "updated": None}
+
+    if state == "PROGRESS" and isinstance(result.info, dict):
+        out.update(status="running", done=result.info.get("done"), total=result.info.get("total"))
+    elif state == "SUCCESS" and isinstance(result.result, dict):
+        out.update(status="done", created=result.result.get("created"), updated=result.result.get("updated"))
+    elif state in ("STARTED", "RETRY"):
+        out["status"] = "running"
+    elif state in ("PENDING", "RECEIVED"):
+        out["status"] = "pending"
+    elif state == "SUCCESS":
+        out["status"] = "done"
+    else:
+        out["status"] = "failed"
+    return out

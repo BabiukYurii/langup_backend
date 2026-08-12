@@ -305,9 +305,29 @@ async def test_dictionary_import_returns_task_id_and_status_is_admin_only(app, c
     assert resp.status_code == 202
     assert resp.json()["queued"] == 2 and resp.json()["task_id"] == "task-123"
 
-    monkeypatch.setattr(admin_router, "import_task_status", lambda tid: {"status": "done", "created": 2, "updated": 0})
+    monkeypatch.setattr(
+        admin_router,
+        "import_task_status",
+        lambda tid: {"status": "running", "done": 3, "total": 10, "created": None, "updated": None},
+    )
     ok = await client.get("/api/admin/dictionary/import/task-123", headers=headers)
-    assert ok.status_code == 200 and ok.json() == {"status": "done", "created": 2, "updated": 0}
+    assert ok.status_code == 200
+    assert ok.json()["status"] == "running" and ok.json()["done"] == 3 and ok.json()["total"] == 10
 
     plain, _ = await _token_for(app, client, session, "plain-imp@x.com", RoleEnum.USER)
     assert (await client.get("/api/admin/dictionary/import/task-123", headers=plain)).status_code == 403
+
+
+async def test_dictionary_import_cancel_is_admin_only(app, client, session, monkeypatch):
+    # Cancelling revokes the task; only admins may do it.
+    import app.celery.config as celery_cfg
+
+    revoked = {}
+    monkeypatch.setattr(celery_cfg.celery_app.control, "revoke", lambda tid, **kw: revoked.update(id=tid, kw=kw))
+
+    admin_h, _ = await _token_for(app, client, session, "adm-cancel@x.com", RoleEnum.ADMIN)
+    assert (await client.delete("/api/admin/dictionary/import/task-9", headers=admin_h)).status_code == 204
+    assert revoked["id"] == "task-9" and revoked["kw"].get("terminate") is True
+
+    plain, _ = await _token_for(app, client, session, "plain-cancel@x.com", RoleEnum.USER)
+    assert (await client.delete("/api/admin/dictionary/import/task-9", headers=plain)).status_code == 403
