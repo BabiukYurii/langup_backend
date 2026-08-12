@@ -309,21 +309,34 @@ function iconBtn(text, title, onClick) {
 async function importDictionary(e) {
   e.preventDefault();
   const body = {
-    source_language: $("di-source").value.trim(),
-    target_language: $("di-target").value.trim(),
+    source_language: $("di-source").value,
+    target_language: $("di-target").value,
     raw_text: $("di-text").value,
     normalize: $("di-normalize").checked,
   };
-  $("di-status").textContent = "Sending…";
+  // Show the (indeterminate) progress bar while the request is in flight and the
+  // background import runs. LLM normalize can take a while, so lock the button
+  // to prevent a double-submit.
+  $("di-submit").disabled = true;
+  show($("di-progress"));
+  $("di-status").textContent = body.normalize
+    ? "Sending… (LLM normalize is slower)"
+    : "Sending…";
+
   const resp = await apiFetch("/admin/dictionary/import", { method: "POST", body: JSON.stringify(body) });
   if (bounceIfDenied(resp)) return;
   if (!resp.ok) {
+    hide($("di-progress"));
+    $("di-submit").disabled = false;
     $("di-status").textContent = "";
     return toast(await errText(resp, "Could not import"), "err");
   }
   const { queued } = await resp.json();
-  $("di-status").textContent = `Queued ${queued} entrie(s) — importing in the background.`;
+  // The task runs in the background with no completion signal to poll, so keep
+  // the bar animating as a "still working" indicator and free the form.
+  $("di-status").textContent = `Queued ${queued} entrie(s) — importing in the background…`;
   $("di-text").value = "";
+  $("di-submit").disabled = false;
 }
 
 // ---------- boot ----------
@@ -340,6 +353,11 @@ document.addEventListener("DOMContentLoaded", () => {
   $("new-user-btn").addEventListener("click", () => $("new-user-form").classList.toggle("hidden"));
   $("nu-cancel").addEventListener("click", () => hide($("new-user-form")));
   $("new-user-form").addEventListener("submit", createUser);
+  // Language pickers for the dictionary import (from the shared LANGUAGES list).
+  fillLanguageSelect($("di-source"));
+  fillLanguageSelect($("di-target"));
+  $("di-source").value = "en";
+  $("di-target").value = "uk";
   $("dict-import-btn").addEventListener("click", () => $("dict-import-form").classList.toggle("hidden"));
   $("di-cancel").addEventListener("click", () => hide($("dict-import-form")));
   $("dict-import-form").addEventListener("submit", importDictionary);

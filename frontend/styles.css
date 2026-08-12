@@ -1140,6 +1140,31 @@ a.btn {
   color: var(--muted);
 }
 
+/* indeterminate progress bar (e.g. background dictionary import) */
+.progress {
+  width: 100%;
+  height: 6px;
+  margin: 10px 0;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+.progress--indeterminate > div {
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  animation: progress-slide 1.1s ease-in-out infinite;
+}
+@keyframes progress-slide {
+  0% {
+    margin-left: -40%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+
 /* ===================== word detail modal ================================= */
 .btn--danger {
   background: #e03131;
