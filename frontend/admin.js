@@ -326,17 +326,46 @@ async function importDictionary(e) {
   const resp = await apiFetch("/admin/dictionary/import", { method: "POST", body: JSON.stringify(body) });
   if (bounceIfDenied(resp)) return;
   if (!resp.ok) {
-    hide($("di-progress"));
-    $("di-submit").disabled = false;
-    $("di-status").textContent = "";
+    finishImport(false);
     return toast(await errText(resp, "Could not import"), "err");
   }
-  const { queued } = await resp.json();
-  // The task runs in the background with no completion signal to poll, so keep
-  // the bar animating as a "still working" indicator and free the form.
-  $("di-status").textContent = `Queued ${queued} entrie(s) — importing in the background…`;
-  $("di-text").value = "";
+  const { queued, task_id } = await resp.json();
+  if (!task_id) {
+    // Ran in-process (no worker): it's already done by the time we're here.
+    $("di-status").textContent = `Imported ${queued} entrie(s).`;
+    return finishImport(true);
+  }
+  $("di-status").textContent = `Queued ${queued} entrie(s) — importing…`;
+  pollImport(task_id, queued); // keeps button locked + bar running until it finishes
+}
+
+// Poll the import task until it finishes; only then unlock the form.
+async function pollImport(taskId, queued) {
+  const until = Date.now() + 45 * 60 * 1000; // LLM normalize can be slow
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const resp = await apiFetch(`/admin/dictionary/import/${taskId}`);
+    if (!resp.ok) continue;
+    const { status, created, updated } = await resp.json();
+    if (status === "done") {
+      $("di-status").textContent = `Done — ${created ?? 0} added, ${updated ?? 0} updated (of ${queued}).`;
+      $("di-text").value = "";
+      return finishImport(true);
+    }
+    if (status === "failed") {
+      $("di-status").textContent = "Import failed — check the server logs.";
+      return finishImport(false);
+    }
+    // still pending/running — the bar keeps animating
+  }
+  $("di-status").textContent = "Still importing… (took too long to confirm here).";
+  finishImport(true);
+}
+
+function finishImport(ok) {
+  hide($("di-progress"));
   $("di-submit").disabled = false;
+  if (!ok && !$("di-status").textContent) $("di-status").textContent = "";
 }
 
 // ---------- boot ----------

@@ -163,18 +163,19 @@ async def import_dictionary_in_background(source_language: str, target_language:
 
 def schedule_dictionary_import(
     background: BackgroundTasks, source_language: str, target_language: str, entries: list[DictionaryEntry]
-) -> None:
-    """Queue the import on Celery (survives restarts); fall back to BackgroundTasks."""
+) -> str | None:
+    """Queue the import on Celery (survives restarts); fall back to BackgroundTasks.
+    Returns the Celery task id (to poll for progress) or None when run in-process."""
     pairs = [[e.word, e.translation] for e in entries]
     if settings.celery.CELERY_ENABLED:
         try:
             from app.celery.tasks.dictionary_tasks import import_dictionary
 
-            import_dictionary.delay(source_language, target_language, pairs)
-            return
+            return import_dictionary.delay(source_language, target_language, pairs).id
         except Exception:  # noqa: BLE001 — broker outage must not fail the request
             logger.exception("Could not enqueue dictionary import; running in-process")
     background.add_task(import_dictionary_in_background, source_language, target_language, pairs)
+    return None
 
 
 async def normalize_import_in_background(source_language: str, target_language: str, raw_text: str) -> None:
@@ -194,14 +195,32 @@ async def normalize_import_in_background(source_language: str, target_language: 
 
 def schedule_normalize_import(
     background: BackgroundTasks, source_language: str, target_language: str, raw_text: str
-) -> None:
-    """Queue LLM normalization + import (Celery, else BackgroundTasks)."""
+) -> str | None:
+    """Queue LLM normalization + import (Celery, else BackgroundTasks). Returns the
+    Celery task id (to poll for progress) or None when run in-process."""
     if settings.celery.CELERY_ENABLED:
         try:
             from app.celery.tasks.dictionary_tasks import normalize_import_dictionary
 
-            normalize_import_dictionary.delay(source_language, target_language, raw_text)
-            return
+            return normalize_import_dictionary.delay(source_language, target_language, raw_text).id
         except Exception:  # noqa: BLE001 — broker outage must not fail the request
             logger.exception("Could not enqueue dictionary normalize+import; running in-process")
     background.add_task(normalize_import_in_background, source_language, target_language, raw_text)
+    return None
+
+
+def import_task_status(task_id: str) -> dict:
+    """Progress of a queued dictionary import, for the admin panel to poll."""
+    from app.celery.config import celery_app
+
+    result = celery_app.AsyncResult(task_id)
+    state = result.state
+    done = state == "SUCCESS" and isinstance(result.result, dict)
+    status = {"PENDING": "pending", "RECEIVED": "pending", "RETRY": "running", "STARTED": "running"}.get(
+        state, "done" if state == "SUCCESS" else "failed"
+    )
+    return {
+        "status": status,
+        "created": result.result.get("created") if done else None,
+        "updated": result.result.get("updated") if done else None,
+    }

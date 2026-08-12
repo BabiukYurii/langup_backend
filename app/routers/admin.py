@@ -14,13 +14,14 @@ from app.schemas.admin import (
     AdminWordUpdate,
 )
 from app.schemas.capture import UserWordOut
-from app.schemas.dictionary import DictionaryImportRequest, DictionaryImportResult
+from app.schemas.dictionary import DictionaryImportRequest, DictionaryImportResult, DictionaryImportStatus
 from app.schemas.pagination import Page
 from app.schemas.user import UserOut
 from app.services.admin_service import AdminService, get_admin_service
 from app.services.vocabulary.dictionary_service import (
     DictionaryImportService,
     content_lines,
+    import_task_status,
     schedule_dictionary_import,
     schedule_normalize_import,
 )
@@ -136,10 +137,17 @@ async def import_dictionary(
     """
     if data.normalize and data.raw_text:
         lines = content_lines(data.raw_text)
-        schedule_normalize_import(background, data.source_language, data.target_language, data.raw_text)
-        return DictionaryImportResult(queued=len(lines))
+        task_id = schedule_normalize_import(background, data.source_language, data.target_language, data.raw_text)
+        return DictionaryImportResult(queued=len(lines), task_id=task_id)
 
     entries = DictionaryImportService.parse(data)
+    task_id = None
     if entries:
-        schedule_dictionary_import(background, data.source_language, data.target_language, entries)
-    return DictionaryImportResult(queued=len(entries))
+        task_id = schedule_dictionary_import(background, data.source_language, data.target_language, entries)
+    return DictionaryImportResult(queued=len(entries), task_id=task_id)
+
+
+@router.get("/dictionary/import/{task_id}", response_model=DictionaryImportStatus)
+async def dictionary_import_status(task_id: str, admin: AdminUserDep) -> DictionaryImportStatus:
+    """Progress of a queued dictionary import, so the admin panel can poll it."""
+    return DictionaryImportStatus(**import_task_status(task_id))

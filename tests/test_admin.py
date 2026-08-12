@@ -288,3 +288,26 @@ async def test_admin_delete_missing_exercise_404(app, client, session):
     headers, _ = await _token_for(app, client, session, "admin@x.com", RoleEnum.ADMIN)
     missing = "00000000-0000-0000-0000-000000000000"
     assert (await client.delete(f"/api/admin/exercises/{missing}", headers=headers)).status_code == 404
+
+
+async def test_dictionary_import_returns_task_id_and_status_is_admin_only(app, client, session, monkeypatch):
+    import app.routers.admin as admin_router
+
+    # Avoid touching the real DB / Celery: stub the scheduler + status.
+    monkeypatch.setattr(admin_router, "schedule_dictionary_import", lambda *a, **k: "task-123")
+    headers, _ = await _token_for(app, client, session, "adm-imp@x.com", RoleEnum.ADMIN)
+
+    resp = await client.post(
+        "/api/admin/dictionary/import",
+        json={"source_language": "en", "target_language": "uk", "raw_text": "able\tздатний\nrun\tбігти"},
+        headers=headers,
+    )
+    assert resp.status_code == 202
+    assert resp.json()["queued"] == 2 and resp.json()["task_id"] == "task-123"
+
+    monkeypatch.setattr(admin_router, "import_task_status", lambda tid: {"status": "done", "created": 2, "updated": 0})
+    ok = await client.get("/api/admin/dictionary/import/task-123", headers=headers)
+    assert ok.status_code == 200 and ok.json() == {"status": "done", "created": 2, "updated": 0}
+
+    plain, _ = await _token_for(app, client, session, "plain-imp@x.com", RoleEnum.USER)
+    assert (await client.get("/api/admin/dictionary/import/task-123", headers=plain)).status_code == 403
