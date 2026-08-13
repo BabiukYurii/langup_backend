@@ -291,6 +291,145 @@ async function deleteExercise(uuid) {
   toast(await errText(resp, "Could not delete"), "err");
 }
 
+// ---------- shared dictionary (CRUD, split by language) ----------
+const DICT_LIMIT = 20;
+const dictState = { language: null, query: "", page: 1 };
+
+function openDict() {
+  hide($("users-view"));
+  show($("dict-view"));
+  dictState.page = 1;
+  loadDictLangs();
+  loadDictWords();
+}
+
+// The language chips ("split by language"), each with its word count.
+async function loadDictLangs() {
+  const resp = await apiFetch("/admin/words/languages");
+  if (bounceIfDenied(resp)) return;
+  if (!resp.ok) return;
+  const langs = await resp.json();
+  const total = langs.reduce((n, l) => n + l.count, 0);
+  const bar = $("dict-langs");
+  bar.innerHTML = "";
+
+  const chip = (label, code) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (dictState.language === code ? " chip--on" : "");
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      dictState.language = code;
+      dictState.page = 1;
+      loadDictLangs();
+      loadDictWords();
+    });
+    return b;
+  };
+
+  bar.appendChild(chip(`All (${total})`, null));
+  for (const l of langs) bar.appendChild(chip(`${languageName(l.language)} (${l.count})`, l.language));
+}
+
+async function loadDictWords() {
+  const params = new URLSearchParams({ page: dictState.page, limit: DICT_LIMIT });
+  if (dictState.language) params.set("language", dictState.language);
+  if (dictState.query) params.set("query", dictState.query);
+  const resp = await apiFetch("/admin/words?" + params.toString());
+  if (bounceIfDenied(resp)) return;
+  if (!resp.ok) return;
+
+  const page = await resp.json();
+  $("dict-count").textContent = "(" + page.total + ")";
+  $("dict-empty").classList.toggle("hidden", page.items.length > 0);
+
+  const list = $("dict-list");
+  list.innerHTML = "";
+  for (const w of page.items) {
+    const li = document.createElement("li");
+    li.className = "dict__item admin__ex";
+
+    const lemma = document.createElement("span");
+    lemma.className = "dict__lemma";
+    lemma.textContent = w.lemma;
+    const lang = document.createElement("span");
+    lang.className = "dict__lang";
+    lang.textContent = w.language;
+    const tr = document.createElement("span");
+    tr.className = "admin__ex-answer";
+    tr.textContent = dictTranslation(w.definitions);
+
+    const actions = document.createElement("span");
+    actions.className = "admin__actions";
+    actions.append(
+      iconBtn("✎", "Edit the shared word", () => editDictWord(w)),
+      iconBtn("✕", "Delete from the shared dictionary", () => deleteDictWord(w.uuid, w.lemma)),
+    );
+
+    li.append(lemma, lang, tr, actions);
+    list.appendChild(li);
+  }
+
+  const pages = Math.max(1, Math.ceil(page.total / DICT_LIMIT));
+  $("dict-page").textContent = `Page ${page.page} / ${pages}`;
+  $("dict-prev").disabled = page.page <= 1;
+  $("dict-next").disabled = page.page >= pages;
+}
+
+// Prefer the Ukrainian sense; otherwise show whatever translations exist.
+function dictTranslation(definitions) {
+  if (!Array.isArray(definitions) || definitions.length === 0) return "—";
+  const uk = definitions.find((d) => d.lang === "uk");
+  const sense = uk || definitions[0];
+  return sense.translation || "—";
+}
+
+async function createDictWord(e) {
+  e.preventDefault();
+  const body = {
+    lemma: $("dw-lemma").value.trim(),
+    language: $("dw-lang").value,
+    translation: $("dw-translation").value.trim() || null,
+  };
+  if (!body.lemma) return;
+  const resp = await apiFetch("/admin/words", { method: "POST", body: JSON.stringify(body) });
+  if (bounceIfDenied(resp)) return;
+  if (!resp.ok) return toast(await errText(resp, "Could not create the word"), "err");
+  toast("Word added");
+  $("dw-form").reset();
+  $("dw-lang").value = dictState.language || "en";
+  hide($("dw-form"));
+  loadDictLangs();
+  loadDictWords();
+}
+
+async function editDictWord(word) {
+  const lemma = prompt("Shared lemma (affects ALL users who have it):", word.lemma);
+  if (lemma === null) return;
+  const translation = prompt("Translation (uk). Leave empty to keep unchanged:", dictTranslation(word.definitions) === "—" ? "" : dictTranslation(word.definitions));
+  const body = {};
+  if (lemma.trim() && lemma.trim() !== word.lemma) body.lemma = lemma.trim();
+  if (translation && translation.trim()) body.translation = translation.trim();
+  if (Object.keys(body).length === 0) return;
+  const resp = await apiFetch(`/admin/words/${word.uuid}`, { method: "PATCH", body: JSON.stringify(body) });
+  if (bounceIfDenied(resp)) return;
+  if (!resp.ok) return toast(await errText(resp, "Could not update"), "err");
+  toast("Shared word updated");
+  loadDictWords();
+}
+
+async function deleteDictWord(uuid, lemma) {
+  if (!confirm(`Delete "${lemma}" from the shared dictionary? It disappears from every user who has it.`)) return;
+  const resp = await apiFetch(`/admin/words/${uuid}`, { method: "DELETE" });
+  if (bounceIfDenied(resp)) return;
+  if (resp.status === 204) {
+    toast("Word deleted");
+    loadDictLangs();
+    return loadDictWords();
+  }
+  toast(await errText(resp, "Could not delete"), "err");
+}
+
 // ---------- helpers ----------
 function iconBtn(text, title, onClick) {
   const b = document.createElement("button");
@@ -427,6 +566,36 @@ document.addEventListener("DOMContentLoaded", () => {
   $("di-source").value = "en";
   $("di-target").value = "uk";
   $("dict-import-btn").addEventListener("click", () => $("dict-import-form").classList.toggle("hidden"));
+  // Shared dictionary view.
+  fillLanguageSelect($("dw-lang"));
+  $("dw-lang").value = "en";
+  $("dict-words-btn").addEventListener("click", openDict);
+  $("back-from-dict").addEventListener("click", () => {
+    hide($("dict-view"));
+    show($("users-view"));
+  });
+  $("dict-search").addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    dictState.query = e.target.value.trim();
+    dictState.page = 1;
+    searchTimer = setTimeout(loadDictWords, 250);
+  });
+  $("dw-new-btn").addEventListener("click", () => {
+    $("dw-lang").value = dictState.language || "en";
+    $("dw-form").classList.toggle("hidden");
+  });
+  $("dw-cancel").addEventListener("click", () => hide($("dw-form")));
+  $("dw-form").addEventListener("submit", createDictWord);
+  $("dict-prev").addEventListener("click", () => {
+    if (dictState.page > 1) {
+      dictState.page--;
+      loadDictWords();
+    }
+  });
+  $("dict-next").addEventListener("click", () => {
+    dictState.page++;
+    loadDictWords();
+  });
   $("di-cancel").addEventListener("click", cancelImport);
   $("dict-import-form").addEventListener("submit", importDictionary);
   $("back-to-users").addEventListener("click", () => {

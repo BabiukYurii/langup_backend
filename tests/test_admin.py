@@ -247,6 +247,64 @@ async def test_admin_word_edit_rejects_lemma_collision(app, client, session):
     assert resp.status_code == 409  # would collide with the existing lemma
 
 
+async def test_admin_lists_words_split_by_language(app, client, session):
+    headers, _ = await _token_for(app, client, session, "admin@x.com", RoleEnum.ADMIN)
+    session.add_all(
+        [Word(lemma="occur", language="en"), Word(lemma="demand", language="en"), Word(lemma="kot", language="pl")]
+    )
+    # commit (not flush): each request opens its own session on the shared
+    # connection and its rollback on teardown would otherwise wipe the seed.
+    await session.commit()
+
+    langs = await client.get("/api/admin/words/languages", headers=headers)
+    assert langs.status_code == 200
+    counts = {row["language"]: row["count"] for row in langs.json()}
+    assert counts == {"en": 2, "pl": 1}
+
+    en = await client.get("/api/admin/words?language=en", headers=headers)
+    assert en.status_code == 200
+    assert en.json()["total"] == 2
+    assert {w["lemma"] for w in en.json()["items"]} == {"occur", "demand"}
+
+    found = await client.get("/api/admin/words?query=dem", headers=headers)
+    assert {w["lemma"] for w in found.json()["items"]} == {"demand"}
+
+
+async def test_admin_creates_and_deletes_shared_word(app, client, session):
+    headers, _ = await _token_for(app, client, session, "admin@x.com", RoleEnum.ADMIN)
+
+    resp = await client.post(
+        "/api/admin/words",
+        json={"lemma": "occur", "language": "en", "translation": "ставатися"},
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["lemma"] == "occur"
+    assert body["definitions"] == [{"lang": "uk", "translation": "ставатися"}]
+
+    dupe = await client.post("/api/admin/words", json={"lemma": "occur", "language": "en"}, headers=headers)
+    assert dupe.status_code == 409
+
+    gone = await client.delete(f"/api/admin/words/{body['uuid']}", headers=headers)
+    assert gone.status_code == 204
+    assert (await client.get("/api/admin/words?language=en", headers=headers)).json()["total"] == 0
+
+
+async def test_admin_create_word_rejects_unsupported_language(app, client, session):
+    headers, _ = await _token_for(app, client, session, "admin@x.com", RoleEnum.ADMIN)
+    resp = await client.post("/api/admin/words", json={"lemma": "kot", "language": "ru"}, headers=headers)
+    assert resp.status_code == 400
+
+
+async def test_admin_words_reject_plain_user(app, client, session):
+    headers, _ = await _token_for(app, client, session, "user@x.com", RoleEnum.USER)
+    assert (await client.get("/api/admin/words", headers=headers)).status_code == 403
+    assert (
+        await client.post("/api/admin/words", json={"lemma": "x", "language": "en"}, headers=headers)
+    ).status_code == 403
+
+
 # --- editing / deleting exercises ------------------------------------------
 
 

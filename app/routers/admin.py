@@ -10,10 +10,11 @@ from app.schemas.admin import (
     AdminUserCreate,
     AdminUserUpdate,
     AdminVocabularyAdd,
+    AdminWordCreate,
     AdminWordOut,
     AdminWordUpdate,
 )
-from app.schemas.capture import UserWordOut
+from app.schemas.capture import LanguageCountOut, UserWordOut
 from app.schemas.dictionary import DictionaryImportRequest, DictionaryImportResult, DictionaryImportStatus
 from app.schemas.pagination import Page
 from app.schemas.user import UserOut
@@ -90,6 +91,37 @@ async def add_vocabulary(
 async def remove_vocabulary(user_id: int, user_word_uuid: UUID, admin: AdminUserDep, service: AdminServiceDep) -> None:
     """Remove a word from a user's vocabulary (leaves the shared dictionary)."""
     await service.remove_vocabulary(user_id, user_word_uuid)
+
+
+@router.get("/words", response_model=Page[AdminWordOut])
+async def list_words(
+    admin: AdminUserDep,
+    service: AdminServiceDep,
+    language: str | None = Query(None, max_length=8),
+    query: str | None = Query(None, max_length=128),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+) -> Page[AdminWordOut]:
+    """Browse the SHARED dictionary; filter by `language` and lemma prefix `query`."""
+    return await service.list_words(page=page, limit=limit, language=language, query=query)
+
+
+@router.get("/words/languages", response_model=list[LanguageCountOut])
+async def word_languages(admin: AdminUserDep, service: AdminServiceDep) -> list[LanguageCountOut]:
+    """Languages present in the shared dictionary with per-language word counts."""
+    return await service.word_languages()
+
+
+@router.post("/words", response_model=AdminWordOut, status_code=status.HTTP_201_CREATED)
+async def create_word(data: AdminWordCreate, admin: AdminUserDep, service: AdminServiceDep) -> AdminWordOut:
+    """Add a new SHARED dictionary entry."""
+    return await service.create_word(data)
+
+
+@router.delete("/words/{word_uuid}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_word(word_uuid: UUID, admin: AdminUserDep, service: AdminServiceDep) -> None:
+    """Delete a SHARED entry — removes it from every user's vocabulary (cascade)."""
+    await service.delete_word(word_uuid)
 
 
 @router.patch("/words/{word_uuid}", response_model=AdminWordOut)

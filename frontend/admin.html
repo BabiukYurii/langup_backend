@@ -26,6 +26,7 @@
         <div class="admin__listbar">
           <input id="users-search" class="dict__search" type="text" placeholder="Search by email or name…" />
           <button id="new-user-btn" class="btn btn--primary" type="button">＋ New</button>
+          <button id="dict-words-btn" class="btn btn--ghost" type="button">Dictionary</button>
           <button id="dict-import-btn" class="btn btn--ghost" type="button">Import dictionary</button>
         </div>
 
@@ -120,6 +121,54 @@
         <ul id="d-vocab" class="dict__list"></ul>
         <ul id="d-exercises" class="dict__list hidden"></ul>
         <p id="d-empty" class="meta hidden">Empty.</p>
+      </section>
+
+      <!-- SHARED DICTIONARY (CRUD, split by language) -->
+      <section id="dict-view" class="card hidden">
+        <div class="words-bar">
+          <button id="back-from-dict" class="btn btn--ghost" type="button">← Users</button>
+          <div class="dict__head">
+            <h1 class="card__title">Shared dictionary</h1>
+            <span id="dict-count" class="meta"></span>
+          </div>
+        </div>
+
+        <div id="dict-langs" class="admin__tabs"></div>
+
+        <div class="admin__listbar">
+          <input id="dict-search" class="dict__search" type="text" placeholder="Search lemma…" />
+          <button id="dw-new-btn" class="btn btn--primary" type="button">＋ New word</button>
+        </div>
+
+        <form id="dw-form" class="admin__create hidden">
+          <div class="admin__create-actions" style="justify-content: flex-start">
+            <label class="field" style="max-width: 200px">
+              <span>Lemma</span>
+              <input id="dw-lemma" type="text" placeholder="word" maxlength="128" required />
+            </label>
+            <label class="field" style="max-width: 150px">
+              <span>Language</span>
+              <select id="dw-lang" required></select>
+            </label>
+            <label class="field" style="max-width: 220px">
+              <span>Translation (uk)</span>
+              <input id="dw-translation" type="text" placeholder="optional" maxlength="256" />
+            </label>
+          </div>
+          <div class="admin__create-actions">
+            <button type="button" id="dw-cancel" class="btn btn--ghost">Cancel</button>
+            <button type="submit" class="btn btn--primary">Create</button>
+          </div>
+        </form>
+
+        <ul id="dict-list" class="dict__list"></ul>
+        <p id="dict-empty" class="meta hidden">No words.</p>
+
+        <div class="admin__pager">
+          <button id="dict-prev" class="btn btn--ghost" type="button">← Prev</button>
+          <span id="dict-page" class="meta"></span>
+          <button id="dict-next" class="btn btn--ghost" type="button">Next →</button>
+        </div>
       </section>
 
       <div id="toast" class="toast hidden"></div>

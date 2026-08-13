@@ -607,8 +607,20 @@ a.btn {
 }
 .admin__tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+}
+.admin__pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.admin__pager .meta {
+  min-width: 110px;
+  text-align: center;
 }
 .admin__ex {
   gap: 10px;
