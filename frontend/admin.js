@@ -362,7 +362,7 @@ async function loadDictWords() {
     const actions = document.createElement("span");
     actions.className = "admin__actions";
     actions.append(
-      iconBtn("✎", "Edit the shared word", () => editDictWord(w)),
+      iconBtn("✎", "Edit the shared word", () => openDictForm(w)),
       iconBtn("✕", "Delete from the shared dictionary", () => deleteDictWord(w.uuid, w.lemma)),
     );
 
@@ -384,37 +384,54 @@ function dictTranslation(definitions) {
   return sense.translation || "—";
 }
 
-async function createDictWord(e) {
-  e.preventDefault();
-  const body = {
-    lemma: $("dw-lemma").value.trim(),
-    language: $("dw-lang").value,
-    translation: $("dw-translation").value.trim() || null,
-  };
-  if (!body.lemma) return;
-  const resp = await apiFetch("/admin/words", { method: "POST", body: JSON.stringify(body) });
-  if (bounceIfDenied(resp)) return;
-  if (!resp.ok) return toast(await errText(resp, "Could not create the word"), "err");
-  toast("Word added");
-  $("dw-form").reset();
-  $("dw-lang").value = dictState.language || "en";
-  hide($("dw-form"));
-  loadDictLangs();
-  loadDictWords();
+// One form for both add and edit. In edit mode the language is fixed (it's part
+// of the word's identity and PATCH can't change it), so the select is disabled.
+let editingWordUuid = null;
+
+function openDictForm(word) {
+  editingWordUuid = word ? word.uuid : null;
+  const editing = !!word;
+  $("dw-lemma").value = word ? word.lemma : "";
+  $("dw-lang").value = word ? word.language : dictState.language || "en";
+  $("dw-lang").disabled = editing;
+  $("dw-translation").value = word && dictTranslation(word.definitions) !== "—" ? dictTranslation(word.definitions) : "";
+  $("dw-submit").textContent = editing ? "Save" : "Create";
+  show($("dw-form"));
+  $("dw-lemma").focus();
 }
 
-async function editDictWord(word) {
-  const lemma = prompt("Shared lemma (affects ALL users who have it):", word.lemma);
-  if (lemma === null) return;
-  const translation = prompt("Translation (uk). Leave empty to keep unchanged:", dictTranslation(word.definitions) === "—" ? "" : dictTranslation(word.definitions));
-  const body = {};
-  if (lemma.trim() && lemma.trim() !== word.lemma) body.lemma = lemma.trim();
-  if (translation && translation.trim()) body.translation = translation.trim();
-  if (Object.keys(body).length === 0) return;
-  const resp = await apiFetch(`/admin/words/${word.uuid}`, { method: "PATCH", body: JSON.stringify(body) });
+function closeDictForm() {
+  editingWordUuid = null;
+  $("dw-form").reset();
+  $("dw-lang").disabled = false;
+  hide($("dw-form"));
+}
+
+async function submitDictWord(e) {
+  e.preventDefault();
+  const lemma = $("dw-lemma").value.trim();
+  const translation = $("dw-translation").value.trim();
+  if (!lemma) return;
+
+  let resp;
+  if (editingWordUuid) {
+    // PATCH sends both fields; empty translation is skipped so it isn't wiped.
+    const body = { lemma };
+    if (translation) {
+      body.translation = translation;
+      body.translation_lang = "uk";
+    }
+    resp = await apiFetch(`/admin/words/${editingWordUuid}`, { method: "PATCH", body: JSON.stringify(body) });
+  } else {
+    const body = { lemma, language: $("dw-lang").value, translation: translation || null };
+    resp = await apiFetch("/admin/words", { method: "POST", body: JSON.stringify(body) });
+  }
+
   if (bounceIfDenied(resp)) return;
-  if (!resp.ok) return toast(await errText(resp, "Could not update"), "err");
-  toast("Shared word updated");
+  if (!resp.ok) return toast(await errText(resp, "Could not save the word"), "err");
+  toast(editingWordUuid ? "Word updated" : "Word added");
+  closeDictForm();
+  loadDictLangs();
   loadDictWords();
 }
 
@@ -581,11 +598,11 @@ document.addEventListener("DOMContentLoaded", () => {
     searchTimer = setTimeout(loadDictWords, 250);
   });
   $("dw-new-btn").addEventListener("click", () => {
-    $("dw-lang").value = dictState.language || "en";
-    $("dw-form").classList.toggle("hidden");
+    if ($("dw-form").classList.contains("hidden")) openDictForm(null);
+    else closeDictForm();
   });
-  $("dw-cancel").addEventListener("click", () => hide($("dw-form")));
-  $("dw-form").addEventListener("submit", createDictWord);
+  $("dw-cancel").addEventListener("click", closeDictForm);
+  $("dw-form").addEventListener("submit", submitDictWord);
   $("dict-prev").addEventListener("click", () => {
     if (dictState.page > 1) {
       dictState.page--;
