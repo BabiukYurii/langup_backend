@@ -66,7 +66,7 @@ class DictionaryImportService:
     # --- LLM normalization -------------------------------------------------
 
     async def normalize_via_llm(
-        self, source_language: str, target_language: str, raw_text: str, ai_client
+        self, source_language: str, target_language: str, raw_text: str, ai_client, on_progress=None
     ) -> list[DictionaryEntry]:
         """Turn messy raw text into clean {word, translation} entries via the LLM.
 
@@ -85,8 +85,9 @@ class DictionaryImportService:
             f"Skip lines that are not a word/translation pair."
         )
         lines = content_lines(raw_text)
+        total = (len(lines) + _LLM_CHUNK - 1) // _LLM_CHUNK  # number of LLM calls
         entries: list[DictionaryEntry] = []
-        for i in range(0, len(lines), _LLM_CHUNK):
+        for idx, i in enumerate(range(0, len(lines), _LLM_CHUNK)):
             chunk = "\n".join(lines[i : i + _LLM_CHUNK])
             try:
                 reply = await ai_client.chat_json(system, chunk, temperature=0.0)
@@ -98,6 +99,8 @@ class DictionaryImportService:
                         entries.append(DictionaryEntry(word=word[:128], translation=translation[:256]))
             except Exception:  # noqa: BLE001 — one bad chunk must not abort the whole import
                 logger.exception("LLM normalization failed for a chunk; skipping it")
+            if on_progress:
+                on_progress(idx + 1, total)  # report LLM chunks done, so the admin sees real progress
         logger.info("LLM normalized %d line(s) into %d entrie(s)", len(lines), len(entries))
         return entries
 
@@ -109,7 +112,9 @@ class DictionaryImportService:
         senses.append({"lang": lang, "translation": translation})
         return senses
 
-    async def import_entries(self, source_language: str, target_language: str, entries: list[DictionaryEntry]) -> dict:
+    async def import_entries(
+        self, source_language: str, target_language: str, entries: list[DictionaryEntry], on_progress=None
+    ) -> dict:
         """Upsert every entry into `words`, merging translations. Returns counts."""
         # Lemmatize + dedupe (a later line for the same lemma wins).
         by_lemma: dict[str, str] = {}
@@ -118,7 +123,8 @@ class DictionaryImportService:
 
         created = updated = 0
         lemmas = list(by_lemma)
-        for i in range(0, len(lemmas), _CHUNK):
+        total = (len(lemmas) + _CHUNK - 1) // _CHUNK
+        for idx, i in enumerate(range(0, len(lemmas), _CHUNK)):
             chunk = lemmas[i : i + _CHUNK]
             existing = {w.lemma: w for w in await self.words.get_by_lemmas(chunk, source_language)}
             new_rows = []
@@ -139,6 +145,8 @@ class DictionaryImportService:
                     created += 1
             self.session.add_all(new_rows)
             await self.session.flush()
+            if on_progress:
+                on_progress(idx + 1, total)
         await self.session.commit()
         logger.info(
             "Dictionary import (%s→%s): %d created, %d updated", source_language, target_language, created, updated
@@ -163,18 +171,19 @@ async def import_dictionary_in_background(source_language: str, target_language:
 
 def schedule_dictionary_import(
     background: BackgroundTasks, source_language: str, target_language: str, entries: list[DictionaryEntry]
-) -> None:
-    """Queue the import on Celery (survives restarts); fall back to BackgroundTasks."""
+) -> str | None:
+    """Queue the import on Celery (survives restarts); fall back to BackgroundTasks.
+    Returns the Celery task id (to poll for progress) or None when run in-process."""
     pairs = [[e.word, e.translation] for e in entries]
     if settings.celery.CELERY_ENABLED:
         try:
             from app.celery.tasks.dictionary_tasks import import_dictionary
 
-            import_dictionary.delay(source_language, target_language, pairs)
-            return
+            return import_dictionary.delay(source_language, target_language, pairs).id
         except Exception:  # noqa: BLE001 — broker outage must not fail the request
             logger.exception("Could not enqueue dictionary import; running in-process")
     background.add_task(import_dictionary_in_background, source_language, target_language, pairs)
+    return None
 
 
 async def normalize_import_in_background(source_language: str, target_language: str, raw_text: str) -> None:
@@ -194,14 +203,38 @@ async def normalize_import_in_background(source_language: str, target_language: 
 
 def schedule_normalize_import(
     background: BackgroundTasks, source_language: str, target_language: str, raw_text: str
-) -> None:
-    """Queue LLM normalization + import (Celery, else BackgroundTasks)."""
+) -> str | None:
+    """Queue LLM normalization + import (Celery, else BackgroundTasks). Returns the
+    Celery task id (to poll for progress) or None when run in-process."""
     if settings.celery.CELERY_ENABLED:
         try:
             from app.celery.tasks.dictionary_tasks import normalize_import_dictionary
 
-            normalize_import_dictionary.delay(source_language, target_language, raw_text)
-            return
+            return normalize_import_dictionary.delay(source_language, target_language, raw_text).id
         except Exception:  # noqa: BLE001 — broker outage must not fail the request
             logger.exception("Could not enqueue dictionary normalize+import; running in-process")
     background.add_task(normalize_import_in_background, source_language, target_language, raw_text)
+    return None
+
+
+def import_task_status(task_id: str) -> dict:
+    """Progress of a queued dictionary import, for the admin panel to poll."""
+    from app.celery.config import celery_app
+
+    result = celery_app.AsyncResult(task_id)
+    state = result.state
+    out = {"status": "pending", "done": None, "total": None, "created": None, "updated": None}
+
+    if state == "PROGRESS" and isinstance(result.info, dict):
+        out.update(status="running", done=result.info.get("done"), total=result.info.get("total"))
+    elif state == "SUCCESS" and isinstance(result.result, dict):
+        out.update(status="done", created=result.result.get("created"), updated=result.result.get("updated"))
+    elif state in ("STARTED", "RETRY"):
+        out["status"] = "running"
+    elif state in ("PENDING", "RECEIVED"):
+        out["status"] = "pending"
+    elif state == "SUCCESS":
+        out["status"] = "done"
+    else:
+        out["status"] = "failed"
+    return out

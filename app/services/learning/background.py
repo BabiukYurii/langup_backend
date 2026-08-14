@@ -13,12 +13,35 @@ from uuid import UUID
 from fastapi import BackgroundTasks
 
 from app.core import settings
+from app.core.redis_client import get_redis
 from app.enums.learning import ExerciseType
 
 if TYPE_CHECKING:
     from app.schemas.exercise import RefillStatusOut
 
 logger = logging.getLogger(__name__)
+
+# --- refill task ownership --------------------------------------------------
+# A refill task_id is handed to the client to poll. Remember which user owns
+# each one so a status poll can't read someone else's task.
+_REFILL_OWNER_TTL = 3600  # a client polls within seconds; an hour is plenty
+
+
+async def remember_refill_owner(task_id: str, user_id: int) -> None:
+    """Record that `user_id` created refill `task_id` (best-effort)."""
+    try:
+        await get_redis().set(f"refill_owner:{task_id}", str(user_id), ex=_REFILL_OWNER_TTL)
+    except Exception:  # noqa: BLE001 — recording ownership must not fail the request
+        logger.warning("Could not record refill owner for %s", task_id)
+
+
+async def refill_owner(task_id: str) -> int | None:
+    """The user who owns `task_id`, or None (unknown / Redis unavailable)."""
+    try:
+        raw = await get_redis().get(f"refill_owner:{task_id}")
+    except Exception:  # noqa: BLE001 — treat an unreadable owner as "not yours"
+        return None
+    return int(raw) if raw is not None else None
 
 
 def _enqueue(task, *args) -> str | None:

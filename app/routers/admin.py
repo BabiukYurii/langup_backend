@@ -10,17 +10,19 @@ from app.schemas.admin import (
     AdminUserCreate,
     AdminUserUpdate,
     AdminVocabularyAdd,
+    AdminWordCreate,
     AdminWordOut,
     AdminWordUpdate,
 )
-from app.schemas.capture import UserWordOut
-from app.schemas.dictionary import DictionaryImportRequest, DictionaryImportResult
+from app.schemas.capture import LanguageCountOut, UserWordOut
+from app.schemas.dictionary import DictionaryImportRequest, DictionaryImportResult, DictionaryImportStatus
 from app.schemas.pagination import Page
 from app.schemas.user import UserOut
 from app.services.admin_service import AdminService, get_admin_service
 from app.services.vocabulary.dictionary_service import (
     DictionaryImportService,
     content_lines,
+    import_task_status,
     schedule_dictionary_import,
     schedule_normalize_import,
 )
@@ -91,6 +93,37 @@ async def remove_vocabulary(user_id: int, user_word_uuid: UUID, admin: AdminUser
     await service.remove_vocabulary(user_id, user_word_uuid)
 
 
+@router.get("/words", response_model=Page[AdminWordOut])
+async def list_words(
+    admin: AdminUserDep,
+    service: AdminServiceDep,
+    language: str | None = Query(None, max_length=8),
+    query: str | None = Query(None, max_length=128),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+) -> Page[AdminWordOut]:
+    """Browse the SHARED dictionary; filter by `language` and lemma prefix `query`."""
+    return await service.list_words(page=page, limit=limit, language=language, query=query)
+
+
+@router.get("/words/languages", response_model=list[LanguageCountOut])
+async def word_languages(admin: AdminUserDep, service: AdminServiceDep) -> list[LanguageCountOut]:
+    """Languages present in the shared dictionary with per-language word counts."""
+    return await service.word_languages()
+
+
+@router.post("/words", response_model=AdminWordOut, status_code=status.HTTP_201_CREATED)
+async def create_word(data: AdminWordCreate, admin: AdminUserDep, service: AdminServiceDep) -> AdminWordOut:
+    """Add a new SHARED dictionary entry."""
+    return await service.create_word(data)
+
+
+@router.delete("/words/{word_uuid}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_word(word_uuid: UUID, admin: AdminUserDep, service: AdminServiceDep) -> None:
+    """Delete a SHARED entry — removes it from every user's vocabulary (cascade)."""
+    await service.delete_word(word_uuid)
+
+
 @router.patch("/words/{word_uuid}", response_model=AdminWordOut)
 async def update_word(
     word_uuid: UUID, data: AdminWordUpdate, admin: AdminUserDep, service: AdminServiceDep
@@ -136,10 +169,25 @@ async def import_dictionary(
     """
     if data.normalize and data.raw_text:
         lines = content_lines(data.raw_text)
-        schedule_normalize_import(background, data.source_language, data.target_language, data.raw_text)
-        return DictionaryImportResult(queued=len(lines))
+        task_id = schedule_normalize_import(background, data.source_language, data.target_language, data.raw_text)
+        return DictionaryImportResult(queued=len(lines), task_id=task_id)
 
     entries = DictionaryImportService.parse(data)
+    task_id = None
     if entries:
-        schedule_dictionary_import(background, data.source_language, data.target_language, entries)
-    return DictionaryImportResult(queued=len(entries))
+        task_id = schedule_dictionary_import(background, data.source_language, data.target_language, entries)
+    return DictionaryImportResult(queued=len(entries), task_id=task_id)
+
+
+@router.get("/dictionary/import/{task_id}", response_model=DictionaryImportStatus)
+async def dictionary_import_status(task_id: str, admin: AdminUserDep) -> DictionaryImportStatus:
+    """Progress of a queued dictionary import, so the admin panel can poll it."""
+    return DictionaryImportStatus(**import_task_status(task_id))
+
+
+@router.delete("/dictionary/import/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_dictionary_import(task_id: str, admin: AdminUserDep) -> None:
+    """Cancel a running import: terminate the task so it can't be redelivered."""
+    from app.celery.config import celery_app
+
+    celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")

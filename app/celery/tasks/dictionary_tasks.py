@@ -16,9 +16,12 @@ from app.core import settings
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(name="dictionary.import")
-def import_dictionary(source_language: str, target_language: str, pairs: list) -> dict:
+@celery_app.task(name="dictionary.import", bind=True)
+def import_dictionary(self, source_language: str, target_language: str, pairs: list) -> dict:
     """Upsert a batch of (word, translation) pairs into the shared dictionary."""
+
+    def progress(done: int, total: int) -> None:
+        self.update_state(state="PROGRESS", meta={"done": done, "total": total})
 
     async def job() -> dict:
         from app.schemas.dictionary import DictionaryEntry
@@ -28,7 +31,9 @@ def import_dictionary(source_language: str, target_language: str, pairs: list) -
         try:
             async with async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)() as session:
                 entries = [DictionaryEntry(word=w, translation=t) for w, t in pairs]
-                return await DictionaryImportService(session).import_entries(source_language, target_language, entries)
+                return await DictionaryImportService(session).import_entries(
+                    source_language, target_language, entries, on_progress=progress
+                )
         finally:
             await engine.dispose()
 
@@ -37,9 +42,13 @@ def import_dictionary(source_language: str, target_language: str, pairs: list) -
     return result
 
 
-@celery_app.task(name="dictionary.normalize_import")
-def normalize_import_dictionary(source_language: str, target_language: str, raw_text: str) -> dict:
+@celery_app.task(name="dictionary.normalize_import", bind=True)
+def normalize_import_dictionary(self, source_language: str, target_language: str, raw_text: str) -> dict:
     """LLM-normalize messy raw text into pairs, then upsert them."""
+
+    def progress(done: int, total: int) -> None:
+        # The LLM phase is the slow one, so its chunk progress is what we report.
+        self.update_state(state="PROGRESS", meta={"done": done, "total": total})
 
     async def job() -> dict:
         from app.services.ai.client import AIClient
@@ -49,7 +58,9 @@ def normalize_import_dictionary(source_language: str, target_language: str, raw_
         try:
             async with async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)() as session:
                 service = DictionaryImportService(session)
-                entries = await service.normalize_via_llm(source_language, target_language, raw_text, AIClient())
+                entries = await service.normalize_via_llm(
+                    source_language, target_language, raw_text, AIClient(), on_progress=progress
+                )
                 if not entries:
                     return {"created": 0, "updated": 0}
                 return await service.import_entries(source_language, target_language, entries)

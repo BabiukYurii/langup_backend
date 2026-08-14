@@ -607,8 +607,20 @@ a.btn {
 }
 .admin__tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+}
+.admin__pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.admin__pager .meta {
+  min-width: 110px;
+  text-align: center;
 }
 .admin__ex {
   gap: 10px;
@@ -1138,6 +1150,34 @@ a.btn {
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--muted);
+}
+
+/* indeterminate progress bar (e.g. background dictionary import) */
+.progress {
+  width: 100%;
+  height: 6px;
+  margin: 10px 0;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+.progress > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width 0.3s ease; /* determinate: JS sets width = % */
+}
+.progress--indeterminate > div {
+  width: 40% !important;
+  animation: progress-slide 1.1s ease-in-out infinite;
+}
+@keyframes progress-slide {
+  0% {
+    margin-left: -40%;
+  }
+  100% {
+    margin-left: 100%;
+  }
 }
 
 /* ===================== word detail modal ================================= */

@@ -11,7 +11,7 @@ Celery's default one — pointing at an amqp broker that does not exist.
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from uuid import UUID
 
@@ -32,7 +32,7 @@ _RETRY_KWARGS = {
 
 
 @asynccontextmanager
-async def _session() -> AsyncIterator[AsyncSession]:
+async def _session() -> AsyncGenerator[AsyncSession]:
     """A session on an engine of this task's own.
 
     Every task runs in a fresh event loop via asyncio.run(), and an async engine

@@ -18,6 +18,11 @@ class WordRepository(BaseRepository[Word]):
         stmt = select(Word).where(Word.language == language, Word.lemma.in_(lemmas))
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def languages_with_counts(self) -> list[tuple[str, int]]:
+        """Every language present in the shared dictionary with its word count."""
+        stmt = select(Word.language, func.count()).group_by(Word.language).order_by(func.count().desc())
+        return [(lang, count) for lang, count in (await self.session.execute(stmt)).all()]
+
     async def search(
         self,
         page: int = 1,

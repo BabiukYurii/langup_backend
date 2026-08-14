@@ -40,6 +40,15 @@ class AdminWordUpdate(BaseModel):
     translation_lang: str = Field(default="uk", min_length=2, max_length=8)
 
 
+class AdminWordCreate(BaseModel):
+    # Adds a new SHARED dictionary entry. lemma is normalized; a collision with
+    # an existing lemma+language is rejected.
+    lemma: str = Field(min_length=1, max_length=128)
+    language: str = Field(min_length=2, max_length=8)
+    translation: str | None = Field(default=None, max_length=256)
+    translation_lang: str = Field(default="uk", min_length=2, max_length=8)
+
+
 class AdminWordOut(BaseModel):
     uuid: UUID
     lemma: str

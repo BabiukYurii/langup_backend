@@ -291,6 +291,162 @@ async function deleteExercise(uuid) {
   toast(await errText(resp, "Could not delete"), "err");
 }
 
+// ---------- shared dictionary (CRUD, split by language) ----------
+const DICT_LIMIT = 20;
+const dictState = { language: null, query: "", page: 1 };
+
+function openDict() {
+  hide($("users-view"));
+  show($("dict-view"));
+  dictState.page = 1;
+  loadDictLangs();
+  loadDictWords();
+}
+
+// The language chips ("split by language"), each with its word count.
+async function loadDictLangs() {
+  const resp = await apiFetch("/admin/words/languages");
+  if (bounceIfDenied(resp)) return;
+  if (!resp.ok) return;
+  const langs = await resp.json();
+  const total = langs.reduce((n, l) => n + l.count, 0);
+  const bar = $("dict-langs");
+  bar.innerHTML = "";
+
+  const chip = (label, code) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (dictState.language === code ? " chip--on" : "");
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      dictState.language = code;
+      dictState.page = 1;
+      loadDictLangs();
+      loadDictWords();
+    });
+    return b;
+  };
+
+  bar.appendChild(chip(`All (${total})`, null));
+  for (const l of langs) bar.appendChild(chip(`${languageName(l.language)} (${l.count})`, l.language));
+}
+
+async function loadDictWords() {
+  const params = new URLSearchParams({ page: dictState.page, limit: DICT_LIMIT });
+  if (dictState.language) params.set("language", dictState.language);
+  if (dictState.query) params.set("query", dictState.query);
+  const resp = await apiFetch("/admin/words?" + params.toString());
+  if (bounceIfDenied(resp)) return;
+  if (!resp.ok) return;
+
+  const page = await resp.json();
+  $("dict-count").textContent = "(" + page.total + ")";
+  $("dict-empty").classList.toggle("hidden", page.items.length > 0);
+
+  const list = $("dict-list");
+  list.innerHTML = "";
+  for (const w of page.items) {
+    const li = document.createElement("li");
+    li.className = "dict__item admin__ex";
+
+    const lemma = document.createElement("span");
+    lemma.className = "dict__lemma";
+    lemma.textContent = w.lemma;
+    const lang = document.createElement("span");
+    lang.className = "dict__lang";
+    lang.textContent = w.language;
+    const tr = document.createElement("span");
+    tr.className = "admin__ex-answer";
+    tr.textContent = dictTranslation(w.definitions);
+
+    const actions = document.createElement("span");
+    actions.className = "admin__actions";
+    actions.append(
+      iconBtn("✎", "Edit the shared word", () => openDictForm(w)),
+      iconBtn("✕", "Delete from the shared dictionary", () => deleteDictWord(w.uuid, w.lemma)),
+    );
+
+    li.append(lemma, lang, tr, actions);
+    list.appendChild(li);
+  }
+
+  const pages = Math.max(1, Math.ceil(page.total / DICT_LIMIT));
+  $("dict-page").textContent = `Page ${page.page} / ${pages}`;
+  $("dict-prev").disabled = page.page <= 1;
+  $("dict-next").disabled = page.page >= pages;
+}
+
+// Prefer the Ukrainian sense; otherwise show whatever translations exist.
+function dictTranslation(definitions) {
+  if (!Array.isArray(definitions) || definitions.length === 0) return "—";
+  const uk = definitions.find((d) => d.lang === "uk");
+  const sense = uk || definitions[0];
+  return sense.translation || "—";
+}
+
+// One form for both add and edit. In edit mode the language is fixed (it's part
+// of the word's identity and PATCH can't change it), so the select is disabled.
+let editingWordUuid = null;
+
+function openDictForm(word) {
+  editingWordUuid = word ? word.uuid : null;
+  const editing = !!word;
+  $("dw-lemma").value = word ? word.lemma : "";
+  $("dw-lang").value = word ? word.language : dictState.language || "en";
+  $("dw-lang").disabled = editing;
+  $("dw-translation").value = word && dictTranslation(word.definitions) !== "—" ? dictTranslation(word.definitions) : "";
+  $("dw-submit").textContent = editing ? "Save" : "Create";
+  show($("dw-form"));
+  $("dw-lemma").focus();
+}
+
+function closeDictForm() {
+  editingWordUuid = null;
+  $("dw-form").reset();
+  $("dw-lang").disabled = false;
+  hide($("dw-form"));
+}
+
+async function submitDictWord(e) {
+  e.preventDefault();
+  const lemma = $("dw-lemma").value.trim();
+  const translation = $("dw-translation").value.trim();
+  if (!lemma) return;
+
+  let resp;
+  if (editingWordUuid) {
+    // PATCH sends both fields; empty translation is skipped so it isn't wiped.
+    const body = { lemma };
+    if (translation) {
+      body.translation = translation;
+      body.translation_lang = "uk";
+    }
+    resp = await apiFetch(`/admin/words/${editingWordUuid}`, { method: "PATCH", body: JSON.stringify(body) });
+  } else {
+    const body = { lemma, language: $("dw-lang").value, translation: translation || null };
+    resp = await apiFetch("/admin/words", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  if (bounceIfDenied(resp)) return;
+  if (!resp.ok) return toast(await errText(resp, "Could not save the word"), "err");
+  toast(editingWordUuid ? "Word updated" : "Word added");
+  closeDictForm();
+  loadDictLangs();
+  loadDictWords();
+}
+
+async function deleteDictWord(uuid, lemma) {
+  if (!confirm(`Delete "${lemma}" from the shared dictionary? It disappears from every user who has it.`)) return;
+  const resp = await apiFetch(`/admin/words/${uuid}`, { method: "DELETE" });
+  if (bounceIfDenied(resp)) return;
+  if (resp.status === 204) {
+    toast("Word deleted");
+    loadDictLangs();
+    return loadDictWords();
+  }
+  toast(await errText(resp, "Could not delete"), "err");
+}
+
 // ---------- helpers ----------
 function iconBtn(text, title, onClick) {
   const b = document.createElement("button");
@@ -306,24 +462,105 @@ function iconBtn(text, title, onClick) {
 }
 
 // ---------- dictionary import ----------
+const IMPORT_TASK_KEY = "langup_import_task"; // survives a page reload so we can resume
+
 async function importDictionary(e) {
   e.preventDefault();
   const body = {
-    source_language: $("di-source").value.trim(),
-    target_language: $("di-target").value.trim(),
+    source_language: $("di-source").value,
+    target_language: $("di-target").value,
     raw_text: $("di-text").value,
     normalize: $("di-normalize").checked,
   };
-  $("di-status").textContent = "Sending…";
+  $("di-submit").disabled = true;
+  showBar(true);
+  $("di-status").textContent = body.normalize ? "Sending… (LLM normalize is slower)" : "Sending…";
+
   const resp = await apiFetch("/admin/dictionary/import", { method: "POST", body: JSON.stringify(body) });
   if (bounceIfDenied(resp)) return;
   if (!resp.ok) {
-    $("di-status").textContent = "";
+    finishImport();
     return toast(await errText(resp, "Could not import"), "err");
   }
-  const { queued } = await resp.json();
-  $("di-status").textContent = `Queued ${queued} entrie(s) — importing in the background.`;
-  $("di-text").value = "";
+  const { queued, task_id } = await resp.json();
+  if (!task_id) {
+    // Ran in-process (no worker): already done by the time we're here.
+    $("di-status").textContent = `Imported ${queued} entrie(s).`;
+    return finishImport();
+  }
+  // Remember it so a reload can resume the progress instead of losing it.
+  localStorage.setItem(IMPORT_TASK_KEY, task_id);
+  trackImport(task_id);
+}
+
+// The bar is determinate (width = %) when we know the chunk count, else it slides.
+function showBar(indeterminate, pct) {
+  const bar = $("di-progress");
+  show(bar);
+  bar.classList.toggle("progress--indeterminate", !!indeterminate);
+  bar.firstElementChild.style.width = indeterminate ? "" : `${pct || 0}%`;
+}
+
+// Poll the task until it finishes; keep the button locked + bar running meanwhile.
+async function trackImport(taskId) {
+  $("di-submit").disabled = true;
+  const until = Date.now() + 60 * 60 * 1000;
+  while (Date.now() < until) {
+    const resp = await apiFetch(`/admin/dictionary/import/${taskId}`);
+    if (resp.ok) {
+      const { status, done, total, created, updated } = await resp.json();
+      if (status === "done") {
+        $("di-status").textContent = `Done — ${created ?? 0} added, ${updated ?? 0} updated.`;
+        $("di-text").value = "";
+        localStorage.removeItem(IMPORT_TASK_KEY);
+        return finishImport();
+      }
+      if (status === "failed") {
+        $("di-status").textContent = "Import failed — check the server logs.";
+        localStorage.removeItem(IMPORT_TASK_KEY);
+        return finishImport();
+      }
+      if (total) {
+        const pct = Math.round((done / total) * 100);
+        showBar(false, pct);
+        $("di-status").textContent = `Importing… chunk ${done}/${total} (${pct}%)`;
+      } else {
+        showBar(true);
+        $("di-status").textContent = "Importing… (starting)";
+      }
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  $("di-status").textContent = "Still importing… reopen the panel later to check.";
+  finishImport();
+}
+
+// Cancel: revoke a running import; if nothing is running, just close the form.
+async function cancelImport() {
+  const taskId = localStorage.getItem(IMPORT_TASK_KEY);
+  if (!taskId) {
+    hide($("dict-import-form"));
+    return;
+  }
+  await apiFetch(`/admin/dictionary/import/${taskId}`, { method: "DELETE" });
+  localStorage.removeItem(IMPORT_TASK_KEY);
+  $("di-status").textContent = "Import cancelled.";
+  finishImport();
+}
+
+function finishImport() {
+  hide($("di-progress"));
+  $("di-submit").disabled = false;
+}
+
+// On load, resume tracking an import that was still running before a reload.
+function resumeImportIfAny() {
+  const taskId = localStorage.getItem(IMPORT_TASK_KEY);
+  if (!taskId) return;
+  show($("dict-import-form"));
+  showBar(true);
+  $("di-status").textContent = "Resuming import progress…";
+  trackImport(taskId);
 }
 
 // ---------- boot ----------
@@ -340,8 +577,43 @@ document.addEventListener("DOMContentLoaded", () => {
   $("new-user-btn").addEventListener("click", () => $("new-user-form").classList.toggle("hidden"));
   $("nu-cancel").addEventListener("click", () => hide($("new-user-form")));
   $("new-user-form").addEventListener("submit", createUser);
+  // Language pickers for the dictionary import (from the shared LANGUAGES list).
+  fillLanguageSelect($("di-source"));
+  fillLanguageSelect($("di-target"));
+  $("di-source").value = "en";
+  $("di-target").value = "uk";
   $("dict-import-btn").addEventListener("click", () => $("dict-import-form").classList.toggle("hidden"));
-  $("di-cancel").addEventListener("click", () => hide($("dict-import-form")));
+  // Shared dictionary view.
+  fillLanguageSelect($("dw-lang"));
+  $("dw-lang").value = "en";
+  $("dict-words-btn").addEventListener("click", openDict);
+  $("back-from-dict").addEventListener("click", () => {
+    hide($("dict-view"));
+    show($("users-view"));
+  });
+  $("dict-search").addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    dictState.query = e.target.value.trim();
+    dictState.page = 1;
+    searchTimer = setTimeout(loadDictWords, 250);
+  });
+  $("dw-new-btn").addEventListener("click", () => {
+    if ($("dw-form").classList.contains("hidden")) openDictForm(null);
+    else closeDictForm();
+  });
+  $("dw-cancel").addEventListener("click", closeDictForm);
+  $("dw-form").addEventListener("submit", submitDictWord);
+  $("dict-prev").addEventListener("click", () => {
+    if (dictState.page > 1) {
+      dictState.page--;
+      loadDictWords();
+    }
+  });
+  $("dict-next").addEventListener("click", () => {
+    dictState.page++;
+    loadDictWords();
+  });
+  $("di-cancel").addEventListener("click", cancelImport);
   $("dict-import-form").addEventListener("submit", importDictionary);
   $("back-to-users").addEventListener("click", () => {
     hide($("detail-view"));
@@ -353,4 +625,5 @@ document.addEventListener("DOMContentLoaded", () => {
   $("tab-vocab").addEventListener("click", () => selectTab("vocab"));
   $("tab-exercises").addEventListener("click", () => selectTab("exercises"));
   loadUsers();
+  resumeImportIfAny(); // pick up an import that was still running before a reload
 });

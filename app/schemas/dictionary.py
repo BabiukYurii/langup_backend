@@ -29,3 +29,13 @@ class DictionaryImportRequest(BaseModel):
 class DictionaryImportResult(BaseModel):
     # How many entries were accepted and queued for import.
     queued: int
+    # Celery task id to poll for progress; None when it ran in-process (no worker).
+    task_id: str | None = None
+
+
+class DictionaryImportStatus(BaseModel):
+    status: str  # pending | running | done | failed
+    done: int | None = None  # chunks processed so far
+    total: int | None = None  # total chunks
+    created: int | None = None
+    updated: int | None = None

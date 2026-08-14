@@ -9,6 +9,7 @@ from app.core.exc import (
     ObjectAlreadyExistsException,
     ObjectNotFoundException,
 )
+from app.core.languages import is_supported
 from app.core.security.password import hash_password
 from app.database.postgres import get_session
 from app.enums.user import RoleEnum
@@ -23,10 +24,11 @@ from app.schemas.admin import (
     AdminUserCreate,
     AdminUserUpdate,
     AdminVocabularyAdd,
+    AdminWordCreate,
     AdminWordOut,
     AdminWordUpdate,
 )
-from app.schemas.capture import UserWordOut
+from app.schemas.capture import LanguageCountOut, UserWordOut
 from app.schemas.pagination import Page
 from app.schemas.user import UserOut
 from app.utils.lemmatize import to_lemma
@@ -115,6 +117,39 @@ class AdminService:
         await self.user_words.delete_one(uw)
 
     # --- shared dictionary -------------------------------------------------
+
+    async def list_words(
+        self, page: int = 1, limit: int = 20, language: str | None = None, query: str | None = None
+    ) -> Page[AdminWordOut]:
+        rows, total = await self.words.search(page=page, limit=limit, language=language, query=query)
+        return Page[AdminWordOut](
+            items=[AdminWordOut.model_validate(w) for w in rows], total=total, page=page, limit=limit
+        )
+
+    async def word_languages(self) -> list[LanguageCountOut]:
+        return [
+            LanguageCountOut(language=lang, count=count) for lang, count in await self.words.languages_with_counts()
+        ]
+
+    async def create_word(self, data: AdminWordCreate) -> AdminWordOut:
+        if not is_supported(data.language):
+            raise BadRequestException(f"Unsupported language: {data.language}")
+        lemma = to_lemma(data.lemma, data.language)
+        if await self.words.get_by_lemma_language(lemma, data.language):
+            raise ObjectAlreadyExistsException(f"{lemma} ({data.language})", "Word")
+        definitions = None
+        if data.translation:
+            definitions = [{"lang": data.translation_lang, "translation": data.translation}]
+        word = await self.words.create_one({"lemma": lemma, "language": data.language, "definitions": definitions})
+        return AdminWordOut.model_validate(word)
+
+    async def delete_word(self, word_uuid: UUID) -> None:
+        # Removes the shared entry; it also disappears from every user's
+        # vocabulary via ON DELETE CASCADE on user_words.
+        word = await self.words.get_one(uuid=word_uuid)
+        if not word:
+            raise ObjectNotFoundException(word_uuid, "Word")
+        await self.words.delete_one(word)
 
     async def update_word(self, word_uuid: UUID, data: AdminWordUpdate) -> AdminWordOut:
         word = await self.words.get_one(uuid=word_uuid)

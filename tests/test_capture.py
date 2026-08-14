@@ -189,3 +189,14 @@ async def test_vocabulary_search(app, client):
     resp = await client.get("/api/vocabulary", params={"query": "ap"}, headers=headers)
     lemmas = sorted(item["lemma"] for item in resp.json()["items"])
     assert lemmas == ["apple", "apricot"]
+
+
+async def test_capture_rejects_oversized_sentence(app, client):
+    # Field length is bounded so a giant sentence can't bloat storage / prompts.
+    headers = await _login(app, client)
+    resp = await client.post(
+        "/api/vocabulary",
+        json={"word": "hello", "language": "en", "sentence": "x" * 2001},
+        headers=headers,
+    )
+    assert resp.status_code == 422
