@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import func, select
 
 from app.models import Word
@@ -7,6 +9,18 @@ from app.repositories.base import BaseRepository
 class WordRepository(BaseRepository[Word]):
     def __init__(self, session) -> None:
         super().__init__(session=session, model=Word)
+
+    async def random_by_language(self, language: str, exclude_uuids: set[UUID], limit: int) -> list[Word]:
+        """Up to `limit` random words in `language`, excluding `exclude_uuids`.
+
+        Uses func.random() so it works on both sqlite (tests) and postgres;
+        TABLESAMPLE is deliberately avoided (postgres-only). Empty exclude is fine.
+        """
+        stmt = select(Word).where(Word.language == language)
+        if exclude_uuids:
+            stmt = stmt.where(Word.uuid.notin_(exclude_uuids))
+        stmt = stmt.order_by(func.random()).limit(limit)
+        return list((await self.session.execute(stmt)).scalars().all())
 
     async def get_by_lemma_language(self, lemma: str, language: str) -> Word | None:
         return await self.get_one(lemma=lemma, language=language)

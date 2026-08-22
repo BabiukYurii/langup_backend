@@ -343,6 +343,123 @@ async def test_match_pairs_leaves_unreached_words_untouched(session):
     assert (await service.user_words.get_by_user_word(user_id, UUID(untouched["word_uuid"]))).last_reviewed_at is None
 
 
+# --- match pairs: shared-dictionary fillers --------------------------------
+
+FILLER_POOL = [f"filler{i}" for i in range(15)]
+
+
+async def _add_shared_words(session, lemmas: list[str], language: str = "en") -> None:
+    """Add words to the shared dictionary that are NOT in anyone's vocabulary."""
+    for lemma in lemmas:
+        session.add(
+            Word(lemma=lemma, language=language, definitions=[{"lang": "uk", "translation": f"{lemma}-переклад"}])
+        )
+    await session.commit()
+
+
+async def test_match_pairs_fills_board_from_shared_dictionary(session):
+    # few personal words + enough shared -> a full board; fillers carry no word_uuid
+    user_id, service = await _match_pairs_only(session, "mf1@x.com", ["resilient", "eloquent", "serene"])
+    await _add_shared_words(session, FILLER_POOL)
+
+    assert await service.replenish(user_id) == 1
+    stored, _ = await service.exercises.get_many(user_id=user_id)
+    ex = next(r for r in stored if r.exercise_type == "MATCH_PAIRS")
+
+    pairs = ex.payload["pairs"]
+    assert len(pairs) == settings.exercises.MATCH_PAIRS_TOTAL
+    personal = [p for p in pairs if p["word_uuid"] is not None]
+    fillers = [p for p in pairs if p["word_uuid"] is None]
+    assert len(personal) == 3
+    assert len(fillers) == settings.exercises.MATCH_PAIRS_TOTAL - 3
+    assert ex.answer == {str(p["id"]): p["translation"] for p in pairs}
+
+
+async def test_match_pairs_fillers_do_not_affect_spaced_repetition(session):
+    # a full correct round updates SM-2 only for the personal words; fillers
+    # create no UserWord and change no mastery
+    user_id, service = await _match_pairs_only(session, "mf2@x.com", ["resilient", "eloquent", "serene"])
+    await _add_shared_words(session, FILLER_POOL)
+    await service.replenish(user_id)
+    ex = await service.get_next(user_id)
+
+    answers = {str(p["id"]): p["translation"] for p in ex.payload["pairs"]}
+    result = await service.submit_attempt(user_id, ex.uuid, SubmitAttemptRequest(answers=answers))
+    assert result.is_correct is True
+
+    rows, total = await service.user_words.list_for_user(user_id, page=1, limit=100)
+    assert total == 3  # no phantom UserWord for the 7 fillers
+    assert all(uw.last_reviewed_at is not None for uw in rows)
+
+
+async def test_match_pairs_returns_false_with_no_words_at_all(session):
+    # nothing personal and nothing shared in the language -> not an error
+    user_id = await _seed_vocab(session, "mf3@x.com", [])
+    service = ExercisePoolService(session, StubGenerator())
+    await service.set_preferences(user_id, ExercisePreferences(exercise_types=[ExerciseType.MATCH_PAIRS]))
+    assert await service._generate_match_pairs(user_id) is False
+
+
+async def test_match_pairs_fillers_disabled_skips_shared_words(session):
+    # opt-out: only personal pairs, so too few personal words means no round
+    user_id, service = await _match_pairs_only(session, "mf4@x.com", ["resilient", "eloquent", "serene"])
+    await _add_shared_words(session, FILLER_POOL)
+    await service.set_preferences(
+        user_id, ExercisePreferences(exercise_types=[ExerciseType.MATCH_PAIRS], match_pairs_fillers=False)
+    )
+    assert await service.replenish(user_id) == 0
+
+
+async def test_match_pairs_fillers_disabled_uses_only_personal_words(session):
+    # opt-out with enough personal words -> a round of exactly those, no fillers
+    user_id, service = await _match_pairs_only(session, "mf5@x.com", SIX_WORDS[:5])
+    await _add_shared_words(session, FILLER_POOL)
+    await service.set_preferences(
+        user_id, ExercisePreferences(exercise_types=[ExerciseType.MATCH_PAIRS], match_pairs_fillers=False)
+    )
+
+    assert await service.replenish(user_id) == 1
+    stored, _ = await service.exercises.get_many(user_id=user_id)
+    ex = next(r for r in stored if r.exercise_type == "MATCH_PAIRS")
+    assert len(ex.payload["pairs"]) == 5
+    assert all(p["word_uuid"] is not None for p in ex.payload["pairs"])
+
+
+async def test_random_by_language_respects_exclude_and_limit(session):
+    from app.repositories.word import WordRepository
+
+    en_words = [Word(lemma=f"w{i}", language="en") for i in range(6)]
+    pl_word = Word(lemma="kot", language="pl")
+    session.add_all([*en_words, pl_word])
+    await session.commit()
+    repo = WordRepository(session)
+
+    excluded = {en_words[0].uuid, en_words[1].uuid}
+    got = await repo.random_by_language("en", excluded, limit=3)
+    assert len(got) == 3
+    assert all(w.language == "en" for w in got)
+    assert all(w.uuid not in excluded for w in got)
+
+    # empty exclude is fine; a pl word never leaks into an en query
+    all_en = await repo.random_by_language("en", set(), limit=100)
+    assert {w.lemma for w in all_en} == {f"w{i}" for i in range(6)}
+
+
+async def test_preferences_round_trip_the_fillers_flag(session):
+    user_id = await _seed_vocab(session, "mf6@x.com", ["resilient"])
+    service = ExercisePoolService(session, StubGenerator())
+
+    assert (await service.get_preferences(user_id)).match_pairs_fillers is True  # default on
+
+    types = [ExerciseType.FLASHCARD, ExerciseType.MATCH_PAIRS]
+    saved = await service.set_preferences(user_id, ExercisePreferences(exercise_types=types, match_pairs_fillers=False))
+    assert saved.match_pairs_fillers is False
+
+    reloaded = await service.get_preferences(user_id)
+    assert reloaded.match_pairs_fillers is False
+    assert reloaded.exercise_types == types  # flipping the flag didn't wipe the types
+
+
 async def test_translations_are_cached_on_the_shared_word(session):
     user_id, service = await _match_pairs_only(session, "m7@x.com", SIX_WORDS)
     await service.replenish(user_id)

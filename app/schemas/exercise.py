@@ -79,6 +79,9 @@ class RefillStatusOut(BaseModel):
 class ExercisePreferences(BaseModel):
     # Which exercise types the pool is allowed to generate for this user.
     exercise_types: list[ExerciseType] = Field(min_length=1)
+    # Top a match-pairs round up with random shared-dictionary words when the
+    # learner's own vocabulary can't fill the board. Default on (back-compatible).
+    match_pairs_fillers: bool = True
 
     @field_validator("exercise_types")
     @classmethod

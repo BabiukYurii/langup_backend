@@ -40,6 +40,10 @@ _TYPE_CYCLE = list(SUPPORTED_EXERCISE_TYPES)
 # Key under which the enabled types live in User.preferences.
 _PREF_KEY = "exercise_types"
 
+# Whether match-pairs rounds may be topped up with random shared-dictionary
+# words (stored in User.preferences alongside the types).
+_FILLER_PREF_KEY = "match_pairs_fillers"
+
 # How many exercises an explicit "give me this type" request produces.
 _ON_DEMAND_PER_TYPE = 3
 
@@ -98,7 +102,8 @@ class ExercisePoolService:
         # Drop anything stale (a type that was dropped from the supported set)
         # so an old preference can never stall the pool.
         valid = [t for t in stored or [] if t in SUPPORTED_EXERCISE_TYPES]
-        return ExercisePreferences(exercise_types=valid or _TYPE_CYCLE)
+        fillers = bool((user.preferences or {}).get(_FILLER_PREF_KEY, True))
+        return ExercisePreferences(exercise_types=valid or _TYPE_CYCLE, match_pairs_fillers=fillers)
 
     async def set_preferences(self, user_id: int, prefs: ExercisePreferences) -> ExercisePreferences:
         user = await self.users.get_by_id(user_id)
@@ -107,13 +112,22 @@ class ExercisePoolService:
 
         enabled = [t.value for t in prefs.exercise_types]
         # JSON column: rebind a new dict so SQLAlchemy sees the change.
-        await self.users.update_one(user, {"preferences": {**(user.preferences or {}), _PREF_KEY: enabled}})
+        await self.users.update_one(
+            user,
+            {
+                "preferences": {
+                    **(user.preferences or {}),
+                    _PREF_KEY: enabled,
+                    _FILLER_PREF_KEY: prefs.match_pairs_fillers,
+                }
+            },
+        )
 
         # Pooled-but-unserved exercises of now-disabled types would occupy the
         # pool without ever being handed out — drop them so refills can work.
         disabled = [t for t in ExerciseType.list() if t not in enabled]
         await self.exercises.drop_ready_of_types(user_id, disabled)
-        return ExercisePreferences(exercise_types=prefs.exercise_types)
+        return ExercisePreferences(exercise_types=prefs.exercise_types, match_pairs_fillers=prefs.match_pairs_fillers)
 
     async def get_next(
         self, user_id: int, exercise_type: ExerciseType | None = None, language: str | None = None
@@ -300,9 +314,9 @@ class ExercisePoolService:
 
         visible = settings.exercises.MATCH_PAIRS_VISIBLE
         user_words = await self._candidate_words(user_id, settings.exercises.MATCH_PAIRS_TOTAL, language)
-        if len(user_words) < visible:
-            logger.info("Not enough vocabulary for a match-pairs round (%d words)", len(user_words))
-            return False
+        # No early bail on too-few personal words: shared-dictionary fillers below
+        # may still complete the board. The single gate is `len(pairs) < visible`
+        # after fillers — reached only if even the shared dictionary can't help.
 
         # The round is all one practice language; its exercise row is tagged with
         # it (the words' language), not the native translation target.
@@ -327,6 +341,35 @@ class ExercisePoolService:
                     "word_uuid": str(uw.word_uuid),
                 }
             )
+
+        # Top the board up to MATCH_PAIRS_TOTAL with random words from the shared
+        # dictionary when the learner's own vocabulary can't fill it. Fillers carry
+        # word_uuid=None, so _feed_pairs / SM-2 never touch them (no phantom
+        # UserWord, no effect on spaced repetition). Skippable per user preference.
+        total = settings.exercises.MATCH_PAIRS_TOTAL
+        user = await self.users.get_by_id(user_id)
+        fillers_enabled = bool((user.preferences or {}).get(_FILLER_PREF_KEY, True)) if user else True
+        if fillers_enabled and len(pairs) < total and practice_language:
+            needed = total - len(pairs)
+            exclude = {uw.word_uuid for uw in user_words}
+            # Pull with slack: some fillers drop out on missing/duplicate translation.
+            fillers = await self.words_repo.random_by_language(practice_language, exclude, limit=needed * 2)
+            filler_translations = await self.translations.translate_words(fillers, target_language)
+            for word in fillers:
+                if len(pairs) >= total:
+                    break
+                translation = filler_translations.get(word.lemma)
+                if not translation or translation.lower() in seen:
+                    continue
+                seen.add(translation.lower())
+                pairs.append(
+                    {
+                        "id": len(pairs) + 1,
+                        "word": word.lemma,
+                        "translation": translation,
+                        "word_uuid": None,  # not the user's word — excluded from SM-2
+                    }
+                )
 
         if len(pairs) < visible:
             logger.info("Only %d usable pairs after translation — skipping match-pairs", len(pairs))

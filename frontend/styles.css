@@ -559,6 +559,18 @@ a.btn {
   flex-wrap: wrap;
   gap: 6px;
 }
+.pref-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pref-toggle input {
+  cursor: pointer;
+}
 .chip {
   border: 1px solid var(--line);
   border-radius: 999px;
