@@ -1069,10 +1069,18 @@ async def test_analyze_word_returns_language_and_lemma():
             return {"content": self.content, "model": "stub"}
 
     svc = ExerciseGenerationService(_Stub('{"language": "pl", "lemma": "bark"}'))
-    assert await svc.analyze_word("barki", "Bolą mnie barki.") == ("pl", "bark")
-    # Unsupported language -> None language; bad JSON -> (None, None).
-    assert await ExerciseGenerationService(_Stub('{"language": "xx", "lemma": "z"}')).analyze_word("z") == (None, "z")
-    assert await ExerciseGenerationService(_Stub("not json")).analyze_word("foo") == (None, None)
+    # is_real_word defaults to True when the model omits it.
+    assert await svc.analyze_word("barki", "Bolą mnie barki.") == ("pl", "bark", True)
+    # Unsupported language -> None language; bad JSON -> (None, None, True) (fail-open).
+    assert await ExerciseGenerationService(_Stub('{"language": "xx", "lemma": "z"}')).analyze_word("z") == (
+        None,
+        "z",
+        True,
+    )
+    assert await ExerciseGenerationService(_Stub("not json")).analyze_word("foo") == (None, None, True)
+    # An explicit gibberish flag comes through as is_real_word=False.
+    gibberish = _Stub('{"language": "en", "lemma": "x", "is_real_word": false}')
+    assert await ExerciseGenerationService(gibberish).analyze_word("dsaffafadsfaf") == ("en", "x", False)
 
 
 async def test_multiple_choice_definitions_use_the_learned_language(session):

@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # Machine-readable markers the client can match to prompt the right next step.
 NATIVE_LANGUAGE_REQUIRED = "native_language_required"
 EMAIL_NOT_VERIFIED = "email_not_verified"
+WORD_NOT_RECOGNIZED = "word_not_recognized"
 
 
 class CaptureService:
@@ -54,7 +55,13 @@ class CaptureService:
         # form (far better than a rule-based lemmatizer for inflected languages).
         # Falls back to the hint + offline lemmatization if the AI is off/slow.
         surface = data.word.strip()
-        language, ai_lemma = await self._analyze_word(surface, data.sentence, data.language)
+        language, ai_lemma, is_real_word = await self._analyze_word(surface, data.sentence, data.language)
+        # Reject gibberish before it enters the vocabulary: otherwise the AI would
+        # dutifully invent definitions and exercises for a non-word. Only an
+        # explicit "not a real word" from the model blocks; if analysis is off or
+        # failed, is_real_word is True, so a save is never blocked by the gateway.
+        if not is_real_word:
+            raise BadRequestException(WORD_NOT_RECOGNIZED)
 
         # "I'm learning" is the language of the words you save. Set it on the
         # first capture so the profile reflects reality without asking.
@@ -102,27 +109,27 @@ class CaptureService:
         user_word = await self.user_words.get_with_word(user_word.uuid)
         return UserWordOut.from_user_word(user_word)
 
-    async def _analyze_word(self, word: str, sentence: str | None, fallback: str) -> tuple[str, str | None]:
-        """The captured word's (language, AI base form) — else (hint, None).
+    async def _analyze_word(self, word: str, sentence: str | None, fallback: str) -> tuple[str, str | None, bool]:
+        """The captured word's (language, AI base form, is-real-word).
 
-        Best-effort: gated by a flag (off in tests/CI), given a short timeout,
-        and any failure falls back to the extension's language hint with no AI
-        lemma (the caller then lemmatizes offline). A save must never hang or
-        fail because the gateway was slow or down.
+        Best-effort: gated by a flag (off in tests/CI), given a short timeout, and
+        any failure falls back to the extension's language hint with no AI lemma
+        and is_real_word=True — a save must never hang or fail, nor be wrongly
+        rejected as gibberish, because the gateway was slow or down.
         """
         if not settings.exercises.DETECT_LANGUAGE_ON_CAPTURE:
-            return fallback, None
+            return fallback, None, True
         from app.services.ai.client import AIClient
         from app.services.ai.exercise_generation import ExerciseGenerationService
 
         timeout = settings.exercises.DETECT_LANGUAGE_TIMEOUT_SECONDS
         try:
             detector = ExerciseGenerationService(AIClient(timeout=timeout))
-            code, lemma = await asyncio.wait_for(detector.analyze_word(word, sentence), timeout=timeout + 1)
+            result = await asyncio.wait_for(detector.analyze_word(word, sentence), timeout=timeout + 1)
         except Exception:  # noqa: BLE001 — analysis is best-effort, never blocks a save
             logger.warning("Word analysis failed for %r; using hint %r", word, fallback)
-            return fallback, None
-        return (code or fallback), lemma
+            return fallback, None, True
+        return (result.language or fallback), result.lemma, result.is_real_word
 
     async def get_detail(self, user_id: int, user_word_uuid) -> UserWordDetailOut:
         """One personal entry with its cached translation and saved sentences."""

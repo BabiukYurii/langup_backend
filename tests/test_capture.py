@@ -200,3 +200,34 @@ async def test_capture_rejects_oversized_sentence(app, client):
         headers=headers,
     )
     assert resp.status_code == 422
+
+
+async def test_capture_rejects_a_non_word(app, client, monkeypatch):
+    # When word analysis flags a token as gibberish it must never enter the
+    # vocabulary — otherwise the AI would invent exercises for a non-word.
+    from app.services.capture_service import CaptureService
+
+    async def fake_analyze(self, word, sentence, fallback):
+        return "en", None, False  # the model said: not a real word
+
+    monkeypatch.setattr(CaptureService, "_analyze_word", fake_analyze)
+    headers = await _login(app, client)
+    resp = await client.post("/api/vocabulary", json={"word": "dsaffafadsfaf", "language": "en"}, headers=headers)
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "word_not_recognized"
+    # nothing was saved
+    assert (await client.get("/api/vocabulary", headers=headers)).json()["total"] == 0
+
+
+async def test_capture_saves_a_real_word_flagged_by_analysis(app, client, monkeypatch):
+    # A genuine word passes the gate and is stored under the analysed lemma.
+    from app.services.capture_service import CaptureService
+
+    async def fake_analyze(self, word, sentence, fallback):
+        return "en", "resilient", True
+
+    monkeypatch.setattr(CaptureService, "_analyze_word", fake_analyze)
+    headers = await _login(app, client)
+    resp = await client.post("/api/vocabulary", json={"word": "resilient", "language": "en"}, headers=headers)
+    assert resp.status_code == 201
+    assert resp.json()["lemma"] == "resilient"

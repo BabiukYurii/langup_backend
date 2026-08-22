@@ -14,6 +14,7 @@ from app.schemas.ai import (
     GeneratedMultipleChoice,
     GeneratedTranslation,
     TranslationParams,
+    WordAnalysis,
     WordExerciseParams,
 )
 from app.services.ai.client import AIClient, get_ai_client
@@ -63,14 +64,18 @@ class ExerciseGenerationService:
         reply = await self.ai.chat_json(TRANSLATION_SYSTEM, user_prompt, temperature=0.1)
         return _normalize_translation(_parse_translation(reply), params.word)
 
-    async def analyze_word(self, word: str, sentence: str | None = None) -> tuple[str | None, str | None]:
-        """A captured word's (language, dictionary base form).
+    async def analyze_word(self, word: str, sentence: str | None = None) -> WordAnalysis:
+        """A captured word's (language, dictionary base form, is-real-word).
 
         language is None for anything outside the supported set, so a stray guess
         can't create a word under a language the product doesn't handle. lemma is
         None when the model gives nothing usable, so the caller can fall back to
         offline lemmatization. The AI base form is far better than a rule-based
         lemmatizer for inflected languages (Polish "barki" -> "bark").
+
+        is_real_word is False only when the model explicitly flags the token as
+        gibberish; a missing field or any parse failure defaults to True, so the
+        check never blocks a genuine save on model quirks (fail-open).
         """
         prompt = build_word_analysis_prompt(word, sentence)
         reply = await self.ai.chat_json(WORD_ANALYSIS_SYSTEM, prompt, temperature=0.0)
@@ -78,9 +83,10 @@ class ExerciseGenerationService:
             payload = json.loads(reply["content"])
             code = str(payload.get("language", "")).strip().lower()[:2]
             lemma = str(payload.get("lemma", "")).strip()
+            is_real = payload.get("is_real_word", True) is not False
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-            return None, None
-        return (code if is_supported(code) else None), (lemma or None)
+            return WordAnalysis(None, None, True)
+        return WordAnalysis(code if is_supported(code) else None, lemma or None, is_real)
 
     @staticmethod
     def _parse(reply: dict, words: list[str]) -> GeneratedFillInBlank:

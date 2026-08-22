@@ -166,8 +166,11 @@ Return:
 2. "lemma": its dictionary base form IN THAT LANGUAGE — singular nominative for
    nouns, infinitive for verbs (e.g. Polish "barki" -> "bark", "biegł" -> "biec";
    German "Hunde" -> "Hund"). Keep the language's normal casing.
+3. "is_real_word": true if "{word}" is a genuine word, name, or common expression
+   in some language (even rare, archaic, or a proper noun); false ONLY when it is
+   gibberish, random characters, or a keyboard mash that is not a real word.
 
-Respond as {{"language": "xx", "lemma": "..."}}
+Respond as {{"language": "xx", "lemma": "...", "is_real_word": true}}
 """
 
 WORD_ANALYSIS_WORD_ONLY = """\
@@ -177,8 +180,11 @@ Return:
 1. "language": its ISO 639-1 two-letter code, one of: uk, pl, en, de, es, fr, it, pt.
 2. "lemma": its dictionary base form in that language (singular nominative for
    nouns, infinitive for verbs).
+3. "is_real_word": true if "{word}" is a genuine word, name, or common expression
+   in some language (even rare, archaic, or a proper noun); false ONLY when it is
+   gibberish, random characters, or a keyboard mash that is not a real word.
 
-Respond as {{"language": "xx", "lemma": "..."}}
+Respond as {{"language": "xx", "lemma": "...", "is_real_word": true}}
 """
 
 

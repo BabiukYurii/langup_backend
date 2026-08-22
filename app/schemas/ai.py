@@ -1,10 +1,18 @@
 # Internal AI request/response envelopes (backend <-> langup_ai gateway) and
 # validated shapes of generated content.
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, Field
 
 CEFRLevel = Literal["A1", "A2", "B1", "B2", "C1", "C2"]
+
+
+class WordAnalysis(NamedTuple):
+    # Result of analysing a captured token: its language, dictionary base form,
+    # and whether it is a genuine word at all (False = gibberish, reject it).
+    language: str | None
+    lemma: str | None
+    is_real_word: bool
 
 
 class FillInBlankParams(BaseModel):
