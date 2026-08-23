@@ -49,26 +49,8 @@ function selectType(type) {
   loadNext();
 }
 
-// --- practice preferences (match-pairs fillers toggle) ---------------------
-// PUT needs the whole schema (exercise_types is required), so we keep the
-// current types from GET and resend them unchanged when only the flag changes.
-let prefExerciseTypes = null;
-
-async function loadPreferences() {
-  const resp = await apiFetch("/exercises/preferences");
-  if (!resp.ok) return;
-  const prefs = await resp.json();
-  prefExerciseTypes = prefs.exercise_types;
-  $("pref-fillers").checked = prefs.match_pairs_fillers !== false;
-  $("fillers-row").classList.remove("hidden");
-}
-
-async function savePreferences() {
-  if (!prefExerciseTypes) return;
-  const body = { exercise_types: prefExerciseTypes, match_pairs_fillers: $("pref-fillers").checked };
-  const resp = await apiFetch("/exercises/preferences", { method: "PUT", body: JSON.stringify(body) });
-  if (!resp.ok) $("pref-fillers").checked = !$("pref-fillers").checked; // revert on failure
-}
+// The match-pairs "fillers" preference now lives in the profile (Account
+// settings), since it's an account-wide choice, not a per-session practice one.
 
 // Language switcher — shown only when the learner has words in 2+ languages.
 function renderLangs() {
@@ -734,8 +716,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("empty-generate").addEventListener("click", () => generateMore("empty-status"));
   $("res-generate").addEventListener("click", () => generateMore("res-mastery"));
   renderTypes();
-  $("pref-fillers").addEventListener("change", savePreferences);
-  loadPreferences();
   // Load the language switcher first so the first exercise respects the choice.
   loadLanguages().then(loadNext);
 });

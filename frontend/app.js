@@ -49,6 +49,31 @@ function renderProfile(user) {
   hide($("lang-view"));
   show($("profile-view"));
   loadSubscription();
+  loadExercisePrefs();
+}
+
+// Match-pairs "fillers" preference lives on the exercises endpoint. PUT needs the
+// whole schema (exercise_types is required), so we keep the current types from
+// GET and resend them unchanged when only the flag changes.
+let prefExerciseTypes = null;
+
+async function loadExercisePrefs() {
+  const resp = await apiFetch("/exercises/preferences");
+  if (!resp.ok) return;
+  const prefs = await resp.json();
+  prefExerciseTypes = prefs.exercise_types;
+  $("f-fillers").checked = prefs.match_pairs_fillers !== false;
+}
+
+async function saveExercisePrefs() {
+  if (!prefExerciseTypes) return;
+  const body = { exercise_types: prefExerciseTypes, match_pairs_fillers: $("f-fillers").checked };
+  const resp = await apiFetch("/exercises/preferences", { method: "PUT", body: JSON.stringify(body) });
+  if (!resp.ok) {
+    $("f-fillers").checked = !$("f-fillers").checked; // revert on failure
+    return toast(t("toast.save_fail"), "err");
+  }
+  toast(t("toast.saved"));
 }
 
 // Open/close the account dropdown; close it on any outside click.
@@ -356,6 +381,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("logout-btn").addEventListener("click", logout);
   $("resend-verify-btn").addEventListener("click", resendVerification);
   $("f-ui_language").addEventListener("change", onUiLanguageChange);
+  $("f-fillers").addEventListener("change", saveExercisePrefs);
 
   // Account dropdown: toggle on the avatar, close on any outside click.
   $("account-btn").addEventListener("click", (e) => {
