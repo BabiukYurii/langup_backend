@@ -17,39 +17,39 @@
 
           <!-- form -->
           <div id="form-view">
-            <h1 class="card__title">Choose a new password</h1>
-            <p class="card__subtitle">Enter a new password for your account.</p>
+            <h1 class="card__title" data-i18n="reset.title">Choose a new password</h1>
+            <p class="card__subtitle" data-i18n="reset.subtitle">Enter a new password for your account.</p>
             <form id="reset-form" class="form">
               <label class="field">
-                <span>New password</span>
+                <span data-i18n="reset.new_password">New password</span>
                 <input id="password" type="password" autocomplete="new-password" required minlength="8" placeholder="********" />
               </label>
               <label class="field">
-                <span>Confirm password</span>
+                <span data-i18n="reset.confirm_password">Confirm password</span>
                 <input id="confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="********" />
               </label>
               <div class="form__actions">
                 <span></span>
-                <button id="submit" class="btn btn--primary" type="submit">Update password</button>
+                <button id="submit" class="btn btn--primary" type="submit" data-i18n="reset.update">Update password</button>
               </div>
             </form>
           </div>
 
           <!-- success -->
           <div id="done-view" class="hidden" style="text-align: center">
-            <h1 class="card__title">Password updated ✓</h1>
-            <p class="card__subtitle">You can now sign in with your new password.</p>
+            <h1 class="card__title" data-i18n="reset.done_title">Password updated ✓</h1>
+            <p class="card__subtitle" data-i18n="reset.done_subtitle">You can now sign in with your new password.</p>
             <p style="margin-top: 22px">
-              <a href="index.html" class="btn btn--primary">Go to sign in →</a>
+              <a href="index.html" class="btn btn--primary" data-i18n="reset.goto_signin">Go to sign in →</a>
             </p>
           </div>
 
           <!-- bad link -->
           <div id="invalid-view" class="hidden" style="text-align: center">
-            <h1 class="card__title">Link expired</h1>
-            <p class="card__subtitle">This reset link is invalid or has expired. Request a new one from the sign-in page.</p>
+            <h1 class="card__title" data-i18n="reset.expired_title">Link expired</h1>
+            <p class="card__subtitle" data-i18n="reset.expired_subtitle">This reset link is invalid or has expired. Request a new one from the sign-in page.</p>
             <p style="margin-top: 22px">
-              <a href="index.html" class="btn btn--ghost">Back to sign in</a>
+              <a href="index.html" class="btn btn--ghost" data-i18n="reset.back_signin">Back to sign in</a>
             </p>
           </div>
 
@@ -59,6 +59,7 @@
     </main>
 
     <script src="config.js?v=dev"></script>
+    <script src="i18n.js?v=dev"></script>
     <script src="api.js?v=dev"></script>
     <script src="reset.js?v=dev"></script>
   </body>

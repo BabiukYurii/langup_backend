@@ -15,23 +15,23 @@
 
       <section class="card">
         <div class="words-bar">
-          <a href="index.html" class="btn btn--ghost">← Profile</a>
+          <a href="index.html" class="btn btn--ghost" data-i18n="common.back_profile">← Profile</a>
           <div class="dict__head">
-            <h1 class="card__title">Dictionary</h1>
+            <h1 class="card__title" data-i18n="nav.dictionary">Dictionary</h1>
             <span id="dict-count" class="meta"></span>
           </div>
         </div>
 
-        <input id="dict-search" class="dict__search" type="text" placeholder="Search a word…" />
+        <input id="dict-search" class="dict__search" type="text" data-i18n-placeholder="words.search_ph" placeholder="Search a word…" />
         <ul id="dict-list" class="dict__list"></ul>
-        <p id="dict-empty" class="meta hidden">Empty for now — save your first word with the extension.</p>
+        <p id="dict-empty" class="meta hidden" data-i18n="words.empty">Empty for now — save your first word with the extension.</p>
       </section>
 
       <!-- word detail -->
       <div id="word-modal" class="modal hidden">
         <div class="modal__backdrop" data-close></div>
         <div class="modal__card card">
-          <button class="modal__close" data-close aria-label="Close">×</button>
+          <button class="modal__close" data-close data-i18n-aria-label="common.close" aria-label="Close">×</button>
           <div class="modal__head">
             <h2 id="wd-lemma" class="card__title">—</h2>
             <span id="wd-lang" class="badge badge--muted">—</span>
@@ -39,12 +39,12 @@
           </div>
           <p id="wd-translation" class="wd__translation">—</p>
 
-          <h3 class="wd__subhead">Where you saw it</h3>
+          <h3 class="wd__subhead" data-i18n="words.where_saw">Where you saw it</h3>
           <ul id="wd-context-list" class="wd__contexts"></ul>
-          <p id="wd-no-context" class="meta hidden">No saved sentences yet.</p>
+          <p id="wd-no-context" class="meta hidden" data-i18n="words.no_context">No saved sentences yet.</p>
 
           <div class="modal__actions">
-            <button id="wd-remove" class="btn btn--danger" type="button">Remove from dictionary</button>
+            <button id="wd-remove" class="btn btn--danger" type="button" data-i18n="words.remove">Remove from dictionary</button>
           </div>
         </div>
       </div>
@@ -53,6 +53,7 @@
     </main>
 
     <script src="config.js?v=dev"></script>
+    <script src="i18n.js?v=dev"></script>
     <script src="api.js?v=dev"></script>
     <script src="words.js?v=dev"></script>
   </body>

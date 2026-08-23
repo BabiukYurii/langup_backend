@@ -15,28 +15,28 @@
             <span class="brand__name">LangUp</span>
           </a>
           <div class="topbar__nav">
-            <a href="dashboard.html" class="topbar__link">Dashboard</a>
-            <a href="review.html" class="topbar__link is-active">Review</a>
-            <a href="words.html" class="topbar__link">Dictionary</a>
-            <a href="practice.html" class="topbar__link">Practice</a>
+            <a href="dashboard.html" class="topbar__link" data-i18n="nav.dashboard">Dashboard</a>
+            <a href="review.html" class="topbar__link is-active" data-i18n="nav.review">Review</a>
+            <a href="words.html" class="topbar__link" data-i18n="nav.dictionary">Dictionary</a>
+            <a href="practice.html" class="topbar__link" data-i18n="nav.practice">Practice</a>
           </div>
         </nav>
 
         <div class="hero">
-          <h1 class="hero__title">Review</h1>
-          <p class="hero__subtitle">Recall each word, then grade yourself. We schedule the next review for you.</p>
+          <h1 class="hero__title" data-i18n="nav.review">Review</h1>
+          <p class="hero__subtitle" data-i18n="review.subtitle">Recall each word, then grade yourself. We schedule the next review for you.</p>
         </div>
 
         <!-- loading -->
-        <div id="loading" class="card meta">Loading your review queue…</div>
+        <div id="loading" class="card meta" data-i18n="review.loading">Loading your review queue…</div>
 
         <!-- nothing due -->
         <section id="done-view" class="card hidden" style="text-align: center">
-          <h2 class="card__title">All caught up 🎉</h2>
-          <p id="done-text" class="card__subtitle">Nothing is due right now. Save more words or come back later.</p>
+          <h2 class="card__title" data-i18n="review.done_title">All caught up 🎉</h2>
+          <p id="done-text" class="card__subtitle" data-i18n="review.done_default">Nothing is due right now. Save more words or come back later.</p>
           <div class="links-row" style="justify-content: center; margin-top: 20px">
-            <a href="dashboard.html" class="btn btn--ghost">Dashboard</a>
-            <a href="practice.html" class="btn btn--primary">Practice instead →</a>
+            <a href="dashboard.html" class="btn btn--ghost" data-i18n="nav.dashboard">Dashboard</a>
+            <a href="practice.html" class="btn btn--primary" data-i18n="review.practice_instead">Practice instead →</a>
           </div>
         </section>
 
@@ -52,13 +52,13 @@
             <p id="rc-translation" class="rc__translation hidden">—</p>
           </div>
 
-          <button id="show-btn" class="btn btn--primary rc__show" type="button">Show answer</button>
+          <button id="show-btn" class="btn btn--primary rc__show" type="button" data-i18n="review.show_answer">Show answer</button>
 
           <div id="grades" class="rc__grades hidden">
-            <button class="btn grade grade--again" data-q="1" type="button">Forgot</button>
-            <button class="btn grade grade--hard" data-q="3" type="button">Hard</button>
-            <button class="btn grade grade--good" data-q="4" type="button">Good</button>
-            <button class="btn grade grade--easy" data-q="5" type="button">Easy</button>
+            <button class="btn grade grade--again" data-q="1" type="button" data-i18n="grade.forgot">Forgot</button>
+            <button class="btn grade grade--hard" data-q="3" type="button" data-i18n="grade.hard">Hard</button>
+            <button class="btn grade grade--good" data-q="4" type="button" data-i18n="grade.good">Good</button>
+            <button class="btn grade grade--easy" data-q="5" type="button" data-i18n="grade.easy">Easy</button>
           </div>
         </section>
       </section>
@@ -67,6 +67,7 @@
     </main>
 
     <script src="config.js?v=dev"></script>
+    <script src="i18n.js?v=dev"></script>
     <script src="api.js?v=dev"></script>
     <script src="review.js?v=dev"></script>
   </body>

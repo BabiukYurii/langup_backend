@@ -28,7 +28,7 @@ async function onSubmit(event) {
   event.preventDefault();
   const password = $("password").value;
   if (password !== $("confirm").value) {
-    return setStatus("The two passwords don't match.");
+    return setStatus(t("reset.mismatch"));
   }
   setStatus("");
   $("submit").disabled = true;
@@ -50,15 +50,16 @@ async function onSubmit(event) {
       show($("invalid-view"));
       return;
     }
-    setStatus(detailMsg(body, "Could not update the password."));
+    setStatus(detailMsg(body, t("reset.update_fail")));
   } catch {
-    setStatus("Network error — please try again.");
+    setStatus(t("reset.network"));
   } finally {
     $("submit").disabled = false;
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await window.i18nReady;
   if (!token) {
     hide($("form-view"));
     show($("invalid-view"));

@@ -16,8 +16,8 @@
             <span class="brand__logo">L</span>
             <span class="brand__name">LangUp</span>
           </header>
-          <h1 class="card__title">Sign in</h1>
-          <p class="card__subtitle">Create an account or sign in with Google.</p>
+          <h1 class="card__title" data-i18n="auth.title">Sign in</h1>
+          <p class="card__subtitle" data-i18n="auth.subtitle">Create an account or sign in with Google.</p>
 
           <div id="google-btn" class="google-btn"></div>
           <p id="google-missing" class="notice hidden">
@@ -25,26 +25,26 @@
             <code>frontend/config.js</code>.
           </p>
 
-          <div class="auth-divider"><span>or</span></div>
+          <div class="auth-divider"><span data-i18n="auth.or">or</span></div>
 
           <form id="email-auth-form" class="form">
             <label class="field">
-              <span>Email</span>
+              <span data-i18n="auth.email">Email</span>
               <input id="a-email" type="email" autocomplete="email" required placeholder="you@example.com" />
             </label>
             <label class="field">
-              <span>Password</span>
+              <span data-i18n="auth.password">Password</span>
               <input id="a-password" type="password" autocomplete="current-password" required minlength="8" placeholder="********" />
             </label>
             <label class="field hidden" id="a-name-field">
-              <span>Name (optional)</span>
-              <input id="a-name" type="text" autocomplete="name" placeholder="Your name" />
+              <span data-i18n="auth.name_optional">Name (optional)</span>
+              <input id="a-name" type="text" autocomplete="name" data-i18n-placeholder="auth.your_name" placeholder="Your name" />
             </label>
             <div class="form__actions">
-              <button id="auth-mode-toggle" class="btn btn--ghost" type="button">Create account</button>
-              <button id="auth-submit" class="btn btn--primary" type="submit">Sign in</button>
+              <button id="auth-mode-toggle" class="btn btn--ghost" type="button" data-i18n="auth.create_account">Create account</button>
+              <button id="auth-submit" class="btn btn--primary" type="submit" data-i18n="auth.signin">Sign in</button>
             </div>
-            <button id="forgot-link" class="link-btn" type="button">Forgot password?</button>
+            <button id="forgot-link" class="link-btn" type="button" data-i18n="auth.forgot">Forgot password?</button>
           </form>
         </section>
 
@@ -54,16 +54,16 @@
             <span class="brand__logo">L</span>
             <span class="brand__name">LangUp</span>
           </header>
-          <h1 class="card__title">Choose your native language</h1>
-          <p class="card__subtitle">We translate saved words into it. You only need to set this once.</p>
+          <h1 class="card__title" data-i18n="native.title">Choose your native language</h1>
+          <p class="card__subtitle" data-i18n="native.subtitle">We translate saved words into it. You only need to set this once.</p>
           <form id="lang-form" class="form">
             <label class="field">
-              <span>Native language — the one you speak</span>
+              <span data-i18n="native.label">Native language — the one you speak</span>
               <select id="l-native_language" required></select>
             </label>
             <div class="form__actions">
               <span></span>
-              <button class="btn btn--primary" type="submit">Continue</button>
+              <button class="btn btn--primary" type="submit" data-i18n="common.continue">Continue</button>
             </div>
           </form>
         </section>
@@ -77,16 +77,16 @@
             <span class="brand__name">LangUp</span>
           </a>
           <div class="topbar__nav">
-            <a href="dashboard.html" class="topbar__link">Dashboard</a>
-            <a href="review.html" class="topbar__link">Review</a>
-            <a href="words.html" class="topbar__link">Dictionary</a>
-            <a href="practice.html" class="topbar__link">Practice</a>
-            <a id="nav-admin" href="admin.html" class="topbar__link hidden">Admin</a>
+            <a href="dashboard.html" class="topbar__link" data-i18n="nav.dashboard">Dashboard</a>
+            <a href="review.html" class="topbar__link" data-i18n="nav.review">Review</a>
+            <a href="words.html" class="topbar__link" data-i18n="nav.dictionary">Dictionary</a>
+            <a href="practice.html" class="topbar__link" data-i18n="nav.practice">Practice</a>
+            <a id="nav-admin" href="admin.html" class="topbar__link hidden" data-i18n="nav.admin">Admin</a>
           </div>
           <div id="plan-widget" class="plan-widget hidden">
             <span id="sub-status" class="plan-widget__label">—</span>
-            <button id="upgrade-btn" class="btn btn--primary btn--sm hidden" type="button">Upgrade</button>
-            <button id="manage-btn" class="btn btn--ghost btn--sm hidden" type="button">Manage</button>
+            <button id="upgrade-btn" class="btn btn--primary btn--sm hidden" type="button" data-i18n="plan.upgrade">Upgrade</button>
+            <button id="manage-btn" class="btn btn--ghost btn--sm hidden" type="button" data-i18n="plan.manage">Manage</button>
           </div>
           <div id="account" class="account">
             <button id="account-btn" class="account__btn" type="button" aria-haspopup="true" aria-expanded="false">
@@ -98,50 +98,57 @@
                 <span id="p-email" class="account__email">—</span>
                 <div class="badges">
                   <span id="p-role" class="badge">USER</span>
-                  <span id="p-verified" class="badge badge--muted">not verified</span>
+                  <span id="p-verified" class="badge badge--muted" data-i18n="account.not_verified">not verified</span>
                 </div>
                 <span id="sub-renew" class="meta hidden"></span>
               </div>
-              <a href="#settings-card" class="account__item">Account settings</a>
-              <a id="admin-link" href="admin.html" class="account__item hidden">Admin panel</a>
-              <button id="logout-btn" class="account__item account__item--danger" type="button">Sign out</button>
+              <a href="#settings-card" class="account__item" data-i18n="account.settings">Account settings</a>
+              <a id="admin-link" href="admin.html" class="account__item hidden" data-i18n="account.admin_panel">Admin panel</a>
+              <button id="logout-btn" class="account__item account__item--danger" type="button" data-i18n="account.signout">Sign out</button>
             </div>
           </div>
         </nav>
 
         <div id="verify-banner" class="verify-banner hidden">
-          <span>Confirm your email to save words and practise.</span>
-          <button id="resend-verify-btn" class="btn btn--ghost" type="button">Resend email</button>
+          <span data-i18n="verify.banner">Confirm your email to save words and practise.</span>
+          <button id="resend-verify-btn" class="btn btn--ghost" type="button" data-i18n="verify.resend">Resend email</button>
         </div>
 
         <div class="home-main">
           <div class="hero">
-            <h1 class="hero__title">Welcome back<span id="hero-name"></span></h1>
-            <p class="hero__subtitle">Pick up where you left off, or check your progress.</p>
+            <h1 class="hero__title"><span data-i18n="home.welcome">Welcome back</span><span id="hero-name"></span></h1>
+            <p class="hero__subtitle" data-i18n="home.subtitle">Pick up where you left off, or check your progress.</p>
           </div>
 
           <!-- Account settings -->
           <section id="settings-card" class="card">
-            <h2 class="card__title">Account settings</h2>
-            <p class="card__subtitle">Your name and the two languages we work with.</p>
+            <h2 class="card__title" data-i18n="account.settings">Account settings</h2>
+            <p class="card__subtitle" data-i18n="settings.subtitle">Your name and the two languages we work with.</p>
             <form id="profile-form" class="form">
               <label class="field">
-                <span>Name</span>
-                <input id="f-full_name" type="text" placeholder="Your name" />
+                <span data-i18n="settings.name">Name</span>
+                <input id="f-full_name" type="text" data-i18n-placeholder="auth.your_name" placeholder="Your name" />
               </label>
               <div class="field-row">
                 <label class="field">
-                  <span>I speak (native)</span>
+                  <span data-i18n="settings.i_speak">I speak (native)</span>
                   <select id="f-native_language"></select>
                 </label>
                 <label class="field">
-                  <span>I'm learning</span>
+                  <span data-i18n="settings.im_learning">I'm learning</span>
                   <select id="f-target_language"></select>
                 </label>
               </div>
+              <div class="field-row">
+                <label class="field">
+                  <span data-i18n="settings.ui_language">Interface language</span>
+                  <select id="f-ui_language"></select>
+                </label>
+                <span></span>
+              </div>
               <div class="form__actions">
                 <span id="p-created" class="meta">—</span>
-                <button class="btn btn--primary" type="submit">Save changes</button>
+                <button class="btn btn--primary" type="submit" data-i18n="settings.save">Save changes</button>
               </div>
             </form>
           </section>
@@ -153,6 +160,7 @@
 
     <script src="https://accounts.google.com/gsi/client" async></script>
     <script src="config.js?v=dev"></script>
+    <script src="i18n.js?v=dev"></script>
     <script src="api.js?v=dev"></script>
     <script src="app.js?v=dev"></script>
   </body>

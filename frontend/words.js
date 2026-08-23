@@ -54,7 +54,7 @@ async function loadWords(query = "") {
 
     const mastery = document.createElement("span");
     mastery.className = "dict__mastery";
-    mastery.textContent = (w.mastery_level || "NEW").toLowerCase();
+    mastery.textContent = masteryLabel(w.mastery_level);
 
     li.append(lemma, lang, mastery);
     list.appendChild(li);
@@ -80,15 +80,15 @@ function highlight(sentence, surface) {
 async function openDetail(uuid) {
   const resp = await apiFetch(`/vocabulary/${uuid}`);
   if (resp.status === 401) return (location.href = "index.html");
-  if (!resp.ok) return toast("Could not open this word", "err");
+  if (!resp.ok) return toast(t("words.open_fail"), "err");
   const w = await resp.json();
   currentUuid = uuid;
 
   $("wd-lemma").textContent = w.lemma;
   $("wd-lang").textContent = w.language;
-  $("wd-mastery").textContent = (w.mastery_level || "NEW").toLowerCase();
+  $("wd-mastery").textContent = masteryLabel(w.mastery_level);
   const tr = $("wd-translation");
-  tr.textContent = w.translation || "No translation yet — it appears once the word is used in an exercise.";
+  tr.textContent = w.translation || t("words.no_translation");
   tr.classList.toggle("wd__translation--muted", !w.translation);
 
   const listEl = $("wd-context-list");
@@ -106,22 +106,23 @@ function closeModal() {
 
 async function removeWord() {
   if (!currentUuid) return;
-  if (!confirm("Remove this word from your dictionary? Your saved sentences for it will be deleted too.")) return;
+  if (!confirm(t("words.remove_confirm"))) return;
   const btn = $("wd-remove");
   btn.disabled = true;
   const resp = await apiFetch(`/vocabulary/${currentUuid}`, { method: "DELETE" });
   btn.disabled = false;
-  if (!resp.ok) return toast("Could not remove the word", "err");
+  if (!resp.ok) return toast(t("words.remove_fail"), "err");
   closeModal();
-  toast("Removed from your dictionary");
+  toast(t("words.removed"));
   loadWords($("dict-search").value.trim());
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (!TOKENS.access) {
     location.href = "index.html"; // not logged in
     return;
   }
+  await window.i18nReady;
   $("dict-search").addEventListener("input", (e) => {
     clearTimeout(dictTimer);
     const q = e.target.value.trim();

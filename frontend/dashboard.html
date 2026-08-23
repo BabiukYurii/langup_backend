@@ -15,22 +15,22 @@
             <span class="brand__name">LangUp</span>
           </a>
           <div class="topbar__nav">
-            <a href="dashboard.html" class="topbar__link is-active">Dashboard</a>
-            <a href="review.html" class="topbar__link">Review</a>
-            <a href="words.html" class="topbar__link">Dictionary</a>
-            <a href="practice.html" class="topbar__link">Practice</a>
-            <a href="index.html" class="topbar__link">Home</a>
+            <a href="dashboard.html" class="topbar__link is-active" data-i18n="nav.dashboard">Dashboard</a>
+            <a href="review.html" class="topbar__link" data-i18n="nav.review">Review</a>
+            <a href="words.html" class="topbar__link" data-i18n="nav.dictionary">Dictionary</a>
+            <a href="practice.html" class="topbar__link" data-i18n="nav.practice">Practice</a>
+            <a href="index.html" class="topbar__link" data-i18n="nav.home">Home</a>
           </div>
         </nav>
 
         <div class="hero hero--split">
           <div>
-            <h1 class="hero__title">Your progress</h1>
-            <p class="hero__subtitle">A snapshot of your vocabulary and daily practice.</p>
+            <h1 class="hero__title" data-i18n="dash.title">Your progress</h1>
+            <p class="hero__subtitle" data-i18n="dash.subtitle">A snapshot of your vocabulary and daily practice.</p>
           </div>
           <div class="hero__actions">
-            <a href="review.html" class="btn btn--primary">Review now →</a>
-            <a href="practice.html" class="btn btn--ghost">Practice</a>
+            <a href="review.html" class="btn btn--primary" data-i18n="dash.review_now">Review now →</a>
+            <a href="practice.html" class="btn btn--ghost" data-i18n="nav.practice">Practice</a>
           </div>
         </div>
 
@@ -38,28 +38,28 @@
         <div class="grid grid--4">
           <div class="stat stat--accent">
             <span id="stat-total" class="stat__value">—</span>
-            <span class="stat__label">Words saved</span>
+            <span class="stat__label" data-i18n="dash.words_saved">Words saved</span>
           </div>
           <div class="stat">
             <span id="stat-due" class="stat__value">—</span>
-            <span class="stat__label">Due for review</span>
+            <span class="stat__label" data-i18n="dash.due">Due for review</span>
           </div>
           <div class="stat">
             <span id="stat-mastered" class="stat__value">—</span>
-            <span class="stat__label">Mastered</span>
+            <span class="stat__label" data-i18n="mastery.mastered">Mastered</span>
           </div>
           <div class="stat">
             <span id="stat-gen" class="stat__value">—</span>
-            <span class="stat__label">AI generations today</span>
+            <span class="stat__label" data-i18n="dash.gen_today">AI generations today</span>
           </div>
         </div>
 
         <div class="grid grid--2">
           <!-- mastery breakdown -->
           <section class="card">
-            <h2 class="card__title">Mastery breakdown</h2>
-            <p class="card__subtitle">How far along each of your words is.</p>
-            <div id="mastery-empty" class="notice hidden">
+            <h2 class="card__title" data-i18n="dash.mastery_title">Mastery breakdown</h2>
+            <p class="card__subtitle" data-i18n="dash.mastery_subtitle">How far along each of your words is.</p>
+            <div id="mastery-empty" class="notice hidden" data-i18n="dash.mastery_empty">
               No words yet — save your first one with the extension to see progress here.
             </div>
             <div id="mastery-wrap">
@@ -70,27 +70,27 @@
                 <div id="seg-mastered" class="mastery__seg mastery__seg--mastered"></div>
               </div>
               <div class="mastery-legend">
-                <span><i class="dot dot--new"></i>New <b id="cnt-new">0</b></span>
-                <span><i class="dot dot--learning"></i>Learning <b id="cnt-learning">0</b></span>
-                <span><i class="dot dot--review"></i>Review <b id="cnt-review">0</b></span>
-                <span><i class="dot dot--mastered"></i>Mastered <b id="cnt-mastered">0</b></span>
+                <span><i class="dot dot--new"></i><span data-i18n="mastery.new">New</span> <b id="cnt-new">0</b></span>
+                <span><i class="dot dot--learning"></i><span data-i18n="mastery.learning">Learning</span> <b id="cnt-learning">0</b></span>
+                <span><i class="dot dot--review"></i><span data-i18n="mastery.review">Review</span> <b id="cnt-review">0</b></span>
+                <span><i class="dot dot--mastered"></i><span data-i18n="mastery.mastered">Mastered</span> <b id="cnt-mastered">0</b></span>
               </div>
             </div>
           </section>
 
           <!-- plan + actions -->
           <section class="card">
-            <h2 class="card__title">Plan &amp; quick actions</h2>
+            <h2 class="card__title" data-i18n="dash.plan_actions">Plan &amp; quick actions</h2>
             <div id="sub-box" class="sub-box">
               <div class="sub-box__info">
-                <span class="sub-box__label">Plan</span>
+                <span class="sub-box__label" data-i18n="plan.label">Plan</span>
                 <span id="sub-status" class="sub-box__status">—</span>
                 <span id="sub-renew" class="meta hidden"></span>
               </div>
             </div>
             <div class="links-row" style="margin-top: 18px">
-              <a href="practice.html" class="btn btn--primary words-link">Practice →</a>
-              <a href="words.html" class="btn btn--ghost words-link">My dictionary →</a>
+              <a href="practice.html" class="btn btn--primary words-link" data-i18n="dash.practice_arrow">Practice →</a>
+              <a href="words.html" class="btn btn--ghost words-link" data-i18n="dash.my_dict">My dictionary →</a>
             </div>
           </section>
         </div>
@@ -100,6 +100,7 @@
     </main>
 
     <script src="config.js?v=dev"></script>
+    <script src="i18n.js?v=dev"></script>
     <script src="api.js?v=dev"></script>
     <script src="dashboard.js?v=dev"></script>
   </body>

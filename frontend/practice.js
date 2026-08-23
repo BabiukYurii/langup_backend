@@ -11,13 +11,12 @@ let activeType = null; // null = practise whatever comes next
 let activeLang = null; // null = the user's current practice language (server default)
 let languages = []; // [{language, count}] the user is learning
 
-const TYPE_LABELS = {
-  FILL_IN_BLANKS: "Blanks",
-  MULTIPLE_CHOICE: "Meaning",
-  FLASHCARD: "Flashcards",
-  MATCH_PAIRS: "Pairs",
-  TYPING: "Type",
-};
+const EX_TYPES = ["FILL_IN_BLANKS", "MULTIPLE_CHOICE", "FLASHCARD", "MATCH_PAIRS", "TYPING"];
+
+// Localised short label for a type chip; null = the "Any" chip.
+function typeLabel(type) {
+  return type ? t("type." + type.toLowerCase()) : t("type.any");
+}
 
 function show(viewId) {
   for (const id of ["ex-view", "res-view", "empty-view", "loading"]) {
@@ -30,13 +29,13 @@ function show(viewId) {
 function renderTypes() {
   const list = $("types-list");
   list.innerHTML = "";
-  const options = [[null, "Any"], ...Object.entries(TYPE_LABELS)];
+  const options = [null, ...EX_TYPES];
 
-  for (const [type, label] of options) {
+  for (const type of options) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "chip" + (activeType === type ? " chip--on" : "");
-    btn.textContent = label;
+    btn.textContent = typeLabel(type);
     btn.addEventListener("click", () => selectType(type));
     list.appendChild(btn);
   }
@@ -132,7 +131,7 @@ async function loadNext() {
   if (resp.status === 403) {
     // Practice is gated until the email is confirmed — send them to the
     // profile, where the "resend confirmation" banner lives.
-    $("empty-text").textContent = "Confirm your email to start practising. Check your inbox, or resend the link from your profile.";
+    $("empty-text").textContent = t("practice.confirm_email");
     $("empty-generate").classList.add("hidden");
     show("empty-view");
     return;
@@ -143,20 +142,19 @@ async function loadNext() {
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
     if (quota && !quota.unlimited && quota.remaining === 0) {
-      $("empty-text").textContent =
-        "You've reached today's free limit of AI-generated exercises. Upgrade to Premium for unlimited practice, or come back tomorrow.";
+      $("empty-text").textContent = t("practice.limit_reached");
       $("empty-generate").classList.add("hidden"); // generating is blocked until tomorrow
     } else {
       $("empty-text").textContent = activeType
-        ? `No "${TYPE_LABELS[activeType]}" exercises right now. They'll appear as you save new words — or pick "Any".`
-        : "No exercises ready yet. They're generated automatically after you save new words — this usually takes up to a minute.";
+        ? t("practice.empty_type", { type: typeLabel(activeType) })
+        : t("practice.empty");
       $("empty-generate").classList.remove("hidden");
     }
     show("empty-view");
     return;
   }
   if (!resp.ok) {
-    $("loading").textContent = "Could not load the exercise. Try refreshing the page.";
+    $("loading").textContent = t("practice.load_fail");
     return;
   }
 
@@ -190,14 +188,11 @@ function renderExercise(ex) {
 }
 
 function promptText(ex) {
-  const uk = {
-    FILL_IN_BLANKS: "Fill in the blanks with the correct word.",
-    MULTIPLE_CHOICE: "Choose the correct meaning of the word.",
-    FLASHCARD: "Do you remember this word?",
-    MATCH_PAIRS: "Match the word with its translation.",
-    TYPING: "Type the missing word.",
-  };
-  return uk[ex.exercise_type] || ex.prompt || "";
+  const key = "prompt." + String(ex.exercise_type || "").toLowerCase();
+  const localized = t(key);
+  // t() returns the key itself when there is no translation — fall back to the
+  // exercise's own server-provided prompt in that case.
+  return localized !== key ? localized : ex.prompt || "";
 }
 
 // Size an input to exactly `n` characters as this browser actually renders
@@ -362,7 +357,7 @@ function drawBoard() {
   board.appendChild(grid);
 
   const left = Object.keys(mp.solved).length;
-  $("ex-status").textContent = `${left} of ${mp.all.size}`;
+  $("ex-status").textContent = t("practice.pairs_progress", { done: left, total: mp.all.size });
 }
 
 function buildColumn(side) {
@@ -477,7 +472,7 @@ function renderFillInBlanks(ex) {
     if (ex.payload.blanks.length > 1) {
       const label = document.createElement("span");
       label.className = "meta";
-      label.textContent = "Blank " + blank.index + ":";
+      label.textContent = t("practice.blank", { n: blank.index });
       row.appendChild(label);
     }
     for (const option of shuffle([...blank.options])) {
@@ -559,7 +554,7 @@ function renderFlashcard(ex) {
   const reveal = document.createElement("button");
   reveal.type = "button";
   reveal.className = "btn btn--primary";
-  reveal.textContent = "Show translation";
+  reveal.textContent = t("practice.show_translation");
   reveal.addEventListener("click", () => {
     reveal.remove();
 
@@ -573,7 +568,7 @@ function renderFlashcard(ex) {
     const knew = document.createElement("button");
     knew.type = "button";
     knew.className = "opt opt--know";
-    knew.textContent = "Knew it ✓";
+    knew.textContent = t("practice.knew_it");
     knew.addEventListener("click", () => {
       chosen = { 1: "know" };
       submit();
@@ -581,7 +576,7 @@ function renderFlashcard(ex) {
     const forgot = document.createElement("button");
     forgot.type = "button";
     forgot.className = "opt opt--forgot";
-    forgot.textContent = "Didn't know ✗";
+    forgot.textContent = t("practice.didnt_know");
     forgot.addEventListener("click", () => {
       chosen = { 1: "dont_know" };
       submit();
@@ -628,7 +623,7 @@ async function submit(mistakes = null, timedOut = false) {
     }),
   });
   if (!resp.ok) {
-    $("ex-status").textContent = "Could not submit the answer, try again.";
+    $("ex-status").textContent = t("practice.submit_fail");
     $("ex-submit").disabled = false;
     return;
   }
@@ -645,29 +640,25 @@ function renderResult(result) {
     const total = Object.keys(result.correct_answers).length;
     const solved = Object.keys(chosen).length;
     if (result.is_correct) {
-      banner.textContent = `✓ Round complete — ${solved} of ${total} pairs!`;
+      banner.textContent = t("result.round_complete", { done: solved, total });
     } else if (mp.timedOut) {
-      banner.textContent = `⏱ Time's up: ${solved} of ${total} pairs.`;
+      banner.textContent = t("result.round_timeout", { done: solved, total });
     } else {
-      banner.textContent = `✗ Round over: ${solved} of ${total} pairs, too many mistakes.`;
+      banner.textContent = t("result.round_over", { done: solved, total });
     }
   } else if (currentExercise.exercise_type === "FLASHCARD") {
     // self-graded: no "correct answer" to reveal
-    banner.textContent = result.is_correct
-      ? "✓ Great, you're learning this word!"
-      : "✗ No worries — we'll review it later.";
+    banner.textContent = result.is_correct ? t("result.flashcard_ok") : t("result.flashcard_no");
   } else if (result.is_correct) {
-    banner.textContent = "✓ Correct!";
+    banner.textContent = t("result.correct");
   } else {
     const correct = Object.entries(result.correct_answers)
       .map(([, word]) => word)
       .join(", ");
-    banner.textContent = "✗ Incorrect. Correct answer: " + correct;
+    banner.textContent = t("result.incorrect", { answer: correct });
   }
 
-  $("res-mastery").textContent = result.mastery_level
-    ? "Mastery level: " + result.mastery_level.toLowerCase()
-    : "";
+  $("res-mastery").textContent = result.mastery_level ? t("result.mastery", { level: masteryLabel(result.mastery_level) }) : "";
 }
 
 function shuffle(arr) {
@@ -686,10 +677,10 @@ async function generateMore(statusId) {
   // Generation is CPU-bound and can take half a minute; a silent wait reads as
   // a broken button, so count the seconds out loud.
   let elapsed = 0;
-  status.textContent = "Generating… 0s";
+  status.textContent = t("practice.generating", { s: 0 });
   const ticker = setInterval(() => {
     elapsed += 1;
-    status.textContent = `Generating… ${elapsed}s`;
+    status.textContent = t("practice.generating", { s: elapsed });
   }, 1000);
 
   const done = (text) => {
@@ -701,14 +692,14 @@ async function generateMore(statusId) {
   // ask for the type the learner is looking at, not just "anything"
   const query = practiceQuery();
   const resp = await apiFetch("/exercises/refill" + query, { method: "POST" });
-  if (!resp.ok) return done("Could not generate. Try again.");
+  if (!resp.ok) return done(t("practice.generate_fail"));
 
   const body = await resp.json();
   // A worker took the job -> poll it. No worker -> it already ran inline.
   const created = body.status === "queued" ? await pollRefill(body.task_id) : body.created;
 
-  if (created === null) return done("Generation didn't finish. Try again.");
-  if (!created) return done("No new exercises — save a few more words.");
+  if (created === null) return done(t("practice.generate_unfinished"));
+  if (!created) return done(t("practice.generate_none"));
   done("");
   loadNext();
 }
@@ -729,11 +720,12 @@ async function pollRefill(taskId) {
   return null;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (!TOKENS.access) {
     location.href = "index.html"; // not logged in
     return;
   }
+  await window.i18nReady;
   // Wrapped, not passed directly: a bare handler receives the click event as
   // the first argument, which would land in submit()'s `mistakes` param.
   $("ex-submit").addEventListener("click", () => submit());

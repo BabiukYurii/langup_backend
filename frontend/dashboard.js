@@ -36,24 +36,24 @@ function renderPlan(sub) {
   const status = $("sub-status");
   const renew = $("sub-renew");
   if (!sub) {
-    status.textContent = "Free";
+    status.textContent = t("plan.free");
     return;
   }
   const when = sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : null;
   if (sub.status === "TRIALING" && sub.is_active) {
-    status.textContent = "Premium trial";
+    status.textContent = t("plan.premium_trial");
     if (when) {
-      renew.textContent = `Trial ends on ${when}`;
+      renew.textContent = t("plan.trial_ends", { date: when });
       renew.classList.remove("hidden");
     }
   } else if (sub.is_active) {
-    status.textContent = "Premium — active";
+    status.textContent = t("plan.premium_active");
     if (when) {
-      renew.textContent = sub.cancel_at_period_end ? `Ends on ${when}` : `Renews on ${when}`;
+      renew.textContent = sub.cancel_at_period_end ? t("plan.ends_on", { date: when }) : t("plan.renews_on", { date: when });
       renew.classList.remove("hidden");
     }
   } else {
-    status.textContent = "Free";
+    status.textContent = t("plan.free");
   }
 }
 
@@ -80,10 +80,11 @@ async function load() {
   renderPlan(sub);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (!TOKENS.access) {
     location.href = "index.html";
     return;
   }
+  await window.i18nReady;
   load();
 });

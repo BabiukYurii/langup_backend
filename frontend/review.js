@@ -25,8 +25,8 @@ function showDone() {
   hide($("card-view"));
   hide($("loading"));
   $("done-text").textContent = reviewed
-    ? `You reviewed ${reviewed} word${reviewed === 1 ? "" : "s"}. Nothing else is due right now.`
-    : "Nothing is due right now. Save more words or come back later.";
+    ? t("review.done_count", { count: reviewed })
+    : t("review.done_default");
   show($("done-view"));
 }
 
@@ -36,7 +36,7 @@ function renderCard() {
   $("rc-lang").textContent = item.language;
   $("rc-word").textContent = item.lemma;
   const tr = $("rc-translation");
-  tr.textContent = item.translation || "No translation cached yet — grade from memory.";
+  tr.textContent = item.translation || t("review.no_translation_cached");
   tr.classList.toggle("rc__translation--muted", !item.translation);
   hide(tr);
   hide($("grades"));
@@ -63,7 +63,7 @@ async function grade(quality) {
   });
   busy = false;
   if (resp.status === 401) return (location.href = "index.html");
-  if (!resp.ok) return toast("Could not save — try again", "err");
+  if (!resp.ok) return toast(t("review.save_fail"), "err");
 
   reviewed += 1;
   index += 1;
@@ -80,7 +80,7 @@ async function loadQueue({ append = false } = {}) {
   if (resp.status === 401) return (location.href = "index.html");
   if (!resp.ok) {
     hide($("loading"));
-    return toast("Could not load the review queue", "err");
+    return toast(t("review.load_fail"), "err");
   }
   const items = await resp.json();
   if (!items.length) return showDone();
@@ -89,11 +89,12 @@ async function loadQueue({ append = false } = {}) {
   renderCard();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (!TOKENS.access) {
     location.href = "index.html";
     return;
   }
+  await window.i18nReady;
   $("show-btn").addEventListener("click", revealAnswer);
   for (const btn of document.querySelectorAll(".grade")) {
     btn.addEventListener("click", () => grade(Number(btn.dataset.q)));

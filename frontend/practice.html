@@ -15,15 +15,15 @@
 
       <section class="card">
         <div class="words-bar">
-          <a href="index.html" class="btn btn--ghost">← Profile</a>
+          <a href="index.html" class="btn btn--ghost" data-i18n="common.back_profile">← Profile</a>
           <div class="dict__head">
-            <h1 class="card__title">Practice</h1>
+            <h1 class="card__title" data-i18n="nav.practice">Practice</h1>
           </div>
         </div>
 
         <!-- language picker (shown only when learning more than one) -->
         <div id="langs-bar" class="types hidden">
-          <span class="langs__label">Language</span>
+          <span class="langs__label" data-i18n="practice.language">Language</span>
           <div id="langs-list" class="types__list"></div>
         </div>
 
@@ -35,7 +35,7 @@
         <!-- practice settings -->
         <label id="fillers-row" class="pref-toggle hidden">
           <input id="pref-fillers" type="checkbox" />
-          <span>Доповнювати гру «Пари» словами зі спільного словника</span>
+          <span data-i18n="practice.fillers_toggle">Fill match-pairs rounds with words from the shared dictionary</span>
         </label>
 
         <!-- exercise -->
@@ -49,7 +49,7 @@
           <div id="ex-blanks"></div>
           <div class="form__actions">
             <span id="ex-status" class="meta"></span>
-            <button id="ex-submit" class="btn btn--primary" type="button" disabled>Answer</button>
+            <button id="ex-submit" class="btn btn--primary" type="button" disabled data-i18n="practice.answer">Answer</button>
           </div>
         </div>
 
@@ -59,32 +59,33 @@
           <div class="form__actions">
             <span id="res-mastery" class="meta"></span>
             <div class="links-row">
-              <button id="res-generate" class="btn btn--ghost" type="button">Generate more</button>
-              <button id="res-next" class="btn btn--primary" type="button">Next exercise →</button>
+              <button id="res-generate" class="btn btn--ghost" type="button" data-i18n="practice.generate_more">Generate more</button>
+              <button id="res-next" class="btn btn--primary" type="button" data-i18n="practice.next">Next exercise →</button>
             </div>
           </div>
         </div>
 
         <!-- empty pool -->
         <div id="empty-view" class="hidden">
-          <p id="empty-text" class="card__subtitle">
+          <p id="empty-text" class="card__subtitle" data-i18n="practice.empty">
             No exercises ready yet. They're generated automatically after you save
             new words with the extension — this usually takes up to a minute.
           </p>
           <div class="form__actions">
             <span id="empty-status" class="meta"></span>
             <div class="links-row">
-              <button id="empty-retry" class="btn btn--ghost" type="button">Refresh</button>
-              <button id="empty-generate" class="btn btn--primary" type="button">Generate more</button>
+              <button id="empty-retry" class="btn btn--ghost" type="button" data-i18n="practice.refresh">Refresh</button>
+              <button id="empty-generate" class="btn btn--primary" type="button" data-i18n="practice.generate_more">Generate more</button>
             </div>
           </div>
         </div>
 
-        <p id="loading" class="meta">Loading…</p>
+        <p id="loading" class="meta" data-i18n="common.loading">Loading…</p>
       </section>
     </main>
 
     <script src="config.js?v=dev"></script>
+    <script src="i18n.js?v=dev"></script>
     <script src="api.js?v=dev"></script>
     <script src="practice.js?v=dev"></script>
   </body>

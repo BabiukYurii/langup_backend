@@ -1,6 +1,6 @@
 "use strict";
 
-// Profile page. Shared CFG/TOKENS/apiFetch come from api.js.
+// Profile page. Shared CFG/TOKENS/apiFetch come from api.js; t()/setUiLang from i18n.js.
 let currentUser = null;
 
 const $ = (id) => document.getElementById(id);
@@ -21,13 +21,13 @@ function renderProfile(user) {
   currentUser = user;
   const firstName = (user.full_name || "").trim().split(" ")[0];
   $("hero-name").textContent = firstName ? ", " + firstName : "";
-  $("p-name").textContent = user.full_name || "No name";
+  $("p-name").textContent = user.full_name || t("profile.no_name");
   $("p-email").textContent = user.email;
   $("avatar").textContent = (user.full_name || user.email || "?").trim().charAt(0).toUpperCase();
   $("p-role").textContent = user.role;
 
   const verified = $("p-verified");
-  verified.textContent = user.is_email_verified ? "verified" : "not verified";
+  verified.textContent = user.is_email_verified ? t("account.verified") : t("account.not_verified");
   verified.className = `badge ${user.is_email_verified ? "badge--ok" : "badge--muted"}`;
   $("verify-banner").classList.toggle("hidden", user.is_email_verified);
 
@@ -42,7 +42,8 @@ function renderProfile(user) {
   ensureLanguageOption($("f-target_language"), user.target_language);
   $("f-native_language").value = user.native_language || "";
   $("f-target_language").value = user.target_language || "";
-  $("p-created").textContent = "With us since " + new Date(user.created_at).toLocaleDateString();
+  $("f-ui_language").value = currentUiLang();
+  $("p-created").textContent = t("home.since", { date: new Date(user.created_at).toLocaleDateString() });
 
   hide($("login-view"));
   hide($("lang-view"));
@@ -72,19 +73,19 @@ async function loadSubscription() {
 
   if (sub.status === "TRIALING" && sub.is_active) {
     // Free trial: still premium, but nothing to manage in Stripe yet — nudge to subscribe.
-    $("sub-status").textContent = "Premium trial";
+    $("sub-status").textContent = t("plan.premium_trial");
     show(upgrade);
     hide(manage);
-    renew.textContent = when ? `Trial ends on ${when}` : "";
+    renew.textContent = when ? t("plan.trial_ends", { date: when }) : "";
     renew.classList.toggle("hidden", !when);
   } else if (sub.is_active) {
-    $("sub-status").textContent = "Premium";
+    $("sub-status").textContent = t("plan.premium");
     hide(upgrade);
     show(manage);
-    renew.textContent = when ? (sub.cancel_at_period_end ? `Ends on ${when}` : `Renews on ${when}`) : "";
+    renew.textContent = when ? (sub.cancel_at_period_end ? t("plan.ends_on", { date: when }) : t("plan.renews_on", { date: when })) : "";
     renew.classList.toggle("hidden", !when);
   } else {
-    $("sub-status").textContent = "Free";
+    $("sub-status").textContent = t("plan.free");
     show(upgrade);
     hide(manage);
     hide(renew);
@@ -99,7 +100,7 @@ async function openPortal() {
   btn.disabled = false;
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    return toast(typeof err.detail === "string" ? err.detail : "Could not open the portal", "err");
+    return toast(typeof err.detail === "string" ? err.detail : t("toast.portal_fail"), "err");
   }
   const { portal_url } = await resp.json();
   window.location.href = portal_url;
@@ -116,7 +117,7 @@ async function startCheckout() {
   btn.disabled = false;
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    return toast(typeof err.detail === "string" ? err.detail : "Could not start checkout", "err");
+    return toast(typeof err.detail === "string" ? err.detail : t("toast.checkout_fail"), "err");
   }
   const { checkout_url } = await resp.json();
   window.location.href = checkout_url;
@@ -139,7 +140,17 @@ function showLangGate(user) {
   show($("lang-view"));
 }
 
-function routeAfterAuth(user) {
+// Align the interface language with the account's native language on the first
+// load, unless the user already chose a UI language explicitly.
+async function alignUiLang(user) {
+  if (localStorage.getItem("langup_ui_lang")) return;
+  if (user.native_language && window.I18N_SUPPORTED.includes(user.native_language)) {
+    await window.setUiLang(user.native_language);
+  }
+}
+
+async function routeAfterAuth(user) {
+  await alignUiLang(user);
   if (!user.native_language) return showLangGate(user);
   renderProfile(user);
 }
@@ -148,7 +159,7 @@ async function loadProfile() {
   if (!TOKENS.access) return showLogin();
   const resp = await apiFetch("/auth/me");
   if (resp.ok) {
-    routeAfterAuth(await resp.json());
+    await routeAfterAuth(await resp.json());
   } else {
     TOKENS.clear();
     showLogin();
@@ -164,10 +175,12 @@ async function saveNativeLanguage(event) {
     body: JSON.stringify({ native_language }),
   });
   if (resp.ok) {
-    renderProfile(await resp.json());
-    toast("Done!");
+    const user = await resp.json();
+    await alignUiLang(user);
+    renderProfile(user);
+    toast(t("common.done"));
   } else {
-    toast("Could not save the language", "err");
+    toast(t("toast.lang_save_fail"), "err");
   }
 }
 
@@ -191,13 +204,13 @@ async function onGoogleCredential(response) {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      return toast(err.detail || "Could not sign in", "err");
+      return toast(err.detail || t("toast.signin_fail"), "err");
     }
     TOKENS.set(await resp.json());
     await loadProfile();
-    toast("Welcome to LangUp!");
+    toast(t("toast.welcome"));
   } catch {
-    toast("Network error", "err");
+    toast(t("toast.network_error"), "err");
   }
 }
 
@@ -209,8 +222,8 @@ function toggleAuthMode() {
   const registering = authMode === "register";
   $("a-name-field").classList.toggle("hidden", !registering);
   $("a-password").autocomplete = registering ? "new-password" : "current-password";
-  $("auth-submit").textContent = registering ? "Sign up" : "Sign in";
-  $("auth-mode-toggle").textContent = registering ? "I already have an account" : "Create account";
+  $("auth-submit").textContent = registering ? t("auth.signup") : t("auth.signin");
+  $("auth-mode-toggle").textContent = registering ? t("auth.have_account") : t("auth.create_account");
   // "Forgot password?" only makes sense when signing in.
   $("forgot-link").classList.toggle("hidden", registering);
 }
@@ -219,7 +232,7 @@ function toggleAuthMode() {
 // deliberately the same whether or not the email exists (no enumeration).
 async function onForgotPassword() {
   const email = $("a-email").value.trim();
-  if (!email) return toast("Enter your email above first", "err");
+  if (!email) return toast(t("toast.enter_email_first"), "err");
   try {
     await fetch(`${CFG.API_BASE}/auth/forgot-password`, {
       method: "POST",
@@ -229,7 +242,7 @@ async function onForgotPassword() {
   } catch {
     /* even on a network error we don't want to hint at account existence */
   }
-  toast("If that email is registered, we've sent a reset link.");
+  toast(t("toast.reset_sent"));
 }
 
 async function onEmailAuth(event) {
@@ -244,14 +257,14 @@ async function onEmailAuth(event) {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      const fallback = authMode === "register" ? "Could not sign up" : "Invalid email or password";
+      const fallback = authMode === "register" ? t("toast.signup_fail") : t("toast.invalid_credentials");
       return toast(detailMsg(err, fallback), "err");
     }
     TOKENS.set(await resp.json());
     await loadProfile();
-    toast("Welcome to LangUp!");
+    toast(t("toast.welcome"));
   } catch {
-    toast("Network error", "err");
+    toast(t("toast.network_error"), "err");
   }
 }
 
@@ -269,9 +282,9 @@ async function saveProfile(event) {
   });
   if (resp.ok) {
     renderProfile(await resp.json());
-    toast("Saved");
+    toast(t("toast.saved"));
   } else {
-    toast("Could not save", "err");
+    toast(t("toast.save_fail"), "err");
   }
 }
 
@@ -281,16 +294,23 @@ async function resendVerification() {
   btn.disabled = true;
   const resp = await apiFetch("/auth/verify-email/resend", { method: "POST" });
   btn.disabled = false;
-  if (!resp.ok) return toast("Could not send the email", "err");
+  if (!resp.ok) return toast(t("toast.verify_send_fail"), "err");
   const { status } = await resp.json();
-  toast(status === "already_verified" ? "Already verified" : "Verification email sent");
+  toast(status === "already_verified" ? t("toast.already_verified") : t("toast.verify_sent"));
 }
 
 async function logout() {
   await logoutRequest();
   if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
   showLogin();
-  toast("Signed out");
+  toast(t("toast.signed_out"));
+}
+
+// Change the interface language on the fly and re-render JS-built strings.
+async function onUiLanguageChange(event) {
+  await window.setUiLang(event.target.value);
+  if (currentUser) renderProfile(currentUser);
+  else window.applyTranslations();
 }
 
 // ---------- Google Sign-In init ----------
@@ -316,11 +336,15 @@ function initGoogle() {
 }
 
 // ---------- boot ----------
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await window.i18nReady; // translations ready before any t() call
+
   // One shared language list for every dropdown in the cabinet.
-  fillLanguageSelect($("l-native_language"), "Select a language…");
-  fillLanguageSelect($("f-native_language"), "— not set —");
-  fillLanguageSelect($("f-target_language"), "— not set —");
+  fillLanguageSelect($("l-native_language"), t("common.select_language"));
+  fillLanguageSelect($("f-native_language"), t("common.not_set"));
+  fillLanguageSelect($("f-target_language"), t("common.not_set"));
+  fillLanguageSelect($("f-ui_language"));
+  $("f-ui_language").value = currentUiLang();
 
   $("profile-form").addEventListener("submit", saveProfile);
   $("email-auth-form").addEventListener("submit", onEmailAuth);
@@ -331,6 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("manage-btn").addEventListener("click", openPortal);
   $("logout-btn").addEventListener("click", logout);
   $("resend-verify-btn").addEventListener("click", resendVerification);
+  $("f-ui_language").addEventListener("change", onUiLanguageChange);
 
   // Account dropdown: toggle on the avatar, close on any outside click.
   $("account-btn").addEventListener("click", (e) => {
@@ -343,8 +368,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Landing back from the verification link.
   const verified = new URLSearchParams(location.search).get("verified");
-  if (verified === "1") toast("Email confirmed — you're all set!");
-  else if (verified === "0") toast("That link is invalid or expired", "err");
+  if (verified === "1") toast(t("toast.email_confirmed"));
+  else if (verified === "0") toast(t("toast.link_invalid"), "err");
   initGoogle();
   loadProfile();
 });
