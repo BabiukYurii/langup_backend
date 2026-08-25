@@ -55,3 +55,19 @@ class AnalyzedLyrics(BaseModel):
     language: str
     lines: list[AnalyzedLine]
     unknown: list[UnknownWord]
+
+
+class SongAnalyzeRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=256)
+    artist: str = Field(default="", max_length=256)
+
+
+class SongTranslateRequest(BaseModel):
+    lemma: str = Field(min_length=1, max_length=128)
+    line: str = Field(default="", max_length=512)  # the song line, for context
+    language: str = Field(min_length=2, max_length=8)
+
+
+class SongTranslateOut(BaseModel):
+    lemma: str
+    translation: str | None
