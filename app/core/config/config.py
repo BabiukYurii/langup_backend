@@ -9,6 +9,7 @@ from app.core.config.exercises import ExerciseConfig
 from app.core.config.jwt import JwtConfig
 from app.core.config.limits import LimitsConfig
 from app.core.config.payments import PaymentsConfig
+from app.core.config.playlists import PlaylistConfig
 from app.core.config.rate_limit import RateLimitConfig
 from app.core.config.redis import RedisConfig
 
@@ -31,6 +32,7 @@ class Settings(BaseConfig):
     payments: PaymentsConfig = PaymentsConfig()
     limits: LimitsConfig = LimitsConfig()
     email: EmailConfig = EmailConfig()
+    playlists: PlaylistConfig = PlaylistConfig()
 
 
 settings = Settings()

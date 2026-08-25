@@ -1,0 +1,26 @@
+from pydantic import BaseModel, Field
+
+
+class PlaylistTrackOut(BaseModel):
+    # One track from a playlist. No audio or lyrics — just what identifies the
+    # song so lyrics can be looked up later by title + artist.
+    title: str
+    artist: str
+    spotify_id: str | None = None  # track id, when the embed exposes it
+
+
+class PlaylistPreviewRequest(BaseModel):
+    # A public Spotify playlist link or URI.
+    url: str = Field(min_length=1, max_length=512)
+
+
+class PlaylistPreviewOut(BaseModel):
+    name: str | None
+    # Tracks we will actually process (already capped at PLAYLIST_MAX_TRACKS).
+    tracks: list[PlaylistTrackOut]
+    # How many tracks the playlist really has (before the cap).
+    total: int
+    # True when total > cap, so the client can warn that some tracks were skipped.
+    truncated: bool
+    # How many tracks we process at most (the cap), for the warning message.
+    limit: int
