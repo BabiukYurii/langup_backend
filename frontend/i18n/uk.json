@@ -185,5 +185,22 @@
   "result.flashcard_no": "✗ Нічого, ми повторимо його пізніше.",
   "result.correct": "✓ Правильно!",
   "result.incorrect": "✗ Неправильно. Правильна відповідь: {answer}",
-  "result.mastery": "Рівень засвоєння: {level}"
+  "result.mastery": "Рівень засвоєння: {level}",
+  "nav.songs": "Пісні",
+  "playlist.title": "Зрозумій свій плейліст",
+  "playlist.subtitle": "Встав посилання на плейліст Spotify, щоб побачити, які слова ти вже знаєш.",
+  "playlist.url_ph": "Посилання на плейліст Spotify…",
+  "playlist.load": "Завантажити",
+  "playlist.truncated_warning": "У цьому плейлісті {total} треків — показано перші {limit}.",
+  "playlist.no_tracks": "Треків не знайдено.",
+  "playlist.loading_lyrics": "Завантаження тексту…",
+  "playlist.lyrics_not_found": "Текст для цієї пісні не знайдено.",
+  "playlist.language_unknown": "Не вдалося визначити мову пісні.",
+  "playlist.legend_known": "Знайомі",
+  "playlist.legend_unknown": "Нові",
+  "playlist.add_word": "Додати в словник",
+  "playlist.added": "Додано в словник",
+  "playlist.translating": "Переклад…",
+  "playlist.back_tracks": "← Треки",
+  "playlist.fetch_fail": "Не вдалося завантажити плейліст."
 }

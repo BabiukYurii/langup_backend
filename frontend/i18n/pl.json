@@ -185,5 +185,22 @@
   "result.flashcard_no": "✗ Nic nie szkodzi — powtórzymy je później.",
   "result.correct": "✓ Poprawnie!",
   "result.incorrect": "✗ Niepoprawnie. Poprawna odpowiedź: {answer}",
-  "result.mastery": "Poziom opanowania: {level}"
+  "result.mastery": "Poziom opanowania: {level}",
+  "nav.songs": "Piosenki",
+  "playlist.title": "Zrozum swoją playlistę",
+  "playlist.subtitle": "Wklej link do playlisty Spotify, aby zobaczyć, które słowa już znasz.",
+  "playlist.url_ph": "Link do playlisty Spotify…",
+  "playlist.load": "Wczytaj",
+  "playlist.truncated_warning": "Ta playlista ma {total} utworów — pokazujemy pierwsze {limit}.",
+  "playlist.no_tracks": "Nie znaleziono utworów.",
+  "playlist.loading_lyrics": "Ładowanie tekstu…",
+  "playlist.lyrics_not_found": "Nie znaleziono tekstu tej piosenki.",
+  "playlist.language_unknown": "Nie udało się wykryć języka piosenki.",
+  "playlist.legend_known": "Znane",
+  "playlist.legend_unknown": "Nowe",
+  "playlist.add_word": "Dodaj do słownika",
+  "playlist.added": "Dodano do słownika",
+  "playlist.translating": "Tłumaczenie…",
+  "playlist.back_tracks": "← Utwory",
+  "playlist.fetch_fail": "Nie udało się wczytać playlisty."
 }

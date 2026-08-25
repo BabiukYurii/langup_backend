@@ -185,5 +185,22 @@
   "result.flashcard_no": "✗ No worries — we'll review it later.",
   "result.correct": "✓ Correct!",
   "result.incorrect": "✗ Incorrect. Correct answer: {answer}",
-  "result.mastery": "Mastery level: {level}"
+  "result.mastery": "Mastery level: {level}",
+  "nav.songs": "Songs",
+  "playlist.title": "Understand your playlist",
+  "playlist.subtitle": "Paste a Spotify playlist link to see which words you already know.",
+  "playlist.url_ph": "Spotify playlist link…",
+  "playlist.load": "Load",
+  "playlist.truncated_warning": "This playlist has {total} tracks — showing the first {limit}.",
+  "playlist.no_tracks": "No tracks found.",
+  "playlist.loading_lyrics": "Loading lyrics…",
+  "playlist.lyrics_not_found": "No lyrics found for this song.",
+  "playlist.language_unknown": "Couldn't detect the song's language.",
+  "playlist.legend_known": "Known",
+  "playlist.legend_unknown": "New",
+  "playlist.add_word": "Add to dictionary",
+  "playlist.added": "Added to your dictionary",
+  "playlist.translating": "Translating…",
+  "playlist.back_tracks": "← Tracks",
+  "playlist.fetch_fail": "Could not load the playlist."
 }

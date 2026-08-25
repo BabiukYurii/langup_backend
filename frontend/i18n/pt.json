@@ -185,5 +185,22 @@
   "result.flashcard_no": "✗ Sem problema — vamos revê-la mais tarde.",
   "result.correct": "✓ Correto!",
   "result.incorrect": "✗ Incorreto. Resposta correta: {answer}",
-  "result.mastery": "Nível de domínio: {level}"
+  "result.mastery": "Nível de domínio: {level}",
+  "nav.songs": "Músicas",
+  "playlist.title": "Entende a tua playlist",
+  "playlist.subtitle": "Cola um link de playlist do Spotify para ver que palavras já conheces.",
+  "playlist.url_ph": "Link da playlist do Spotify…",
+  "playlist.load": "Carregar",
+  "playlist.truncated_warning": "Esta playlist tem {total} faixas — a mostrar as primeiras {limit}.",
+  "playlist.no_tracks": "Nenhuma faixa encontrada.",
+  "playlist.loading_lyrics": "A carregar a letra…",
+  "playlist.lyrics_not_found": "Não foi encontrada letra para esta música.",
+  "playlist.language_unknown": "Não foi possível detetar o idioma da música.",
+  "playlist.legend_known": "Conhecidas",
+  "playlist.legend_unknown": "Novas",
+  "playlist.add_word": "Adicionar ao dicionário",
+  "playlist.added": "Adicionada ao teu dicionário",
+  "playlist.translating": "A traduzir…",
+  "playlist.back_tracks": "← Faixas",
+  "playlist.fetch_fail": "Não foi possível carregar a playlist."
 }

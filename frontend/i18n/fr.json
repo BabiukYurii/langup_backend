@@ -185,5 +185,22 @@
   "result.flashcard_no": "✗ Pas de souci — nous le reverrons plus tard.",
   "result.correct": "✓ Correct !",
   "result.incorrect": "✗ Incorrect. Bonne réponse : {answer}",
-  "result.mastery": "Niveau de maîtrise : {level}"
+  "result.mastery": "Niveau de maîtrise : {level}",
+  "nav.songs": "Chansons",
+  "playlist.title": "Comprends ta playlist",
+  "playlist.subtitle": "Colle un lien de playlist Spotify pour voir quels mots tu connais déjà.",
+  "playlist.url_ph": "Lien de playlist Spotify…",
+  "playlist.load": "Charger",
+  "playlist.truncated_warning": "Cette playlist a {total} titres — affichage des {limit} premiers.",
+  "playlist.no_tracks": "Aucun titre trouvé.",
+  "playlist.loading_lyrics": "Chargement des paroles…",
+  "playlist.lyrics_not_found": "Aucune parole trouvée pour cette chanson.",
+  "playlist.language_unknown": "Impossible de détecter la langue de la chanson.",
+  "playlist.legend_known": "Connus",
+  "playlist.legend_unknown": "Nouveaux",
+  "playlist.add_word": "Ajouter au dictionnaire",
+  "playlist.added": "Ajouté à ton dictionnaire",
+  "playlist.translating": "Traduction…",
+  "playlist.back_tracks": "← Titres",
+  "playlist.fetch_fail": "Impossible de charger la playlist."
 }

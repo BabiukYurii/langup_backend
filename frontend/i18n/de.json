@@ -185,5 +185,22 @@
   "result.flashcard_no": "✗ Kein Problem — wir wiederholen es später.",
   "result.correct": "✓ Richtig!",
   "result.incorrect": "✗ Falsch. Richtige Antwort: {answer}",
-  "result.mastery": "Beherrschungsgrad: {level}"
+  "result.mastery": "Beherrschungsgrad: {level}",
+  "nav.songs": "Songs",
+  "playlist.title": "Verstehe deine Playlist",
+  "playlist.subtitle": "Füge einen Spotify-Playlist-Link ein, um zu sehen, welche Wörter du schon kennst.",
+  "playlist.url_ph": "Spotify-Playlist-Link…",
+  "playlist.load": "Laden",
+  "playlist.truncated_warning": "Diese Playlist hat {total} Titel — die ersten {limit} werden angezeigt.",
+  "playlist.no_tracks": "Keine Titel gefunden.",
+  "playlist.loading_lyrics": "Text wird geladen…",
+  "playlist.lyrics_not_found": "Für diesen Song wurde kein Text gefunden.",
+  "playlist.language_unknown": "Die Sprache des Songs konnte nicht erkannt werden.",
+  "playlist.legend_known": "Bekannt",
+  "playlist.legend_unknown": "Neu",
+  "playlist.add_word": "Zum Wörterbuch hinzufügen",
+  "playlist.added": "Zum Wörterbuch hinzugefügt",
+  "playlist.translating": "Übersetzen…",
+  "playlist.back_tracks": "← Titel",
+  "playlist.fetch_fail": "Playlist konnte nicht geladen werden."
 }
