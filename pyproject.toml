@@ -51,6 +51,7 @@ dependencies = [
     # --- di ---
     "dependency-injector>=4.45.0",
     "simplemma>=1.2.0",
+    "stopwordsiso>=0.7.1",
 ]
 
 [dependency-groups]
