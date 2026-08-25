@@ -16,3 +16,8 @@ class PlaylistConfig(BaseConfig):
 
     # Network timeout for fetching the embed page.
     PLAYLIST_FETCH_TIMEOUT_SECONDS: float = 15.0
+
+    # Lyrics come from LRCLIB (free, no key). Provider is behind an abstraction
+    # so a licensed source (e.g. Musixmatch) can be added later.
+    LRCLIB_BASE_URL: str = "https://lrclib.net"
+    LYRICS_FETCH_TIMEOUT_SECONDS: float = 15.0
