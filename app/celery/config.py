@@ -11,6 +11,7 @@ celery_app = Celery(
         "app.celery.tasks.ai_tasks",
         "app.celery.tasks.dictionary_tasks",
         "app.celery.tasks.email_tasks",
+        "app.celery.tasks.playlist_tasks",
     ],
 )
 
