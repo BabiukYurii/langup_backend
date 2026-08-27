@@ -1,4 +1,5 @@
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -85,3 +86,47 @@ class SongAddWordRequest(BaseModel):
 class SongAddWordOut(BaseModel):
     added: bool  # False when the word was already in the dictionary
     known: bool
+
+
+# --- saved playlists (persistence) ---
+
+
+class PlaylistImportRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=512)
+
+
+class PlaylistImportOut(BaseModel):
+    # Celery task id to poll for progress; None when it ran in-process.
+    task_id: str | None = None
+
+
+class PlaylistImportStatus(BaseModel):
+    status: str  # pending | running | done | failed
+    done: int | None = None
+    total: int | None = None
+    playlist_uuid: str | None = None
+
+
+class PlaylistOut(BaseModel):
+    uuid: UUID
+    name: str | None
+    status: str
+    song_count: int
+
+
+class PlaylistSongOut(BaseModel):
+    song_uuid: UUID
+    title: str
+    artist: str
+    language: str | None
+    # Words in the song the user doesn't have yet (None if not analysed).
+    unknown_count: int | None = None
+    # True when the song's language is one the user is learning.
+    in_learned_language: bool = False
+
+
+class PlaylistDetailOut(BaseModel):
+    uuid: UUID
+    name: str | None
+    status: str
+    songs: list[PlaylistSongOut]

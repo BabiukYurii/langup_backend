@@ -6,17 +6,24 @@ and we don't fire dozens of AI calls up front.
 
 import logging
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exc import BadRequestException
+from app.core.exc import BadRequestException, ObjectNotFoundException
 from app.database.postgres import get_session
 from app.enums.vocabulary import MasteryLevel
+from app.repositories.playlist import PlaylistRepository, PlaylistSongRepository
 from app.repositories.user_word import UserWordRepository
 from app.repositories.word import WordRepository
 from app.schemas.ai import TranslationParams
-from app.schemas.playlist import AnalyzedLyrics
+from app.schemas.playlist import (
+    AnalyzedLyrics,
+    PlaylistDetailOut,
+    PlaylistOut,
+    PlaylistSongOut,
+)
 from app.services.ai.exercise_generation import ExerciseGenerationService, get_exercise_generation_service
 from app.services.lyrics import fetch_lyrics
 from app.services.songs.analysis import analyze_lyrics
@@ -39,7 +46,53 @@ class SongService:
         self.session = session
         self.user_words = UserWordRepository(session)
         self.words = WordRepository(session)
+        self.playlists = PlaylistRepository(session)
+        self.links = PlaylistSongRepository(session)
         self.generator = generator
+
+    # --- saved playlists ---------------------------------------------------
+
+    async def list_playlists(self, user_id: int) -> list[PlaylistOut]:
+        rows = await self.playlists.list_for_user(user_id)
+        return [
+            PlaylistOut(
+                uuid=p.uuid, name=p.name, status=p.status, song_count=await self.links.count_for_playlist(p.uuid)
+            )
+            for p in rows
+        ]
+
+    async def playlist_detail(self, user_id: int, playlist_uuid: UUID) -> PlaylistDetailOut:
+        playlist = await self.playlists.get_for_user(user_id, playlist_uuid)
+        if not playlist:
+            raise ObjectNotFoundException(playlist_uuid, "Playlist")
+        learned = {lang for lang, _ in await self.user_words.languages_for_user(user_id)}
+        vocab_by_lang: dict[str, set[str]] = {}  # cache the user's lemmas per language
+        songs: list[PlaylistSongOut] = []
+        for _, song in await self.links.songs_for_playlist(playlist_uuid):
+            unknown = None
+            if song.language and song.lemmas is not None:
+                if song.language not in vocab_by_lang:
+                    states = await self.user_words.lemma_states_for_user(user_id, song.language)
+                    vocab_by_lang[song.language] = set(states.keys())
+                have = vocab_by_lang[song.language]
+                unknown = sum(1 for lemma in song.lemmas if lemma not in have)
+            songs.append(
+                PlaylistSongOut(
+                    song_uuid=song.uuid,
+                    title=song.title,
+                    artist=song.artist,
+                    language=song.language,
+                    unknown_count=unknown,
+                    in_learned_language=bool(song.language and song.language in learned),
+                )
+            )
+        return PlaylistDetailOut(uuid=playlist.uuid, name=playlist.name, status=playlist.status, songs=songs)
+
+    async def delete_playlist(self, user_id: int, playlist_uuid: UUID) -> None:
+        playlist = await self.playlists.get_for_user(user_id, playlist_uuid)
+        if not playlist:
+            raise ObjectNotFoundException(playlist_uuid, "Playlist")
+        await self.playlists.delete_one(playlist)  # playlist_songs cascade
 
     async def add_word(self, user_id: int, lemma: str, language: str, known: bool) -> bool:
         """Add a song word to the user's vocabulary.

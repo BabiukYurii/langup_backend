@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models import Playlist, PlaylistSong, Song
 from app.repositories.base import BaseRepository
@@ -29,6 +29,10 @@ class PlaylistRepository(BaseRepository[Playlist]):
 class PlaylistSongRepository(BaseRepository[PlaylistSong]):
     def __init__(self, session) -> None:
         super().__init__(session=session, model=PlaylistSong)
+
+    async def count_for_playlist(self, playlist_uuid: UUID) -> int:
+        stmt = select(func.count()).select_from(PlaylistSong).where(PlaylistSong.playlist_uuid == playlist_uuid)
+        return (await self.session.execute(stmt)).scalar() or 0
 
     async def songs_for_playlist(self, playlist_uuid: UUID) -> list[tuple[PlaylistSong, Song]]:
         """Ordered (link, song) pairs for a playlist."""
