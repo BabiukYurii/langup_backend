@@ -43,6 +43,24 @@ def _is_junk(surface: str, lemma: str, stops: frozenset[str]) -> bool:
     return len(surface) < _MIN_WORD_LEN or surface.lower() in stops or lemma in stops
 
 
+def content_lemmas(lyrics: str, language: str) -> list[str]:
+    """Deduped content-word lemmas of `lyrics` (junk/stopwords removed).
+
+    User-independent, so it can be cached on the shared Song row; a per-user
+    unknown count is then just this set minus the user's vocabulary.
+    """
+    stops = _stopwords(language)
+    seen: dict[str, None] = {}  # ordered set
+    for raw_line in lyrics.splitlines():
+        for surface, is_word in _chunks(raw_line):
+            if not is_word:
+                continue
+            lemma = to_lemma(surface, language)
+            if not _is_junk(surface, lemma, stops):
+                seen.setdefault(lemma, None)
+    return list(seen)
+
+
 def analyze_lyrics(
     lyrics: str,
     language: str,
