@@ -206,5 +206,6 @@
   "playlist.add_known": "La so",
   "playlist.add_learn": "Impara",
   "playlist.added_known": "Segnata come nota",
-  "playlist.added_learn": "Aggiunta allo studio"
+  "playlist.added_learn": "Aggiunta allo studio",
+  "playlist.legend_learning": "In apprendimento"
 }

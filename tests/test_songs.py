@@ -32,7 +32,8 @@ async def test_analyze_song_marks_known_and_unknown(app, client, session, monkey
     word = Word(lemma="cat", language="en")
     session.add(word)
     await session.flush()
-    session.add(UserWord(user_id=me["id"], word_uuid=word.uuid))
+    # mastered -> should render as "known" (green), not "learning"
+    session.add(UserWord(user_id=me["id"], word_uuid=word.uuid, mastery_level="MASTERED"))
     await session.commit()  # commit: request opens its own session on the shared connection
 
     _patch_lyrics(monkeypatch, EN_LYRICS)
@@ -90,6 +91,12 @@ async def test_add_word_learning_schedules_exercise_refill(app, client, monkeypa
     assert resp.status_code == 201
     assert resp.json() == {"added": True, "known": False}
     assert len(calls) == 1  # "add to learning" tops up the exercise pool
+
+    # a learning word renders in the third (amber) state, not green/red
+    _patch_lyrics(monkeypatch, "The cat runs across the green field every single morning")
+    a = await client.post("/api/playlists/song/analyze", json={"title": "t", "artist": "a"}, headers=headers)
+    statuses = {t["surface"]: t["status"] for line in a.json()["lines"] for t in line["tokens"]}
+    assert statuses["cat"] == "learning"
 
 
 async def test_add_word_is_idempotent(app, client, monkeypatch):

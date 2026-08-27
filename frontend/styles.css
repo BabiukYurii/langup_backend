@@ -1459,3 +1459,5 @@ a.btn {
 .btn--sm { padding: 5px 12px; font-size: 13px; }
 .pop__actions { display: flex; gap: 8px; }
 .pop__actions .btn { flex: 1; }
+.dot--learning { background: #f59f00; }
+.w--learning { color: #f59f00; }

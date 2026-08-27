@@ -206,5 +206,6 @@
   "playlist.add_known": "Znam",
   "playlist.add_learn": "Ucz się",
   "playlist.added_known": "Oznaczono jako znane",
-  "playlist.added_learn": "Dodano do nauki"
+  "playlist.added_learn": "Dodano do nauki",
+  "playlist.legend_learning": "W nauce"
 }

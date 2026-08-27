@@ -40,6 +40,17 @@ def test_lemmatization_groups_inflections():
     assert statuses["occurs"] == "known"
 
 
+def test_three_states_known_learning_unknown():
+    # cat = mastered (known), dog = in vocab but learning, fox = not in vocab
+    analyzed = analyze_lyrics("cat dog fox", "en", known_lemmas={"cat"}, learning_lemmas={"dog"})
+    statuses = {t.surface: t.status for line in analyzed.lines for t in line.tokens}
+    assert statuses["cat"] == "known"
+    assert statuses["dog"] == "learning"
+    assert statuses["fox"] == "unknown"
+    # only genuinely unknown words go into the unknown list (not learning ones)
+    assert {u.lemma for u in analyzed.unknown} == {"fox"}
+
+
 def test_ukrainian_stopwords_and_words():
     analyzed = analyze_lyrics("я чув пісню", "uk", known_lemmas=set())
     statuses = {t.surface: t.status for line in analyzed.lines for t in line.tokens}

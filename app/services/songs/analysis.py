@@ -43,8 +43,19 @@ def _is_junk(surface: str, lemma: str, stops: frozenset[str]) -> bool:
     return len(surface) < _MIN_WORD_LEN or surface.lower() in stops or lemma in stops
 
 
-def analyze_lyrics(lyrics: str, language: str, known_lemmas: set[str]) -> AnalyzedLyrics:
-    """Analyse `lyrics` against the learner's `known_lemmas` (lemmas they have)."""
+def analyze_lyrics(
+    lyrics: str,
+    language: str,
+    known_lemmas: set[str],
+    learning_lemmas: set[str] | None = None,
+) -> AnalyzedLyrics:
+    """Analyse `lyrics` against the learner's vocabulary.
+
+    known_lemmas    -> mastered words (green).
+    learning_lemmas -> words in their vocabulary still being learned (amber).
+    Anything else that is a real word is unknown (red).
+    """
+    learning_lemmas = learning_lemmas or set()
     stops = _stopwords(language)
     lines: list[AnalyzedLine] = []
     unknown: dict[str, str] = {}  # lemma -> first example line
@@ -60,6 +71,8 @@ def analyze_lyrics(lyrics: str, language: str, known_lemmas: set[str]) -> Analyz
                 tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="skip"))
             elif lemma in known_lemmas:
                 tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="known"))
+            elif lemma in learning_lemmas:
+                tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="learning"))
             else:
                 tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="unknown"))
                 unknown.setdefault(lemma, raw_line.strip())

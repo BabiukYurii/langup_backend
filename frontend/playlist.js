@@ -171,8 +171,9 @@ async function addWord(lemma, language, span, known) {
     body: JSON.stringify({ lemma, language, known }),
   });
   if (!resp.ok) return toast(await errText(resp, t("toast.save_fail")), "err");
-  // It's now in the dictionary — recolor green and strip the click listeners.
-  span.className = "w w--known";
+  // Now in the dictionary — green if known, amber if it's being learned; strip
+  // the click listeners either way (it's no longer an unknown word).
+  span.className = "w w--" + (known ? "known" : "learning");
   span.replaceWith(span.cloneNode(true));
   toast(known ? t("playlist.added_known") : t("playlist.added_learn"));
 }

@@ -33,12 +33,13 @@ class PlaylistPreviewOut(BaseModel):
 
 class AnalyzedToken(BaseModel):
     # One chunk of a lyric line. `status`:
-    #   known   -> the learner already has this word (render green)
-    #   unknown -> a real word they don't have yet (render red, clickable)
-    #   skip    -> stopword / punctuation / whitespace (render plain)
+    #   known    -> mastered word (render green)
+    #   learning -> in the user's vocabulary but not mastered yet (render amber)
+    #   unknown  -> a real word they don't have yet (render red, clickable)
+    #   skip     -> stopword / punctuation / whitespace (render plain)
     surface: str
     lemma: str | None = None
-    status: Literal["known", "unknown", "skip"]
+    status: Literal["known", "learning", "unknown", "skip"]
 
 
 class AnalyzedLine(BaseModel):

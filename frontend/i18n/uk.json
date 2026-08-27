@@ -206,5 +206,6 @@
   "playlist.add_known": "Знаю",
   "playlist.add_learn": "Вивчати",
   "playlist.added_known": "Позначено як відоме",
-  "playlist.added_learn": "Додано на вивчення"
+  "playlist.added_learn": "Додано на вивчення",
+  "playlist.legend_learning": "Вивчаю"
 }

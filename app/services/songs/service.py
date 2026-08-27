@@ -76,8 +76,11 @@ class SongService:
         language = detect_language(lyrics)
         if not language:
             raise BadRequestException(LANGUAGE_UNKNOWN)
-        known = await self.user_words.lemmas_for_user(user_id, language)
-        return analyze_lyrics(lyrics, language, known)
+        states = await self.user_words.lemma_states_for_user(user_id, language)
+        mastered = MasteryLevel.MASTERED.value
+        known = {lemma for lemma, level in states.items() if level == mastered}
+        learning = {lemma for lemma, level in states.items() if level != mastered}
+        return analyze_lyrics(lyrics, language, known, learning)
 
     async def translate_in_context(self, user_id: int, lemma: str, line: str, language: str) -> str | None:
         """Translate one word using the song line as context (lazy, on click)."""

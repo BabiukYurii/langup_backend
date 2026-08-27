@@ -56,15 +56,15 @@ class UserWordRepository(BaseRepository[UserWord]):
         rows = (await self.session.execute(stmt)).all()
         return [(lang, count) for lang, count in rows]
 
-    async def lemmas_for_user(self, user_id: int, language: str) -> set[str]:
-        """The set of lemmas the user already has in `language` — used to mark
-        song words as known vs unknown in one cheap query."""
+    async def lemma_states_for_user(self, user_id: int, language: str) -> dict[str, str]:
+        """Map each lemma the user has in `language` to its mastery_level, in one
+        query — lets song words be split into known (MASTERED) vs learning."""
         stmt = (
-            select(Word.lemma)
+            select(Word.lemma, UserWord.mastery_level)
             .join(UserWord, UserWord.word_uuid == Word.uuid)
             .where(UserWord.user_id == user_id, Word.language == language)
         )
-        return set((await self.session.execute(stmt)).scalars().all())
+        return dict((await self.session.execute(stmt)).all())
 
     async def get_with_word(self, uuid: UUID) -> UserWord | None:
         stmt = (
