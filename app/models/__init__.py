@@ -27,6 +27,7 @@ from app.models.invoice import Invoice
 from app.models.promo_code import PromoCode
 from app.models.webhook_event import WebhookEvent
 from app.models.usage_limit import UsageLimit
+from app.models.playlist import Playlist, PlaylistSong, Song
 
 __all__ = [
     "Base", "User", "RefreshToken", "UserSession", "OAuthAccount",
@@ -34,5 +35,5 @@ __all__ = [
     "Word", "Source", "WordContext", "UserWord", "Exercise", "ExerciseAttempt",
     "LearningSession", "LearningPath", "ReviewSchedule", "AIGeneration",
     "Plan", "Subscription", "Payment", "Invoice", "PromoCode",
-    "WebhookEvent", "UsageLimit",
+    "WebhookEvent", "UsageLimit", "Playlist", "PlaylistSong", "Song",
 ]

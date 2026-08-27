@@ -12,6 +12,7 @@ from app.models.exercise import Exercise
 from app.models.exercise_attempt import ExerciseAttempt
 from app.models.payment import Payment
 from app.models.plan import Plan
+from app.models.playlist import Playlist, PlaylistSong, Song
 from app.models.source import Source
 from app.models.subscription import Subscription
 from app.models.usage_limit import UsageLimit
@@ -40,6 +41,9 @@ TEST_TABLES = [
     Payment.__table__,
     WebhookEvent.__table__,
     UsageLimit.__table__,
+    Song.__table__,
+    Playlist.__table__,
+    PlaylistSong.__table__,
 ]
 
 
