@@ -28,24 +28,40 @@
           <p class="hero__subtitle" data-i18n="playlist.subtitle">Paste a Spotify playlist link to see which words you already know.</p>
         </div>
 
-        <!-- URL input -->
-        <div id="url-bar" class="admin__listbar">
-          <input id="pl-url" class="dict__search" type="text" data-i18n-placeholder="playlist.url_ph" placeholder="Spotify playlist link…" />
-          <button id="pl-load" class="btn btn--primary" type="button" data-i18n="playlist.load">Load</button>
+        <!-- import -->
+        <div id="import-bar">
+          <div class="admin__listbar">
+            <input id="pl-url" class="dict__search" type="text" data-i18n-placeholder="playlist.url_ph" placeholder="Spotify playlist link…" />
+            <button id="pl-import" class="btn btn--primary" type="button" data-i18n="playlist.import">Import</button>
+          </div>
+          <p class="meta" data-i18n="playlist.cap_hint">Up to 50 tracks per playlist.</p>
+          <div id="pl-progress" class="progress progress--indeterminate hidden"><div></div></div>
+          <p id="pl-status" class="meta"></p>
         </div>
-        <p id="pl-warning" class="notice hidden"></p>
-        <p id="pl-status" class="meta"></p>
 
-        <!-- tracks -->
-        <div id="tracks-view">
-          <h2 id="pl-name" class="card__title hidden"></h2>
-          <ul id="tracks-list" class="dict__list"></ul>
+        <!-- saved playlists -->
+        <div id="playlists-view">
+          <h2 class="card__title" data-i18n="playlist.my_playlists">My playlists</h2>
+          <ul id="playlists-list" class="dict__list"></ul>
+          <p id="playlists-empty" class="meta hidden" data-i18n="playlist.empty_playlists">No playlists yet — import one above.</p>
         </div>
+
+        <!-- one playlist's songs -->
+        <section id="songs-view" class="card hidden">
+          <div class="words-bar">
+            <button id="sv-back" class="btn btn--ghost" type="button" data-i18n="playlist.back_playlists">← Playlists</button>
+            <div class="dict__head">
+              <h2 id="sv-name" class="card__title">—</h2>
+            </div>
+          </div>
+          <ul id="songs-list" class="dict__list"></ul>
+          <p id="songs-empty" class="meta hidden" data-i18n="playlist.no_songs">No songs.</p>
+        </section>
 
         <!-- lyrics -->
         <section id="lyrics-view" class="card hidden">
           <div class="words-bar">
-            <button id="ly-back" class="btn btn--ghost" type="button" data-i18n="playlist.back_tracks">← Tracks</button>
+            <button id="ly-back" class="btn btn--ghost" type="button" data-i18n="playlist.back_songs">← Songs</button>
             <div class="dict__head">
               <h2 id="ly-title" class="card__title">—</h2>
               <span id="ly-artist" class="meta"></span>

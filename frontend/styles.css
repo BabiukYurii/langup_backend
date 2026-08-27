@@ -1461,3 +1461,17 @@ a.btn {
 .pop__actions .btn { flex: 1; }
 .dot--learning { background: #f59f00; }
 .w--learning { color: #f59f00; }
+.song-badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.song-new {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8590c;
+}

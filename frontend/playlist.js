@@ -1,13 +1,15 @@
 "use strict";
 
-// "Understand your playlist": paste a Spotify link -> tracks -> open a song ->
-// lyrics with known words green, unknown red; tap a red word to translate it in
-// context and add it to your dictionary. CFG/TOKENS/apiFetch/t from api/i18n.js.
+// "Understand your playlist": import a Spotify link (parsed + analysed in the
+// background), browse saved playlists and their songs with per-song new-word
+// counts, open a song to read the lyrics with known words green, learning amber
+// and unknown red; tap a red word to translate it and add it (as known or to
+// learn). CFG/TOKENS/apiFetch/t from api.js / i18n.js.
 const $ = (id) => document.getElementById(id);
 const show = (el) => el.classList.remove("hidden");
 const hide = (el) => el.classList.add("hidden");
 
-let currentSong = null; // {title, artist} of the open song
+const IMPORT_TASK_KEY = "langup_playlist_import";
 
 function toast(message, kind = "ok") {
   const el = $("toast");
@@ -23,62 +25,184 @@ async function errText(resp, fallback) {
   return typeof body.detail === "string" ? body.detail : fallback;
 }
 
-// ---------- playlist ----------
-async function loadPlaylist() {
-  const url = $("pl-url").value.trim();
-  if (!url) return;
-  $("pl-load").disabled = true;
-  $("pl-status").textContent = t("common.loading");
-  hide($("lyrics-view"));
-  hide($("pl-warning"));
+const statusLabel = (s) => t("playlist.status_" + s) || s;
 
-  const resp = await apiFetch("/playlists/preview", { method: "POST", body: JSON.stringify({ url }) });
-  $("pl-load").disabled = false;
-  $("pl-status").textContent = "";
-  if (!resp.ok) return toast(await errText(resp, t("playlist.fetch_fail")), "err");
+// ---------- saved playlists ----------
+async function loadPlaylists() {
+  const resp = await apiFetch("/playlists");
+  if (resp.status === 401) return (location.href = "index.html");
+  if (!resp.ok) return;
+  const items = await resp.json();
+  $("playlists-empty").classList.toggle("hidden", items.length > 0);
 
-  const data = await resp.json();
-  if (data.truncated) {
-    $("pl-warning").textContent = t("playlist.truncated_warning", { total: data.total, limit: data.limit });
-    show($("pl-warning"));
-  }
-  renderTracks(data);
-}
-
-function renderTracks(data) {
-  const name = $("pl-name");
-  name.textContent = data.name || "";
-  name.classList.toggle("hidden", !data.name);
-
-  const list = $("tracks-list");
+  const list = $("playlists-list");
   list.innerHTML = "";
-  if (!data.tracks.length) {
-    $("pl-status").textContent = t("playlist.no_tracks");
-    return;
-  }
-  for (const track of data.tracks) {
+  for (const p of items) {
     const li = document.createElement("li");
-    li.className = "dict__item dict__item--clickable";
-    li.tabIndex = 0;
+    li.className = "dict__item admin__ex";
 
-    const title = document.createElement("span");
-    title.className = "dict__lemma";
-    title.textContent = track.title;
-    const artist = document.createElement("span");
-    artist.className = "dict__lang";
-    artist.textContent = track.artist;
+    const name = document.createElement("span");
+    name.className = "dict__lemma dict__item--clickable";
+    name.textContent = p.name || "—";
+    name.addEventListener("click", () => openPlaylist(p.uuid, p.name));
 
-    li.append(title, artist);
-    const open = () => openSong(track.title, track.artist);
-    li.addEventListener("click", open);
-    li.addEventListener("keydown", (e) => e.key === "Enter" && open());
+    const meta = document.createElement("span");
+    meta.className = "dict__lang";
+    meta.textContent = `${p.song_count} · ${statusLabel(p.status)}`;
+
+    const actions = document.createElement("span");
+    actions.className = "admin__actions";
+    const del = document.createElement("button");
+    del.className = "admin__icon-btn";
+    del.textContent = "✕";
+    del.title = t("playlist.delete");
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deletePlaylist(p.uuid);
+    });
+    actions.appendChild(del);
+
+    li.append(name, meta, actions);
+    li.addEventListener("click", () => openPlaylist(p.uuid, p.name));
     list.appendChild(li);
   }
 }
 
-// ---------- one song ----------
+async function deletePlaylist(uuid) {
+  if (!confirm(t("playlist.delete_confirm"))) return;
+  const resp = await apiFetch(`/playlists/${uuid}`, { method: "DELETE" });
+  if (resp.status === 204) {
+    toast(t("playlist.deleted"));
+    loadPlaylists();
+  } else {
+    toast(await errText(resp, t("toast.save_fail")), "err");
+  }
+}
+
+// ---------- import ----------
+function showBar(indeterminate, pct) {
+  const bar = $("pl-progress");
+  show(bar);
+  bar.classList.toggle("progress--indeterminate", !!indeterminate);
+  bar.firstElementChild.style.width = indeterminate ? "" : `${pct || 0}%`;
+}
+function finishBar() {
+  hide($("pl-progress"));
+  $("pl-import").disabled = false;
+}
+
+async function importPlaylist() {
+  const url = $("pl-url").value.trim();
+  if (!url) return;
+  $("pl-import").disabled = true;
+  showBar(true);
+  $("pl-status").textContent = t("playlist.importing_start");
+
+  const resp = await apiFetch("/playlists", { method: "POST", body: JSON.stringify({ url }) });
+  if (!resp.ok) {
+    finishBar();
+    return toast(await errText(resp, t("playlist.fetch_fail")), "err");
+  }
+  const { task_id } = await resp.json();
+  if (!task_id) {
+    // Ran in-process (no worker): it's already done.
+    $("pl-status").textContent = "";
+    $("pl-url").value = "";
+    finishBar();
+    return loadPlaylists();
+  }
+  localStorage.setItem(IMPORT_TASK_KEY, task_id);
+  trackImport(task_id);
+}
+
+async function trackImport(taskId) {
+  $("pl-import").disabled = true;
+  const until = Date.now() + 30 * 60 * 1000;
+  while (Date.now() < until) {
+    const resp = await apiFetch(`/playlists/import/${taskId}`);
+    if (resp.ok) {
+      const { status, done, total } = await resp.json();
+      if (status === "done") {
+        $("pl-status").textContent = "";
+        $("pl-url").value = "";
+        localStorage.removeItem(IMPORT_TASK_KEY);
+        finishBar();
+        return loadPlaylists();
+      }
+      if (status === "failed") {
+        $("pl-status").textContent = t("playlist.import_failed");
+        localStorage.removeItem(IMPORT_TASK_KEY);
+        return finishBar();
+      }
+      if (total) {
+        const pct = Math.round((done / total) * 100);
+        showBar(false, pct);
+        $("pl-status").textContent = t("playlist.importing", { done, total });
+      }
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  finishBar();
+}
+
+function resumeImportIfAny() {
+  const taskId = localStorage.getItem(IMPORT_TASK_KEY);
+  if (!taskId) return;
+  showBar(true);
+  $("pl-status").textContent = t("playlist.importing_start");
+  trackImport(taskId);
+}
+
+// ---------- one playlist ----------
+async function openPlaylist(uuid, name) {
+  hide($("lyrics-view"));
+  $("sv-name").textContent = name || "";
+  $("songs-list").innerHTML = "";
+  show($("songs-view"));
+  $("songs-view").scrollIntoView({ behavior: "smooth" });
+
+  const resp = await apiFetch(`/playlists/${uuid}`);
+  if (!resp.ok) return toast(await errText(resp, t("playlist.fetch_fail")), "err");
+  renderSongs(await resp.json());
+}
+
+function renderSongs(detail) {
+  const list = $("songs-list");
+  list.innerHTML = "";
+  $("songs-empty").classList.toggle("hidden", detail.songs.length > 0);
+  for (const s of detail.songs) {
+    const li = document.createElement("li");
+    li.className = "dict__item dict__item--clickable admin__ex";
+
+    const title = document.createElement("span");
+    title.className = "dict__lemma";
+    title.textContent = s.title;
+    const artist = document.createElement("span");
+    artist.className = "dict__lang";
+    artist.textContent = s.artist;
+
+    const badge = document.createElement("span");
+    badge.className = "song-badge";
+    if (s.language) badge.textContent = s.language;
+    if (s.unknown_count !== null && s.unknown_count !== undefined) {
+      const nw = document.createElement("span");
+      nw.className = "song-new";
+      nw.textContent = t("playlist.new_words", { n: s.unknown_count });
+      li.append(title, artist, badge, nw);
+    } else {
+      li.append(title, artist, badge);
+    }
+
+    const open = () => openSong(s.title, s.artist);
+    li.addEventListener("click", open);
+    li.addEventListener("keydown", (e) => e.key === "Enter" && open());
+    li.tabIndex = 0;
+    list.appendChild(li);
+  }
+}
+
+// ---------- one song (lyrics) ----------
 async function openSong(title, artist) {
-  currentSong = { title, artist };
   $("ly-title").textContent = title;
   $("ly-artist").textContent = artist;
   $("lyrics-body").innerHTML = "";
@@ -106,7 +230,7 @@ function renderLyrics(data) {
   for (const line of data.lines) {
     const p = document.createElement("p");
     p.className = "lyrics__line";
-    if (!line.tokens.length) p.innerHTML = "&nbsp;"; // keep blank lines visible
+    if (!line.tokens.length) p.innerHTML = "&nbsp;";
     for (const tok of line.tokens) {
       if (tok.status === "skip") {
         p.appendChild(document.createTextNode(tok.surface));
@@ -126,7 +250,7 @@ function renderLyrics(data) {
   }
 }
 
-// Tap an unknown word -> translate in its line context -> offer to add it.
+// Tap an unknown word -> translate in context -> "I know it" / "Learn it".
 async function translateWord(tok, line, span, language) {
   closePopover();
   const lineText = line.tokens.map((x) => x.surface).join("");
@@ -149,10 +273,10 @@ async function translateWord(tok, line, span, language) {
 
   const actions = document.createElement("div");
   actions.className = "pop__actions";
-  // "I know it" -> mark known (no exercises). "Learn it" -> add + generate exercises.
-  const know = actionBtn("btn--ghost", t("playlist.add_known"), () => addWord(tok.lemma, language, span, true));
-  const learn = actionBtn("btn--primary", t("playlist.add_learn"), () => addWord(tok.lemma, language, span, false));
-  actions.append(know, learn);
+  actions.append(
+    actionBtn("btn--ghost", t("playlist.add_known"), () => addWord(tok.lemma, language, span, true)),
+    actionBtn("btn--primary", t("playlist.add_learn"), () => addWord(tok.lemma, language, span, false)),
+  );
   pop.append(tr, actions);
 }
 
@@ -171,8 +295,6 @@ async function addWord(lemma, language, span, known) {
     body: JSON.stringify({ lemma, language, known }),
   });
   if (!resp.ok) return toast(await errText(resp, t("toast.save_fail")), "err");
-  // Now in the dictionary — green if known, amber if it's being learned; strip
-  // the click listeners either way (it's no longer an unknown word).
   span.className = "w w--" + (known ? "known" : "learning");
   span.replaceWith(span.cloneNode(true));
   toast(known ? t("playlist.added_known") : t("playlist.added_learn"));
@@ -190,7 +312,6 @@ function popover(anchor) {
   pop.style.left = `${window.scrollX + r.left}px`;
   return pop;
 }
-
 function closePopover() {
   document.getElementById("pl-popover")?.remove();
 }
@@ -202,8 +323,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
   await window.i18nReady;
-  $("pl-load").addEventListener("click", loadPlaylist);
-  $("pl-url").addEventListener("keydown", (e) => e.key === "Enter" && loadPlaylist());
+  $("pl-import").addEventListener("click", importPlaylist);
+  $("pl-url").addEventListener("keydown", (e) => e.key === "Enter" && importPlaylist());
+  $("sv-back").addEventListener("click", () => {
+    hide($("songs-view"));
+    hide($("lyrics-view"));
+  });
   $("ly-back").addEventListener("click", () => {
     hide($("lyrics-view"));
     closePopover();
@@ -212,4 +337,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const pop = document.getElementById("pl-popover");
     if (pop && !pop.contains(e.target) && !e.target.classList.contains("w--unknown")) closePopover();
   });
+  loadPlaylists();
+  resumeImportIfAny();
 });
