@@ -202,5 +202,9 @@
   "playlist.added": "Added to your dictionary",
   "playlist.translating": "Translating…",
   "playlist.back_tracks": "← Tracks",
-  "playlist.fetch_fail": "Could not load the playlist."
+  "playlist.fetch_fail": "Could not load the playlist.",
+  "playlist.add_known": "I know it",
+  "playlist.add_learn": "Learn it",
+  "playlist.added_known": "Marked as known",
+  "playlist.added_learn": "Added to learning"
 }

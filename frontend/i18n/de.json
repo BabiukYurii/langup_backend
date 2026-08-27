@@ -202,5 +202,9 @@
   "playlist.added": "Zum Wörterbuch hinzugefügt",
   "playlist.translating": "Übersetzen…",
   "playlist.back_tracks": "← Titel",
-  "playlist.fetch_fail": "Playlist konnte nicht geladen werden."
+  "playlist.fetch_fail": "Playlist konnte nicht geladen werden.",
+  "playlist.add_known": "Kenne ich",
+  "playlist.add_learn": "Lernen",
+  "playlist.added_known": "Als bekannt markiert",
+  "playlist.added_learn": "Zum Lernen hinzugefügt"
 }

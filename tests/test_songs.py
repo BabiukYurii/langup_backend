@@ -60,6 +60,47 @@ async def test_analyze_song_requires_auth(client):
     assert resp.status_code == 401
 
 
+async def test_add_word_known_marks_known_and_skips_exercises(app, client, monkeypatch):
+    headers = await _login(app, client)
+    calls = []
+    monkeypatch.setattr("app.routers.playlists.schedule_refill", lambda bg, uid: calls.append(uid))
+
+    resp = await client.post(
+        "/api/playlists/song/word", json={"lemma": "dog", "language": "en", "known": True}, headers=headers
+    )
+    assert resp.status_code == 201
+    assert resp.json() == {"added": True, "known": True}
+    assert calls == []  # "I know it" must not generate exercises
+
+    # it now counts as known -> analyze renders it green
+    _patch_lyrics(monkeypatch, "The dog runs across the green field every single morning")
+    a = await client.post("/api/playlists/song/analyze", json={"title": "t", "artist": "a"}, headers=headers)
+    statuses = {t["surface"]: t["status"] for line in a.json()["lines"] for t in line["tokens"]}
+    assert statuses["dog"] == "known"
+
+
+async def test_add_word_learning_schedules_exercise_refill(app, client, monkeypatch):
+    headers = await _login(app, client)
+    calls = []
+    monkeypatch.setattr("app.routers.playlists.schedule_refill", lambda bg, uid: calls.append(uid))
+
+    resp = await client.post(
+        "/api/playlists/song/word", json={"lemma": "cat", "language": "en", "known": False}, headers=headers
+    )
+    assert resp.status_code == 201
+    assert resp.json() == {"added": True, "known": False}
+    assert len(calls) == 1  # "add to learning" tops up the exercise pool
+
+
+async def test_add_word_is_idempotent(app, client, monkeypatch):
+    headers = await _login(app, client)
+    monkeypatch.setattr("app.routers.playlists.schedule_refill", lambda bg, uid: None)
+    body = {"lemma": "cat", "language": "en", "known": True}
+    await client.post("/api/playlists/song/word", json=body, headers=headers)
+    again = await client.post("/api/playlists/song/word", json=body, headers=headers)
+    assert again.json()["added"] is False  # already in the dictionary
+
+
 async def test_translate_song_word_uses_context(app, client):
     headers = await _login(app, client)
 

@@ -1457,3 +1457,5 @@ a.btn {
 }
 .pop__tr { font-size: 14px; }
 .btn--sm { padding: 5px 12px; font-size: 13px; }
+.pop__actions { display: flex; gap: 8px; }
+.pop__actions .btn { flex: 1; }

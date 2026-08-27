@@ -202,5 +202,9 @@
   "playlist.added": "Додано в словник",
   "playlist.translating": "Переклад…",
   "playlist.back_tracks": "← Треки",
-  "playlist.fetch_fail": "Не вдалося завантажити плейліст."
+  "playlist.fetch_fail": "Не вдалося завантажити плейліст.",
+  "playlist.add_known": "Знаю",
+  "playlist.add_learn": "Вивчати",
+  "playlist.added_known": "Позначено як відоме",
+  "playlist.added_learn": "Додано на вивчення"
 }

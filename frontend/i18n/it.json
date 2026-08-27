@@ -202,5 +202,9 @@
   "playlist.added": "Aggiunta al tuo dizionario",
   "playlist.translating": "Traduzione…",
   "playlist.back_tracks": "← Brani",
-  "playlist.fetch_fail": "Impossibile caricare la playlist."
+  "playlist.fetch_fail": "Impossibile caricare la playlist.",
+  "playlist.add_known": "La so",
+  "playlist.add_learn": "Impara",
+  "playlist.added_known": "Segnata come nota",
+  "playlist.added_learn": "Aggiunta allo studio"
 }

@@ -146,28 +146,35 @@ async function translateWord(tok, line, span, language) {
   const tr = document.createElement("span");
   tr.className = "pop__tr";
   tr.textContent = `${tok.lemma} — ${translation || "—"}`;
-  const add = document.createElement("button");
-  add.className = "btn btn--primary btn--sm";
-  add.textContent = t("playlist.add_word");
-  add.addEventListener("click", () => addWord(tok.lemma, language, span, add));
-  pop.append(tr, add);
+
+  const actions = document.createElement("div");
+  actions.className = "pop__actions";
+  // "I know it" -> mark known (no exercises). "Learn it" -> add + generate exercises.
+  const know = actionBtn("btn--ghost", t("playlist.add_known"), () => addWord(tok.lemma, language, span, true));
+  const learn = actionBtn("btn--primary", t("playlist.add_learn"), () => addWord(tok.lemma, language, span, false));
+  actions.append(know, learn);
+  pop.append(tr, actions);
 }
 
-async function addWord(lemma, language, span, btn) {
-  btn.disabled = true;
-  const resp = await apiFetch("/vocabulary", {
-    method: "POST",
-    body: JSON.stringify({ word: lemma, language }),
-  });
-  if (!resp.ok) {
-    btn.disabled = false;
-    return toast(await errText(resp, t("toast.save_fail")), "err");
-  }
-  // Now it's known: recolor and drop the popover.
-  span.className = "w w--known";
-  span.replaceWith(span.cloneNode(true)); // strip listeners
+function actionBtn(variant, label, onClick) {
+  const b = document.createElement("button");
+  b.className = `btn ${variant} btn--sm`;
+  b.textContent = label;
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+async function addWord(lemma, language, span, known) {
   closePopover();
-  toast(t("playlist.added"));
+  const resp = await apiFetch("/playlists/song/word", {
+    method: "POST",
+    body: JSON.stringify({ lemma, language, known }),
+  });
+  if (!resp.ok) return toast(await errText(resp, t("toast.save_fail")), "err");
+  // It's now in the dictionary — recolor green and strip the click listeners.
+  span.className = "w w--known";
+  span.replaceWith(span.cloneNode(true));
+  toast(known ? t("playlist.added_known") : t("playlist.added_learn"));
 }
 
 // ---------- tiny popover ----------

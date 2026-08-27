@@ -71,3 +71,16 @@ class SongTranslateRequest(BaseModel):
 class SongTranslateOut(BaseModel):
     lemma: str
     translation: str | None
+
+
+class SongAddWordRequest(BaseModel):
+    lemma: str = Field(min_length=1, max_length=128)
+    language: str = Field(min_length=2, max_length=8)
+    # True = "I already know this word" (mark mastered, no exercises).
+    # False = "add to learning" (new word; exercises get generated).
+    known: bool = False
+
+
+class SongAddWordOut(BaseModel):
+    added: bool  # False when the word was already in the dictionary
+    known: bool

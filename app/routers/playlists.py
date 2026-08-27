@@ -1,16 +1,19 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 
 from app.dependencies import CurrentUserDep
 from app.schemas.playlist import (
     AnalyzedLyrics,
     PlaylistPreviewOut,
     PlaylistPreviewRequest,
+    SongAddWordOut,
+    SongAddWordRequest,
     SongAnalyzeRequest,
     SongTranslateOut,
     SongTranslateRequest,
 )
+from app.services.learning.background import schedule_refill
 from app.services.songs.service import SongService, get_song_service
 from app.services.spotify.playlist_parser import fetch_playlist_preview
 
@@ -48,3 +51,21 @@ async def translate_song_word(
     """Translate one unknown word in the context of its song line (on tap)."""
     translation = await service.translate_in_context(current_user.id, data.lemma, data.line, data.language)
     return SongTranslateOut(lemma=data.lemma, translation=translation)
+
+
+@router.post("/song/word", response_model=SongAddWordOut, status_code=status.HTTP_201_CREATED)
+async def add_song_word(
+    data: SongAddWordRequest,
+    current_user: CurrentUserDep,
+    service: SongServiceDep,
+    background: BackgroundTasks,
+) -> SongAddWordOut:
+    """Add a tapped word to the dictionary.
+
+    `known=true` marks it as already known (no exercises); `known=false` adds it
+    for learning and schedules the exercise pool to be topped up with it.
+    """
+    added = await service.add_word(current_user.id, data.lemma, data.language, data.known)
+    if added and not data.known:
+        schedule_refill(background, current_user.id)
+    return SongAddWordOut(added=added, known=data.known)

@@ -202,5 +202,9 @@
   "playlist.added": "Dodano do słownika",
   "playlist.translating": "Tłumaczenie…",
   "playlist.back_tracks": "← Utwory",
-  "playlist.fetch_fail": "Nie udało się wczytać playlisty."
+  "playlist.fetch_fail": "Nie udało się wczytać playlisty.",
+  "playlist.add_known": "Znam",
+  "playlist.add_learn": "Ucz się",
+  "playlist.added_known": "Oznaczono jako znane",
+  "playlist.added_learn": "Dodano do nauki"
 }
