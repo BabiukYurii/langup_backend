@@ -56,8 +56,8 @@ async def translate_song_word(
     data: SongTranslateRequest, current_user: CurrentUserDep, service: SongServiceDep
 ) -> SongTranslateOut:
     """Translate one unknown word in the context of its song line (on tap)."""
-    translation = await service.translate_in_context(current_user.id, data.lemma, data.line, data.language)
-    return SongTranslateOut(lemma=data.lemma, translation=translation)
+    translation = await service.translate_in_context(current_user.id, data.word, data.line, data.language)
+    return SongTranslateOut(word=data.word, translation=translation)
 
 
 @router.post("/song/word", response_model=SongAddWordOut, status_code=status.HTTP_201_CREATED)

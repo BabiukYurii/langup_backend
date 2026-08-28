@@ -65,17 +65,22 @@ class SongAnalyzeRequest(BaseModel):
 
 
 class SongTranslateRequest(BaseModel):
-    lemma: str = Field(min_length=1, max_length=128)
+    # The word exactly as it appears in the song. Translating the surface form
+    # (not our offline lemma) matters: the lemmatizer sometimes mangles a word
+    # ("straight" -> "stretch"), which used to produce a wrong translation.
+    word: str = Field(min_length=1, max_length=128)
+    lemma: str | None = Field(default=None, max_length=128)
     line: str = Field(default="", max_length=512)  # the song line, for context
     language: str = Field(min_length=2, max_length=8)
 
 
 class SongTranslateOut(BaseModel):
-    lemma: str
+    word: str
     translation: str | None
 
 
 class SongAddWordRequest(BaseModel):
+    # Surface form as shown in the song; the server derives the dictionary form.
     lemma: str = Field(min_length=1, max_length=128)
     language: str = Field(min_length=2, max_length=8)
     # True = "I already know this word" (mark mastered, no exercises).

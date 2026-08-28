@@ -266,9 +266,11 @@ async function translateWord(tok, line, span, language) {
   const pop = popover(span);
   pop.textContent = t("playlist.translating");
 
+  // Send the word as it appears in the song (surface form), not our lemma: the
+  // offline lemmatizer occasionally mangles words, which mistranslated them.
   const resp = await apiFetch("/playlists/song/translate", {
     method: "POST",
-    body: JSON.stringify({ lemma: tok.lemma, line: lineText, language }),
+    body: JSON.stringify({ word: tok.surface, lemma: tok.lemma, line: lineText, language }),
   });
   if (!resp.ok) {
     pop.textContent = t("playlist.fetch_fail");
@@ -278,13 +280,13 @@ async function translateWord(tok, line, span, language) {
   pop.innerHTML = "";
   const tr = document.createElement("span");
   tr.className = "pop__tr";
-  tr.textContent = `${tok.lemma} — ${translation || "—"}`;
+  tr.textContent = `${tok.surface} — ${translation || "—"}`;
 
   const actions = document.createElement("div");
   actions.className = "pop__actions";
   actions.append(
-    actionBtn("btn--ghost", t("playlist.add_known"), () => addWord(tok.lemma, language, span, true)),
-    actionBtn("btn--primary", t("playlist.add_learn"), () => addWord(tok.lemma, language, span, false)),
+    actionBtn("btn--ghost", t("playlist.add_known"), () => addWord(tok.surface, language, span, true)),
+    actionBtn("btn--primary", t("playlist.add_learn"), () => addWord(tok.surface, language, span, false)),
   );
   pop.append(tr, actions);
 }

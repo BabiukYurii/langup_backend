@@ -72,3 +72,21 @@ def test_ukrainian_stopwords_and_words():
     statuses = {t.surface: t.status for line in analyzed.lines for t in line.tokens}
     assert statuses["я"] == "skip"  # stopword (also too short)
     assert statuses["пісню"] == "unknown"
+
+
+def test_phrasal_verbs_stay_one_unit():
+    # "float up" / "wake up" are one meaning, so they're one clickable unit and
+    # translated together — not split into a verb and a stray particle.
+    analyzed = analyze_lyrics("I float up and wake up", "en", known_lemmas=set())
+    units = [(t.surface, t.lemma, t.status) for line in analyzed.lines for t in line.tokens if t.status != "skip"]
+    assert ("float up", "float up", "unknown") in units
+    assert ("wake up", "wake up", "unknown") in units
+    # the particle never appears on its own
+    assert all(t.surface.strip() != "up" for line in analyzed.lines for t in line.tokens if t.status != "skip")
+
+
+def test_particle_alone_is_not_glued_to_any_word():
+    # "the up" isn't a phrasal verb: nothing is merged.
+    analyzed = analyze_lyrics("carry the box", "en", known_lemmas=set())
+    surfaces = [t.surface for line in analyzed.lines for t in line.tokens if t.status != "skip"]
+    assert "carry" in surfaces and all(" " not in s for s in surfaces)

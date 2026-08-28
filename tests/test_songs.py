@@ -114,13 +114,15 @@ async def test_translate_song_word_uses_context(app, client):
     class _StubGen:
         async def generate_translation(self, params):
             assert params.sentence == "The cat and the dog"  # line passed as context
-            return GeneratedTranslation(translation="собака", model="stub")
+            # the surface form is translated, never our (possibly mangled) lemma
+            assert params.word == "dogs"
+            return GeneratedTranslation(translation="собаки", model="stub")
 
     app.dependency_overrides[get_exercise_generation_service] = lambda: _StubGen()
     resp = await client.post(
         "/api/playlists/song/translate",
-        json={"lemma": "dog", "line": "The cat and the dog", "language": "en"},
+        json={"word": "dogs", "lemma": "dog", "line": "The cat and the dog", "language": "en"},
         headers=headers,
     )
     assert resp.status_code == 200
-    assert resp.json() == {"lemma": "dog", "translation": "собака"}
+    assert resp.json() == {"word": "dogs", "translation": "собаки"}

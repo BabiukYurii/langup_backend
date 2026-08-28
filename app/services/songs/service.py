@@ -11,6 +11,7 @@ from uuid import UUID
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import settings
 from app.core.exc import BadRequestException, ObjectNotFoundException
 from app.database.postgres import get_session
 from app.enums.vocabulary import MasteryLevel
@@ -116,7 +117,7 @@ class SongService:
                        exercise pool refill.
         Returns True when a UserWord was created, False when it already existed.
         """
-        lemma = to_lemma(lemma, language)
+        lemma = await self._dictionary_form(lemma, language)
         word = await self.words.get_by_lemma_language(lemma, language)
         if not word:
             word = await self.words.create_one({"lemma": lemma, "language": language})
@@ -148,20 +149,44 @@ class SongService:
         learning = {lemma for lemma, level in states.items() if level != mastered}
         return analyze_lyrics(lyrics, language, known, learning)
 
-    async def translate_in_context(self, user_id: int, lemma: str, line: str, language: str) -> str | None:
-        """Translate one word using the song line as context (lazy, on click)."""
+    async def translate_in_context(self, user_id: int, word: str, line: str, language: str) -> str | None:
+        """Translate one word (or phrasal verb) using its song line as context.
+
+        `word` is the surface form as it appears in the lyrics — deliberately not
+        our offline lemma, which can mangle a word ("straight" -> "stretch") and
+        make the model translate something the learner never saw.
+        """
         from app.core.exc import AIProviderError, AIResponseValidationError
         from app.services.learning.exercise_service import translation_language_for
 
         target = await translation_language_for(self.session, user_id)
         try:
             result = await self.generator.generate_translation(
-                TranslationParams(word=lemma, sentence=line or None, source_language=language, target_language=target)
+                TranslationParams(word=word, sentence=line or None, source_language=language, target_language=target)
             )
         except (AIProviderError, AIResponseValidationError) as e:
-            logger.warning("Song word translation failed for %r: %s: %s", lemma, type(e).__name__, e)
+            logger.warning("Song word translation failed for %r: %s: %s", word, type(e).__name__, e)
             return None
         return result.translation
+
+    async def _dictionary_form(self, surface: str, language: str) -> str:
+        """Base form to store a song word under.
+
+        Prefers the AI's lemma (what the capture flow uses, and far better than
+        the offline lemmatizer, which can turn "straight" into "stretch"); falls
+        back to offline lemmatization when analysis is off or unavailable.
+        Multi-word phrasal verbs are stored as-is.
+        """
+        if " " in surface.strip():
+            return surface.strip().lower()
+        if settings.exercises.DETECT_LANGUAGE_ON_CAPTURE:
+            try:
+                result = await self.generator.analyze_word(surface)
+                if result.lemma:
+                    return result.lemma.strip().lower()
+            except Exception:  # noqa: BLE001 — analysis is best-effort
+                logger.warning("Song lemma analysis failed for %r; using offline lemma", surface)
+        return to_lemma(surface, language)
 
 
 async def get_song_service(
