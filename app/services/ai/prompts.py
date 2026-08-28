@@ -144,6 +144,9 @@ Rules:
   speech as "{word}": a verb as the infinitive, a noun in the nominative
   singular, an adjective in the masculine singular. Never a conjugated verb
   for an adjective ("asleep" is an adjective, not "they sleep").
+- Give the most natural everyday equivalent, not a stiff literal one. A short
+  phrase is fine when that is how the meaning is normally expressed
+  ("trapped" is "у пастці", not "заблокований").
 - 1-3 words, no explanations.
 - The translation must be in {target}, never in {source}.
 
