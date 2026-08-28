@@ -248,6 +248,9 @@ function renderLyrics(data) {
       const span = document.createElement("span");
       span.className = "w w--" + tok.status;
       span.textContent = tok.surface;
+      // Tag with the lemma so every occurrence of the same word can be recoloured
+      // together once the learner adds it.
+      if (tok.lemma) span.dataset.lemma = tok.lemma;
       if (tok.status === "unknown") {
         span.tabIndex = 0;
         span.addEventListener("click", () => translateWord(tok, line, span, data.language));
@@ -285,8 +288,8 @@ async function translateWord(tok, line, span, language) {
   const actions = document.createElement("div");
   actions.className = "pop__actions";
   actions.append(
-    actionBtn("btn--ghost", t("playlist.add_known"), () => addWord(tok.surface, language, span, true)),
-    actionBtn("btn--primary", t("playlist.add_learn"), () => addWord(tok.surface, language, span, false)),
+    actionBtn("btn--ghost", t("playlist.add_known"), () => addWord(tok, language, true)),
+    actionBtn("btn--primary", t("playlist.add_learn"), () => addWord(tok, language, false)),
   );
   pop.append(tr, actions);
 }
@@ -299,16 +302,28 @@ function actionBtn(variant, label, onClick) {
   return b;
 }
 
-async function addWord(lemma, language, span, known) {
+async function addWord(tok, language, known) {
   closePopover();
   const resp = await apiFetch("/playlists/song/word", {
     method: "POST",
-    body: JSON.stringify({ lemma, language, known }),
+    body: JSON.stringify({ lemma: tok.surface, language, known }),
   });
   if (!resp.ok) return toast(await errText(resp, t("toast.save_fail")), "err");
-  span.className = "w w--" + (known ? "known" : "learning");
-  span.replaceWith(span.cloneNode(true));
+  recolourWord(tok.lemma, known ? "known" : "learning");
   toast(known ? t("playlist.added_known") : t("playlist.added_learn"));
+}
+
+// The word is now in the dictionary, so EVERY occurrence in the song changes
+// colour — not just the one that was tapped — and stops being clickable.
+function recolourWord(lemma, status) {
+  if (!lemma) return;
+  const selector = `#lyrics-body .w[data-lemma="${CSS.escape(lemma)}"]`;
+  for (const el of document.querySelectorAll(selector)) {
+    const fresh = el.cloneNode(true); // drop the click/keydown listeners
+    fresh.className = "w w--" + status;
+    fresh.removeAttribute("tabindex");
+    el.replaceWith(fresh);
+  }
 }
 
 // ---------- tiny popover ----------
