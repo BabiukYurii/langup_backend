@@ -6,7 +6,6 @@
   "common.loading": "Wird geladen…",
   "common.not_set": "— nicht festgelegt —",
   "common.select_language": "Sprache wählen…",
-
   "auth.title": "Anmelden",
   "auth.subtitle": "Erstelle ein Konto oder melde dich mit Google an.",
   "auth.or": "oder",
@@ -19,18 +18,15 @@
   "auth.signup": "Registrieren",
   "auth.have_account": "Ich habe bereits ein Konto",
   "auth.forgot": "Passwort vergessen?",
-
   "native.title": "Wähle deine Muttersprache",
   "native.subtitle": "In sie übersetzen wir gespeicherte Wörter. Du musst das nur einmal festlegen.",
   "native.label": "Muttersprache — die du sprichst",
-
   "nav.dashboard": "Übersicht",
   "nav.review": "Wiederholen",
   "nav.dictionary": "Wörterbuch",
   "nav.practice": "Üben",
   "nav.home": "Start",
   "nav.admin": "Admin",
-
   "plan.upgrade": "Upgraden",
   "plan.manage": "Verwalten",
   "plan.label": "Tarif",
@@ -41,29 +37,23 @@
   "plan.trial_ends": "Testphase endet am {date}",
   "plan.ends_on": "Endet am {date}",
   "plan.renews_on": "Verlängert sich am {date}",
-
   "account.not_verified": "nicht bestätigt",
   "account.verified": "bestätigt",
   "account.settings": "Kontoeinstellungen",
   "account.admin_panel": "Admin-Panel",
   "account.signout": "Abmelden",
-
   "verify.banner": "Bestätige deine E-Mail, um Wörter zu speichern und zu üben.",
   "verify.resend": "E-Mail erneut senden",
-
   "home.welcome": "Willkommen zurück",
   "home.subtitle": "Mach da weiter, wo du aufgehört hast, oder sieh dir deinen Fortschritt an.",
   "home.since": "Bei uns seit {date}",
-
   "settings.subtitle": "Dein Name und die zwei Sprachen, mit denen wir arbeiten.",
   "settings.name": "Name",
   "settings.i_speak": "Ich spreche (Muttersprache)",
   "settings.im_learning": "Ich lerne",
   "settings.ui_language": "Oberflächensprache",
   "settings.save": "Änderungen speichern",
-
   "profile.no_name": "Kein Name",
-
   "toast.welcome": "Willkommen bei LangUp!",
   "toast.network_error": "Netzwerkfehler",
   "toast.signin_fail": "Anmeldung fehlgeschlagen",
@@ -82,7 +72,6 @@
   "toast.signed_out": "Abgemeldet",
   "toast.email_confirmed": "E-Mail bestätigt — alles bereit!",
   "toast.link_invalid": "Dieser Link ist ungültig oder abgelaufen",
-
   "dash.title": "Dein Fortschritt",
   "dash.subtitle": "Ein Überblick über deinen Wortschatz und dein tägliches Üben.",
   "dash.review_now": "Jetzt wiederholen →",
@@ -95,12 +84,10 @@
   "dash.plan_actions": "Tarif & Schnellaktionen",
   "dash.practice_arrow": "Üben →",
   "dash.my_dict": "Mein Wörterbuch →",
-
   "mastery.new": "Neu",
   "mastery.learning": "Am Lernen",
   "mastery.review": "Wiederholung",
   "mastery.mastered": "Beherrscht",
-
   "words.search_ph": "Wort suchen…",
   "words.empty": "Noch leer — speichere dein erstes Wort mit der Erweiterung.",
   "words.where_saw": "Wo du es gesehen hast",
@@ -111,7 +98,6 @@
   "words.remove_confirm": "Dieses Wort aus deinem Wörterbuch entfernen? Die dafür gespeicherten Sätze werden ebenfalls gelöscht.",
   "words.remove_fail": "Wort konnte nicht entfernt werden",
   "words.removed": "Aus dem Wörterbuch entfernt",
-
   "review.subtitle": "Erinnere dich an jedes Wort und bewerte dich dann selbst. Die nächste Wiederholung planen wir für dich.",
   "review.loading": "Wiederholungs-Warteschlange wird geladen…",
   "review.done_title": "Alles erledigt 🎉",
@@ -122,12 +108,10 @@
   "review.no_translation_cached": "Noch keine Übersetzung — bewerte aus dem Gedächtnis.",
   "review.save_fail": "Speichern fehlgeschlagen — versuche es erneut",
   "review.load_fail": "Wiederholungs-Warteschlange konnte nicht geladen werden",
-
   "grade.forgot": "Vergessen",
   "grade.hard": "Schwer",
   "grade.good": "Gut",
   "grade.easy": "Leicht",
-
   "reset.title": "Neues Passwort wählen",
   "reset.subtitle": "Gib ein neues Passwort für dein Konto ein.",
   "reset.new_password": "Neues Passwort",
@@ -142,7 +126,6 @@
   "reset.mismatch": "Die beiden Passwörter stimmen nicht überein.",
   "reset.update_fail": "Passwort konnte nicht aktualisiert werden.",
   "reset.network": "Netzwerkfehler — bitte versuche es erneut.",
-
   "practice.language": "Sprache",
   "practice.fillers_toggle": "Zuordnungsrunden mit Wörtern aus dem gemeinsamen Wörterbuch auffüllen",
   "practice.answer": "Antworten",
@@ -164,20 +147,17 @@
   "practice.generate_fail": "Generierung fehlgeschlagen. Versuche es erneut.",
   "practice.generate_unfinished": "Generierung nicht abgeschlossen. Versuche es erneut.",
   "practice.generate_none": "Keine neuen Übungen — speichere noch ein paar Wörter.",
-
   "type.any": "Beliebig",
   "type.fill_in_blanks": "Lücken",
   "type.multiple_choice": "Bedeutung",
   "type.flashcard": "Karteikarten",
   "type.match_pairs": "Paare",
   "type.typing": "Tippen",
-
   "prompt.fill_in_blanks": "Fülle die Lücken mit dem richtigen Wort.",
   "prompt.multiple_choice": "Wähle die richtige Bedeutung des Wortes.",
   "prompt.flashcard": "Erinnerst du dich an dieses Wort?",
   "prompt.match_pairs": "Ordne das Wort seiner Übersetzung zu.",
   "prompt.typing": "Tippe das fehlende Wort.",
-
   "result.round_complete": "✓ Runde abgeschlossen — {done} von {total} Paaren!",
   "result.round_timeout": "⏱ Zeit abgelaufen: {done} von {total} Paaren.",
   "result.round_over": "✗ Runde vorbei: {done} von {total} Paaren, zu viele Fehler.",
@@ -209,7 +189,6 @@
   "playlist.added_learn": "Zum Lernen hinzugefügt",
   "playlist.legend_learning": "Am Lernen",
   "playlist.import": "Importieren",
-  "playlist.cap_hint": "Bis zu 50 Titel pro Playlist.",
   "playlist.my_playlists": "Meine Playlists",
   "playlist.empty_playlists": "Noch keine Playlists — importiere oben eine.",
   "playlist.back_playlists": "← Playlists",

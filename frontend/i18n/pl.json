@@ -6,7 +6,6 @@
   "common.loading": "Ładowanie…",
   "common.not_set": "— nie ustawiono —",
   "common.select_language": "Wybierz język…",
-
   "auth.title": "Zaloguj się",
   "auth.subtitle": "Załóż konto lub zaloguj się przez Google.",
   "auth.or": "lub",
@@ -19,18 +18,15 @@
   "auth.signup": "Zarejestruj się",
   "auth.have_account": "Mam już konto",
   "auth.forgot": "Nie pamiętasz hasła?",
-
   "native.title": "Wybierz swój język ojczysty",
   "native.subtitle": "Na niego tłumaczymy zapisane słowa. Wystarczy ustawić to raz.",
   "native.label": "Język ojczysty — ten, którym mówisz",
-
   "nav.dashboard": "Panel",
   "nav.review": "Powtórki",
   "nav.dictionary": "Słownik",
   "nav.practice": "Ćwiczenia",
   "nav.home": "Start",
   "nav.admin": "Admin",
-
   "plan.upgrade": "Ulepsz",
   "plan.manage": "Zarządzaj",
   "plan.label": "Plan",
@@ -41,29 +37,23 @@
   "plan.trial_ends": "Okres próbny do {date}",
   "plan.ends_on": "Kończy się {date}",
   "plan.renews_on": "Odnawia się {date}",
-
   "account.not_verified": "niezweryfikowany",
   "account.verified": "zweryfikowany",
   "account.settings": "Ustawienia konta",
   "account.admin_panel": "Panel administratora",
   "account.signout": "Wyloguj się",
-
   "verify.banner": "Potwierdź email, aby zapisywać słowa i ćwiczyć.",
   "verify.resend": "Wyślij ponownie",
-
   "home.welcome": "Witaj ponownie",
   "home.subtitle": "Kontynuuj od miejsca, w którym skończyłeś, lub sprawdź postępy.",
   "home.since": "Z nami od {date}",
-
   "settings.subtitle": "Twoje imię i dwa języki, z którymi pracujemy.",
   "settings.name": "Imię",
   "settings.i_speak": "Mówię (ojczysty)",
   "settings.im_learning": "Uczę się",
   "settings.ui_language": "Język interfejsu",
   "settings.save": "Zapisz zmiany",
-
   "profile.no_name": "Brak imienia",
-
   "toast.welcome": "Witamy w LangUp!",
   "toast.network_error": "Błąd sieci",
   "toast.signin_fail": "Nie udało się zalogować",
@@ -82,7 +72,6 @@
   "toast.signed_out": "Wylogowano",
   "toast.email_confirmed": "Email potwierdzony — wszystko gotowe!",
   "toast.link_invalid": "Ten link jest nieprawidłowy lub wygasł",
-
   "dash.title": "Twoje postępy",
   "dash.subtitle": "Podgląd Twojego słownictwa i codziennych ćwiczeń.",
   "dash.review_now": "Powtórz teraz →",
@@ -95,12 +84,10 @@
   "dash.plan_actions": "Plan i szybkie akcje",
   "dash.practice_arrow": "Ćwiczenia →",
   "dash.my_dict": "Mój słownik →",
-
   "mastery.new": "Nowe",
   "mastery.learning": "W nauce",
   "mastery.review": "Powtórka",
   "mastery.mastered": "Opanowane",
-
   "words.search_ph": "Szukaj słowa…",
   "words.empty": "Na razie pusto — zapisz pierwsze słowo przez rozszerzenie.",
   "words.where_saw": "Gdzie je widziałeś",
@@ -111,7 +98,6 @@
   "words.remove_confirm": "Usunąć to słowo ze słownika? Zapisane dla niego zdania też zostaną usunięte.",
   "words.remove_fail": "Nie udało się usunąć słowa",
   "words.removed": "Usunięto ze słownika",
-
   "review.subtitle": "Przypomnij sobie każde słowo, potem oceń się. Kolejną powtórkę zaplanujemy za Ciebie.",
   "review.loading": "Ładowanie kolejki powtórek…",
   "review.done_title": "Wszystko powtórzone 🎉",
@@ -122,12 +108,10 @@
   "review.no_translation_cached": "Brak tłumaczenia — oceń z pamięci.",
   "review.save_fail": "Nie udało się zapisać — spróbuj ponownie",
   "review.load_fail": "Nie udało się załadować kolejki powtórek",
-
   "grade.forgot": "Nie pamiętam",
   "grade.hard": "Trudne",
   "grade.good": "Dobre",
   "grade.easy": "Łatwe",
-
   "reset.title": "Wybierz nowe hasło",
   "reset.subtitle": "Wprowadź nowe hasło do swojego konta.",
   "reset.new_password": "Nowe hasło",
@@ -142,7 +126,6 @@
   "reset.mismatch": "Hasła nie są takie same.",
   "reset.update_fail": "Nie udało się zmienić hasła.",
   "reset.network": "Błąd sieci — spróbuj ponownie.",
-
   "practice.language": "Język",
   "practice.fillers_toggle": "Uzupełniaj rundy „Pary” słowami ze wspólnego słownika",
   "practice.answer": "Odpowiedz",
@@ -164,20 +147,17 @@
   "practice.generate_fail": "Nie udało się wygenerować. Spróbuj ponownie.",
   "practice.generate_unfinished": "Generowanie nie zakończyło się. Spróbuj ponownie.",
   "practice.generate_none": "Brak nowych ćwiczeń — zapisz jeszcze kilka słów.",
-
   "type.any": "Dowolne",
   "type.fill_in_blanks": "Luki",
   "type.multiple_choice": "Znaczenie",
   "type.flashcard": "Fiszki",
   "type.match_pairs": "Pary",
   "type.typing": "Wpisz",
-
   "prompt.fill_in_blanks": "Uzupełnij luki właściwym słowem.",
   "prompt.multiple_choice": "Wybierz poprawne znaczenie słowa.",
   "prompt.flashcard": "Czy pamiętasz to słowo?",
   "prompt.match_pairs": "Połącz słowo z jego tłumaczeniem.",
   "prompt.typing": "Wpisz brakujące słowo.",
-
   "result.round_complete": "✓ Runda ukończona — {done} z {total} par!",
   "result.round_timeout": "⏱ Czas minął: {done} z {total} par.",
   "result.round_over": "✗ Koniec rundy: {done} z {total} par, za dużo błędów.",
@@ -209,7 +189,6 @@
   "playlist.added_learn": "Dodano do nauki",
   "playlist.legend_learning": "W nauce",
   "playlist.import": "Importuj",
-  "playlist.cap_hint": "Do 50 utworów na playlistę.",
   "playlist.my_playlists": "Moje playlisty",
   "playlist.empty_playlists": "Brak playlist — zaimportuj powyżej.",
   "playlist.back_playlists": "← Playlisty",

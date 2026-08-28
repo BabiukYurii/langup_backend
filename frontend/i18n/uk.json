@@ -6,7 +6,6 @@
   "common.loading": "Завантаження…",
   "common.not_set": "— не вказано —",
   "common.select_language": "Оберіть мову…",
-
   "auth.title": "Вхід",
   "auth.subtitle": "Створіть акаунт або увійдіть через Google.",
   "auth.or": "або",
@@ -19,18 +18,15 @@
   "auth.signup": "Зареєструватися",
   "auth.have_account": "У мене вже є акаунт",
   "auth.forgot": "Забули пароль?",
-
   "native.title": "Оберіть рідну мову",
   "native.subtitle": "Нею ми перекладаємо збережені слова. Це потрібно вказати лише раз.",
   "native.label": "Рідна мова — та, якою ви говорите",
-
   "nav.dashboard": "Панель",
   "nav.review": "Повторення",
   "nav.dictionary": "Словник",
   "nav.practice": "Практика",
   "nav.home": "Головна",
   "nav.admin": "Адмін",
-
   "plan.upgrade": "Покращити",
   "plan.manage": "Керувати",
   "plan.label": "Тариф",
@@ -41,29 +37,23 @@
   "plan.trial_ends": "Пробний період до {date}",
   "plan.ends_on": "Завершується {date}",
   "plan.renews_on": "Поновлюється {date}",
-
   "account.not_verified": "не підтверджено",
   "account.verified": "підтверджено",
   "account.settings": "Налаштування акаунта",
   "account.admin_panel": "Панель адміністратора",
   "account.signout": "Вийти",
-
   "verify.banner": "Підтвердьте email, щоб зберігати слова й практикуватися.",
   "verify.resend": "Надіслати ще раз",
-
   "home.welcome": "З поверненням",
   "home.subtitle": "Продовжіть з того місця, де зупинились, або перегляньте свій прогрес.",
   "home.since": "З нами від {date}",
-
   "settings.subtitle": "Ваше ім'я та дві мови, з якими ми працюємо.",
   "settings.name": "Ім'я",
   "settings.i_speak": "Я говорю (рідна)",
   "settings.im_learning": "Я вивчаю",
   "settings.ui_language": "Мова інтерфейсу",
   "settings.save": "Зберегти зміни",
-
   "profile.no_name": "Без імені",
-
   "toast.welcome": "Ласкаво просимо до LangUp!",
   "toast.network_error": "Помилка мережі",
   "toast.signin_fail": "Не вдалося увійти",
@@ -82,7 +72,6 @@
   "toast.signed_out": "Ви вийшли",
   "toast.email_confirmed": "Email підтверджено — усе готово!",
   "toast.link_invalid": "Це посилання недійсне або застаріле",
-
   "dash.title": "Ваш прогрес",
   "dash.subtitle": "Огляд вашого словникового запасу та щоденної практики.",
   "dash.review_now": "Повторити зараз →",
@@ -95,12 +84,10 @@
   "dash.plan_actions": "Тариф і швидкі дії",
   "dash.practice_arrow": "Практика →",
   "dash.my_dict": "Мій словник →",
-
   "mastery.new": "Нове",
   "mastery.learning": "Вивчається",
   "mastery.review": "Повторення",
   "mastery.mastered": "Засвоєно",
-
   "words.search_ph": "Пошук слова…",
   "words.empty": "Поки порожньо — збережіть перше слово через розширення.",
   "words.where_saw": "Де ви його бачили",
@@ -111,7 +98,6 @@
   "words.remove_confirm": "Видалити це слово зі словника? Збережені речення для нього теж буде видалено.",
   "words.remove_fail": "Не вдалося видалити слово",
   "words.removed": "Видалено зі словника",
-
   "review.subtitle": "Пригадайте кожне слово, потім оцініть себе. Наступне повторення ми запланируємо самі.",
   "review.loading": "Завантаження черги повторень…",
   "review.done_title": "Усе повторено 🎉",
@@ -122,12 +108,10 @@
   "review.no_translation_cached": "Перекладу поки немає — оцініть з пам'яті.",
   "review.save_fail": "Не вдалося зберегти — спробуйте ще раз",
   "review.load_fail": "Не вдалося завантажити чергу повторень",
-
   "grade.forgot": "Забув",
   "grade.hard": "Важко",
   "grade.good": "Добре",
   "grade.easy": "Легко",
-
   "reset.title": "Оберіть новий пароль",
   "reset.subtitle": "Введіть новий пароль для свого акаунта.",
   "reset.new_password": "Новий пароль",
@@ -142,7 +126,6 @@
   "reset.mismatch": "Паролі не збігаються.",
   "reset.update_fail": "Не вдалося оновити пароль.",
   "reset.network": "Помилка мережі — спробуйте ще раз.",
-
   "practice.language": "Мова",
   "practice.fillers_toggle": "Доповнювати гру «Пари» словами зі спільного словника",
   "practice.answer": "Відповісти",
@@ -164,20 +147,17 @@
   "practice.generate_fail": "Не вдалося згенерувати. Спробуйте ще раз.",
   "practice.generate_unfinished": "Генерація не завершилась. Спробуйте ще раз.",
   "practice.generate_none": "Нових вправ немає — збережіть ще кілька слів.",
-
   "type.any": "Будь-який",
   "type.fill_in_blanks": "Пропуски",
   "type.multiple_choice": "Значення",
   "type.flashcard": "Картки",
   "type.match_pairs": "Пари",
   "type.typing": "Набір",
-
   "prompt.fill_in_blanks": "Заповніть пропуски правильним словом.",
   "prompt.multiple_choice": "Оберіть правильне значення слова.",
   "prompt.flashcard": "Ви пам'ятаєте це слово?",
   "prompt.match_pairs": "З'єднайте слово з його перекладом.",
   "prompt.typing": "Введіть пропущене слово.",
-
   "result.round_complete": "✓ Раунд завершено — {done} з {total} пар!",
   "result.round_timeout": "⏱ Час вийшов: {done} з {total} пар.",
   "result.round_over": "✗ Раунд завершено: {done} з {total} пар, забагато помилок.",
@@ -209,7 +189,6 @@
   "playlist.added_learn": "Додано на вивчення",
   "playlist.legend_learning": "Вивчаю",
   "playlist.import": "Імпорт",
-  "playlist.cap_hint": "До 50 треків на плейліст.",
   "playlist.my_playlists": "Мої плейлисти",
   "playlist.empty_playlists": "Плейлистів ще немає — імпортуй вище.",
   "playlist.back_playlists": "← Плейлисти",

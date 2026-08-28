@@ -6,7 +6,6 @@
   "common.loading": "Chargement…",
   "common.not_set": "— non défini —",
   "common.select_language": "Choisir une langue…",
-
   "auth.title": "Se connecter",
   "auth.subtitle": "Créez un compte ou connectez-vous avec Google.",
   "auth.or": "ou",
@@ -19,18 +18,15 @@
   "auth.signup": "S'inscrire",
   "auth.have_account": "J'ai déjà un compte",
   "auth.forgot": "Mot de passe oublié ?",
-
   "native.title": "Choisissez votre langue maternelle",
   "native.subtitle": "Nous y traduisons les mots enregistrés. À définir une seule fois.",
   "native.label": "Langue maternelle — celle que vous parlez",
-
   "nav.dashboard": "Tableau de bord",
   "nav.review": "Révision",
   "nav.dictionary": "Dictionnaire",
   "nav.practice": "Exercices",
   "nav.home": "Accueil",
   "nav.admin": "Admin",
-
   "plan.upgrade": "Améliorer",
   "plan.manage": "Gérer",
   "plan.label": "Forfait",
@@ -41,29 +37,23 @@
   "plan.trial_ends": "L'essai se termine le {date}",
   "plan.ends_on": "Se termine le {date}",
   "plan.renews_on": "Se renouvelle le {date}",
-
   "account.not_verified": "non vérifié",
   "account.verified": "vérifié",
   "account.settings": "Paramètres du compte",
   "account.admin_panel": "Panneau d'administration",
   "account.signout": "Se déconnecter",
-
   "verify.banner": "Confirmez votre e-mail pour enregistrer des mots et vous entraîner.",
   "verify.resend": "Renvoyer l'e-mail",
-
   "home.welcome": "Bon retour",
   "home.subtitle": "Reprenez là où vous vous êtes arrêté ou consultez votre progression.",
   "home.since": "Avec nous depuis le {date}",
-
   "settings.subtitle": "Votre nom et les deux langues avec lesquelles nous travaillons.",
   "settings.name": "Nom",
   "settings.i_speak": "Je parle (maternelle)",
   "settings.im_learning": "J'apprends",
   "settings.ui_language": "Langue de l'interface",
   "settings.save": "Enregistrer les modifications",
-
   "profile.no_name": "Sans nom",
-
   "toast.welcome": "Bienvenue sur LangUp !",
   "toast.network_error": "Erreur réseau",
   "toast.signin_fail": "Connexion impossible",
@@ -82,7 +72,6 @@
   "toast.signed_out": "Déconnecté",
   "toast.email_confirmed": "E-mail confirmé — tout est prêt !",
   "toast.link_invalid": "Ce lien est invalide ou a expiré",
-
   "dash.title": "Votre progression",
   "dash.subtitle": "Un aperçu de votre vocabulaire et de votre pratique quotidienne.",
   "dash.review_now": "Réviser maintenant →",
@@ -95,12 +84,10 @@
   "dash.plan_actions": "Forfait et actions rapides",
   "dash.practice_arrow": "Exercices →",
   "dash.my_dict": "Mon dictionnaire →",
-
   "mastery.new": "Nouveau",
   "mastery.learning": "En apprentissage",
   "mastery.review": "Révision",
   "mastery.mastered": "Maîtrisé",
-
   "words.search_ph": "Rechercher un mot…",
   "words.empty": "Vide pour l'instant — enregistrez votre premier mot avec l'extension.",
   "words.where_saw": "Où vous l'avez vu",
@@ -111,7 +98,6 @@
   "words.remove_confirm": "Retirer ce mot de votre dictionnaire ? Les phrases enregistrées pour lui seront également supprimées.",
   "words.remove_fail": "Impossible de retirer le mot",
   "words.removed": "Retiré de votre dictionnaire",
-
   "review.subtitle": "Rappelez-vous chaque mot, puis évaluez-vous. Nous planifions la prochaine révision pour vous.",
   "review.loading": "Chargement de votre file de révision…",
   "review.done_title": "Tout est à jour 🎉",
@@ -122,12 +108,10 @@
   "review.no_translation_cached": "Pas encore de traduction — évaluez de mémoire.",
   "review.save_fail": "Enregistrement impossible — réessayez",
   "review.load_fail": "Impossible de charger la file de révision",
-
   "grade.forgot": "Oublié",
   "grade.hard": "Difficile",
   "grade.good": "Bien",
   "grade.easy": "Facile",
-
   "reset.title": "Choisissez un nouveau mot de passe",
   "reset.subtitle": "Saisissez un nouveau mot de passe pour votre compte.",
   "reset.new_password": "Nouveau mot de passe",
@@ -142,7 +126,6 @@
   "reset.mismatch": "Les deux mots de passe ne correspondent pas.",
   "reset.update_fail": "Impossible de mettre à jour le mot de passe.",
   "reset.network": "Erreur réseau — veuillez réessayer.",
-
   "practice.language": "Langue",
   "practice.fillers_toggle": "Compléter les manches « Paires » avec des mots du dictionnaire partagé",
   "practice.answer": "Répondre",
@@ -164,20 +147,17 @@
   "practice.generate_fail": "Échec de la génération. Réessayez.",
   "practice.generate_unfinished": "La génération n'est pas terminée. Réessayez.",
   "practice.generate_none": "Aucun nouvel exercice — enregistrez encore quelques mots.",
-
   "type.any": "Tous",
   "type.fill_in_blanks": "Blancs",
   "type.multiple_choice": "Sens",
   "type.flashcard": "Cartes",
   "type.match_pairs": "Paires",
   "type.typing": "Saisie",
-
   "prompt.fill_in_blanks": "Complétez les blancs avec le bon mot.",
   "prompt.multiple_choice": "Choisissez le sens correct du mot.",
   "prompt.flashcard": "Vous souvenez-vous de ce mot ?",
   "prompt.match_pairs": "Associez le mot à sa traduction.",
   "prompt.typing": "Saisissez le mot manquant.",
-
   "result.round_complete": "✓ Manche terminée — {done} sur {total} paires !",
   "result.round_timeout": "⏱ Temps écoulé : {done} sur {total} paires.",
   "result.round_over": "✗ Manche terminée : {done} sur {total} paires, trop d'erreurs.",
@@ -209,7 +189,6 @@
   "playlist.added_learn": "Ajouté à l'apprentissage",
   "playlist.legend_learning": "En cours",
   "playlist.import": "Importer",
-  "playlist.cap_hint": "Jusqu'à 50 titres par playlist.",
   "playlist.my_playlists": "Mes playlists",
   "playlist.empty_playlists": "Aucune playlist — importes-en une ci-dessus.",
   "playlist.back_playlists": "← Playlists",

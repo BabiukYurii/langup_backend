@@ -6,7 +6,6 @@
   "common.loading": "Loading…",
   "common.not_set": "— not set —",
   "common.select_language": "Select a language…",
-
   "auth.title": "Sign in",
   "auth.subtitle": "Create an account or sign in with Google.",
   "auth.or": "or",
@@ -19,18 +18,15 @@
   "auth.signup": "Sign up",
   "auth.have_account": "I already have an account",
   "auth.forgot": "Forgot password?",
-
   "native.title": "Choose your native language",
   "native.subtitle": "We translate saved words into it. You only need to set this once.",
   "native.label": "Native language — the one you speak",
-
   "nav.dashboard": "Dashboard",
   "nav.review": "Review",
   "nav.dictionary": "Dictionary",
   "nav.practice": "Practice",
   "nav.home": "Home",
   "nav.admin": "Admin",
-
   "plan.upgrade": "Upgrade",
   "plan.manage": "Manage",
   "plan.label": "Plan",
@@ -41,29 +37,23 @@
   "plan.trial_ends": "Trial ends on {date}",
   "plan.ends_on": "Ends on {date}",
   "plan.renews_on": "Renews on {date}",
-
   "account.not_verified": "not verified",
   "account.verified": "verified",
   "account.settings": "Account settings",
   "account.admin_panel": "Admin panel",
   "account.signout": "Sign out",
-
   "verify.banner": "Confirm your email to save words and practise.",
   "verify.resend": "Resend email",
-
   "home.welcome": "Welcome back",
   "home.subtitle": "Pick up where you left off, or check your progress.",
   "home.since": "With us since {date}",
-
   "settings.subtitle": "Your name and the two languages we work with.",
   "settings.name": "Name",
   "settings.i_speak": "I speak (native)",
   "settings.im_learning": "I'm learning",
   "settings.ui_language": "Interface language",
   "settings.save": "Save changes",
-
   "profile.no_name": "No name",
-
   "toast.welcome": "Welcome to LangUp!",
   "toast.network_error": "Network error",
   "toast.signin_fail": "Could not sign in",
@@ -82,7 +72,6 @@
   "toast.signed_out": "Signed out",
   "toast.email_confirmed": "Email confirmed — you're all set!",
   "toast.link_invalid": "That link is invalid or expired",
-
   "dash.title": "Your progress",
   "dash.subtitle": "A snapshot of your vocabulary and daily practice.",
   "dash.review_now": "Review now →",
@@ -95,12 +84,10 @@
   "dash.plan_actions": "Plan & quick actions",
   "dash.practice_arrow": "Practice →",
   "dash.my_dict": "My dictionary →",
-
   "mastery.new": "New",
   "mastery.learning": "Learning",
   "mastery.review": "Review",
   "mastery.mastered": "Mastered",
-
   "words.search_ph": "Search a word…",
   "words.empty": "Empty for now — save your first word with the extension.",
   "words.where_saw": "Where you saw it",
@@ -111,7 +98,6 @@
   "words.remove_confirm": "Remove this word from your dictionary? Your saved sentences for it will be deleted too.",
   "words.remove_fail": "Could not remove the word",
   "words.removed": "Removed from your dictionary",
-
   "review.subtitle": "Recall each word, then grade yourself. We schedule the next review for you.",
   "review.loading": "Loading your review queue…",
   "review.done_title": "All caught up 🎉",
@@ -122,12 +108,10 @@
   "review.no_translation_cached": "No translation cached yet — grade from memory.",
   "review.save_fail": "Could not save — try again",
   "review.load_fail": "Could not load the review queue",
-
   "grade.forgot": "Forgot",
   "grade.hard": "Hard",
   "grade.good": "Good",
   "grade.easy": "Easy",
-
   "reset.title": "Choose a new password",
   "reset.subtitle": "Enter a new password for your account.",
   "reset.new_password": "New password",
@@ -142,7 +126,6 @@
   "reset.mismatch": "The two passwords don't match.",
   "reset.update_fail": "Could not update the password.",
   "reset.network": "Network error — please try again.",
-
   "practice.language": "Language",
   "practice.fillers_toggle": "Fill match-pairs rounds with words from the shared dictionary",
   "practice.answer": "Answer",
@@ -164,20 +147,17 @@
   "practice.generate_fail": "Could not generate. Try again.",
   "practice.generate_unfinished": "Generation didn't finish. Try again.",
   "practice.generate_none": "No new exercises — save a few more words.",
-
   "type.any": "Any",
   "type.fill_in_blanks": "Blanks",
   "type.multiple_choice": "Meaning",
   "type.flashcard": "Flashcards",
   "type.match_pairs": "Pairs",
   "type.typing": "Type",
-
   "prompt.fill_in_blanks": "Fill in the blanks with the correct word.",
   "prompt.multiple_choice": "Choose the correct meaning of the word.",
   "prompt.flashcard": "Do you remember this word?",
   "prompt.match_pairs": "Match the word with its translation.",
   "prompt.typing": "Type the missing word.",
-
   "result.round_complete": "✓ Round complete — {done} of {total} pairs!",
   "result.round_timeout": "⏱ Time's up: {done} of {total} pairs.",
   "result.round_over": "✗ Round over: {done} of {total} pairs, too many mistakes.",
@@ -209,7 +189,6 @@
   "playlist.added_learn": "Added to learning",
   "playlist.legend_learning": "Learning",
   "playlist.import": "Import",
-  "playlist.cap_hint": "Up to 50 tracks per playlist.",
   "playlist.my_playlists": "My playlists",
   "playlist.empty_playlists": "No playlists yet — import one above.",
   "playlist.back_playlists": "← Playlists",
