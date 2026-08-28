@@ -225,5 +225,6 @@
   "playlist.new_words": "{n} нових",
   "playlist.delete": "Видалити",
   "playlist.delete_confirm": "Видалити цей плейліст?",
-  "playlist.deleted": "Плейліст видалено"
+  "playlist.deleted": "Плейліст видалено",
+  "playlist.song_search_ph": "Пошук пісні…"
 }

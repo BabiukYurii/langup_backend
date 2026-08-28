@@ -67,7 +67,9 @@ async def fetch_playlist_via_browser(
     name: str | None = None
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        # --no-sandbox: Chromium refuses to run as root (in the container) without
+        # it; --disable-dev-shm-usage avoids the small /dev/shm crashing it.
+        browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
         try:
             page = await browser.new_page()
             page.set_default_timeout(int(timeout_s * 1000))

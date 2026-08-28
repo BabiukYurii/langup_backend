@@ -161,16 +161,25 @@ async function openPlaylist(uuid, name) {
   show($("songs-view"));
   $("songs-view").scrollIntoView({ behavior: "smooth" });
 
+  $("songs-search").value = "";
   const resp = await apiFetch(`/playlists/${uuid}`);
   if (!resp.ok) return toast(await errText(resp, t("playlist.fetch_fail")), "err");
-  renderSongs(await resp.json());
+  currentSongs = (await resp.json()).songs;
+  renderSongs(currentSongs);
 }
 
-function renderSongs(detail) {
+let currentSongs = []; // songs of the open playlist, for client-side search
+
+function filterSongs(query) {
+  const q = query.trim().toLowerCase();
+  renderSongs(q ? currentSongs.filter((s) => s.title.toLowerCase().includes(q)) : currentSongs);
+}
+
+function renderSongs(songs) {
   const list = $("songs-list");
   list.innerHTML = "";
-  $("songs-empty").classList.toggle("hidden", detail.songs.length > 0);
-  for (const s of detail.songs) {
+  $("songs-empty").classList.toggle("hidden", songs.length > 0);
+  for (const s of songs) {
     const li = document.createElement("li");
     li.className = "dict__item dict__item--clickable admin__ex";
 
@@ -329,6 +338,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     hide($("songs-view"));
     hide($("lyrics-view"));
   });
+  $("songs-search").addEventListener("input", (e) => filterSongs(e.target.value));
   $("ly-back").addEventListener("click", () => {
     hide($("lyrics-view"));
     closePopover();

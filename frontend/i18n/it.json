@@ -225,5 +225,6 @@
   "playlist.new_words": "{n} nuove",
   "playlist.delete": "Elimina",
   "playlist.delete_confirm": "Eliminare questa playlist?",
-  "playlist.deleted": "Playlist eliminata"
+  "playlist.deleted": "Playlist eliminata",
+  "playlist.song_search_ph": "Cerca una canzone…"
 }
