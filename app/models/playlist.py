@@ -8,6 +8,10 @@ class Song(Base, UUIDMixin, TimestampMixin):
     # detected language and the set of content lemmas (junk/stopwords removed) —
     # NOT the copyrighted lyrics text. Per-user "unknown" counts are derived by
     # diffing `lemmas` against the user's vocabulary at read time.
+    #
+    # Invalidating this cache after an analysis change: reset the rows
+    # (UPDATE songs SET analyzed_at = NULL) — never DELETE FROM songs, which
+    # cascades playlist_songs and empties everyone's saved playlists.
     __tablename__ = "songs"
     __table_args__ = (UniqueConstraint("match_key", name="uq_song_match_key"),)
 
