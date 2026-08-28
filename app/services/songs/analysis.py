@@ -19,6 +19,67 @@ _WORD_RE = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
 _MIN_WORD_LEN = 2
 
 
+# Language-agnostic interjections / onomatopoeia common in lyrics. They aren't
+# real vocabulary, so they're skipped (rendered plain) rather than flagged as
+# words to learn.
+_INTERJECTIONS = frozenset(
+    {
+        "uh",
+        "uhh",
+        "uhhh",
+        "huh",
+        "oh",
+        "ohh",
+        "ohhh",
+        "ah",
+        "ahh",
+        "ahhh",
+        "aah",
+        "ooh",
+        "oooh",
+        "yeah",
+        "yea",
+        "yeh",
+        "yeahh",
+        "hey",
+        "heyy",
+        "hmm",
+        "hm",
+        "mmm",
+        "mm",
+        "mhm",
+        "la",
+        "na",
+        "da",
+        "ba",
+        "woo",
+        "wooo",
+        "woah",
+        "whoa",
+        "whoo",
+        "whooo",
+        "ay",
+        "aye",
+        "yo",
+        "yoo",
+        "nah",
+        "ha",
+        "haha",
+        "hah",
+        "wo",
+        "ho",
+        "ugh",
+        "eh",
+        "ehh",
+        "ow",
+        "oi",
+        "yah",
+        "gah",
+        "argh",
+    }
+)
+
+
 @lru_cache(maxsize=16)
 def _stopwords(language: str) -> frozenset[str]:
     try:
@@ -40,7 +101,8 @@ def _chunks(line: str):
 
 
 def _is_junk(surface: str, lemma: str, stops: frozenset[str]) -> bool:
-    return len(surface) < _MIN_WORD_LEN or surface.lower() in stops or lemma in stops
+    low = surface.lower()
+    return len(surface) < _MIN_WORD_LEN or low in _INTERJECTIONS or low in stops or lemma in stops
 
 
 def content_lemmas(lyrics: str, language: str) -> list[str]:

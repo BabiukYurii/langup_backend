@@ -40,6 +40,22 @@ def test_lemmatization_groups_inflections():
     assert statuses["occurs"] == "known"
 
 
+def test_interjections_are_skipped_not_unknown():
+    # "Uh, whoo, yeah" are onomatopoeia — skipped, not flagged red as new words.
+    analyzed = analyze_lyrics("Uh, whoo, yeah, encore", "en", known_lemmas=set())
+    statuses = {
+        t.surface.lower(): t.status
+        for line in analyzed.lines
+        for t in line.tokens
+        if t.status != "skip" or t.surface.strip()
+    }
+    assert statuses["uh"] == "skip"
+    assert statuses["whoo"] == "skip"
+    assert statuses["yeah"] == "skip"
+    assert statuses["encore"] == "unknown"
+    assert {u.lemma for u in analyzed.unknown} == {"encore"}  # interjections not offered to learn
+
+
 def test_three_states_known_learning_unknown():
     # cat = mastered (known), dog = in vocab but learning, fox = not in vocab
     analyzed = analyze_lyrics("cat dog fox", "en", known_lemmas={"cat"}, learning_lemmas={"dog"})

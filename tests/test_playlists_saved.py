@@ -64,6 +64,25 @@ async def test_list_and_detail_with_unknown_counts(app, client, session):
     assert song["in_learned_language"] is True
 
 
+async def test_detail_hides_songs_in_non_learned_languages(app, client, session):
+    headers = await _login(app, client)
+    me = (await client.get("/api/auth/me", headers=headers)).json()
+    playlist = await _seed_playlist(session, me["id"])  # user learns en (has an en word)
+
+    # add a Ukrainian song to the same playlist — user doesn't learn uk
+    uk_song = Song(
+        title="Букети", artist="MOLLY", match_key="букети|molly", language="uk", lemmas=["букет"], lyrics_found=True
+    )
+    session.add(uk_song)
+    await session.flush()
+    session.add(PlaylistSong(playlist_uuid=playlist.uuid, song_uuid=uk_song.uuid, position=1))
+    await session.commit()
+
+    detail = await client.get(f"/api/playlists/{playlist.uuid}", headers=headers)
+    titles = [s["title"] for s in detail.json()["songs"]]
+    assert titles == ["Undead"]  # the uk song is hidden; only the en one remains
+
+
 async def test_delete_playlist(app, client, session):
     headers = await _login(app, client)
     me = (await client.get("/api/auth/me", headers=headers)).json()

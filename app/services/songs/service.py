@@ -15,6 +15,7 @@ from app.core.exc import BadRequestException, ObjectNotFoundException
 from app.database.postgres import get_session
 from app.enums.vocabulary import MasteryLevel
 from app.repositories.playlist import PlaylistRepository, PlaylistSongRepository
+from app.repositories.user import UserRepository
 from app.repositories.user_word import UserWordRepository
 from app.repositories.word import WordRepository
 from app.schemas.ai import TranslationParams
@@ -45,6 +46,7 @@ class SongService:
     def __init__(self, session: AsyncSession, generator: ExerciseGenerationService) -> None:
         self.session = session
         self.user_words = UserWordRepository(session)
+        self.users = UserRepository(session)
         self.words = WordRepository(session)
         self.playlists = PlaylistRepository(session)
         self.links = PlaylistSongRepository(session)
@@ -65,10 +67,21 @@ class SongService:
         playlist = await self.playlists.get_for_user(user_id, playlist_uuid)
         if not playlist:
             raise ObjectNotFoundException(playlist_uuid, "Playlist")
+        # Languages the user is learning: the language they're studying plus any
+        # already in their vocabulary. Songs in other languages are hidden — the
+        # point is to understand songs in a language you're learning.
         learned = {lang for lang, _ in await self.user_words.languages_for_user(user_id)}
+        user = await self.users.get_by_id(user_id)
+        if user and user.target_language:
+            learned.add(user.target_language)
+
         vocab_by_lang: dict[str, set[str]] = {}  # cache the user's lemmas per language
         songs: list[PlaylistSongOut] = []
         for _, song in await self.links.songs_for_playlist(playlist_uuid):
+            # Skip songs not in a language the user learns (once we know the
+            # language). Unanalysed songs (language None) are kept until analysed.
+            if learned and song.language and song.language not in learned:
+                continue
             unknown = None
             if song.language and song.lemmas is not None:
                 if song.language not in vocab_by_lang:
