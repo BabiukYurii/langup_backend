@@ -83,3 +83,31 @@ async def fetch_playlist_preview(url: str) -> PlaylistPreviewOut:
         truncated=total > limit,
         limit=limit,
     )
+
+
+async def fetch_playlist_full(url: str) -> PlaylistPreviewOut:
+    """Best available track list for import.
+
+    Uses the headless browser (whole playlist) when PLAYLIST_USE_BROWSER is on,
+    falling back to the embed (~100 tracks) if the browser path errors; otherwise
+    the embed. Result is capped at PLAYLIST_MAX_TRACKS with a `truncated` flag.
+    """
+    if not settings.playlists.PLAYLIST_USE_BROWSER:
+        return await fetch_playlist_preview(url)
+
+    playlist_id = extract_playlist_id(url)
+    limit = settings.playlists.PLAYLIST_MAX_TRACKS
+    try:
+        from app.services.spotify.playlist_browser import fetch_playlist_via_browser
+
+        name, tracks = await fetch_playlist_via_browser(
+            playlist_id, limit, settings.playlists.PLAYLIST_BROWSER_TIMEOUT_SECONDS
+        )
+        if tracks:
+            return PlaylistPreviewOut(
+                name=name, tracks=tracks, total=len(tracks), truncated=len(tracks) >= limit, limit=limit
+            )
+        logger.warning("Browser parse returned no tracks for %s; falling back to embed", playlist_id)
+    except Exception as e:  # noqa: BLE001 — any browser failure falls back to embed
+        logger.warning("Browser parse failed for %s: %s; falling back to embed", playlist_id, e)
+    return await fetch_playlist_preview(url)

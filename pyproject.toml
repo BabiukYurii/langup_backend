@@ -52,6 +52,7 @@ dependencies = [
     "dependency-injector>=4.45.0",
     "simplemma>=1.2.0",
     "stopwordsiso>=0.7.1",
+    "playwright>=1.62.0",
 ]
 
 [dependency-groups]

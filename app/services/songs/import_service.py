@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import settings
 from app.repositories.playlist import PlaylistRepository, PlaylistSongRepository
 from app.services.songs.store import analyze_song, get_or_create_song
-from app.services.spotify.playlist_parser import extract_playlist_id, fetch_playlist_preview
+from app.services.spotify.playlist_parser import extract_playlist_id, fetch_playlist_full
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ async def run_playlist_import(
     """Create the playlist, link + analyse each track, report progress. Returns
     {playlist_uuid, songs}. Sets the playlist status to failed on any error."""
     spotify_id = extract_playlist_id(url)
-    preview = await fetch_playlist_preview(url)
+    preview = await fetch_playlist_full(url)
 
     playlists = PlaylistRepository(session)
     links = PlaylistSongRepository(session)

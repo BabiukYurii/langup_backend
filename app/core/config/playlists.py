@@ -14,6 +14,12 @@ class PlaylistConfig(BaseConfig):
     # when their playlist is longer so it's clear some tracks were skipped.
     PLAYLIST_MAX_TRACKS: int = 50
 
+    # Read the *whole* playlist via a headless browser (Playwright + Chromium)
+    # instead of the ~100-track embed. Off by default: it needs Chromium in the
+    # image and is slower/more fragile. When on, embed is still the fallback.
+    PLAYLIST_USE_BROWSER: bool = False
+    PLAYLIST_BROWSER_TIMEOUT_SECONDS: float = 45.0
+
     # Network timeout for fetching the embed page.
     PLAYLIST_FETCH_TIMEOUT_SECONDS: float = 15.0
 

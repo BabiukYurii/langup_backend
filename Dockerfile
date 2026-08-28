@@ -37,6 +37,11 @@ COPY --from=builder /app /app
 WORKDIR /app
 ENV PATH="/app/venv/bin:$PATH"
 
+# Chromium for the optional headless playlist parser (PLAYLIST_USE_BROWSER).
+# Installs the browser and its system libraries; skip by removing this line if
+# you never enable the browser path (the embed parser needs no browser).
+RUN playwright install --with-deps chromium
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

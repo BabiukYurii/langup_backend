@@ -24,7 +24,7 @@ def _patch(monkeypatch, n, lyrics="The cat and the dog run in the park every sin
     async def fake_lyrics(title, artist):
         return lyrics
 
-    monkeypatch.setattr(import_service, "fetch_playlist_preview", fake_preview)
+    monkeypatch.setattr(import_service, "fetch_playlist_full", fake_preview)
     monkeypatch.setattr(store, "fetch_lyrics", fake_lyrics)
 
 
@@ -87,7 +87,7 @@ async def test_import_marks_failed_on_error(session, monkeypatch):
     async def boom_lyrics(title, artist):
         raise RuntimeError("network down")
 
-    monkeypatch.setattr(import_service, "fetch_playlist_preview", boom_preview)
+    monkeypatch.setattr(import_service, "fetch_playlist_full", boom_preview)
     monkeypatch.setattr(store, "fetch_lyrics", boom_lyrics)
 
     with pytest.raises(RuntimeError):
