@@ -129,6 +129,7 @@ _PHRASAL_VERBS = frozenset(
         "end up",
         "fade away",
         "fall apart",
+        "fall asleep",
         "fall back",
         "fall down",
         "fall out",

@@ -138,7 +138,12 @@ Rules:
 - Translate "{word}" itself. The sentence only tells you which meaning of
   "{word}" applies — never translate the surrounding phrase or idiom instead.
   In "hit the bottle", "bottle" is still the object (a bottle), not "alcohol".
-- Keep the same part of speech as "{word}" has in the sentence.
+- Read the whole sentence before choosing the meaning: in "we haven't had a
+  dream" a dream is an aspiration, not sleep imagery.
+- Answer with the DICTIONARY FORM of the translation, in the same part of
+  speech as "{word}": a verb as the infinitive, a noun in the nominative
+  singular, an adjective in the masculine singular. Never a conjugated verb
+  for an adjective ("asleep" is an adjective, not "they sleep").
 - 1-3 words, no explanations.
 - The translation must be in {target}, never in {source}.
 
