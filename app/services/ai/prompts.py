@@ -135,6 +135,10 @@ The {source} word "{word}" appears in this sentence:
 Translate "{word}" into {target}, in the sense it carries there.
 
 Rules:
+- Translate "{word}" itself. The sentence only tells you which meaning of
+  "{word}" applies — never translate the surrounding phrase or idiom instead.
+  In "hit the bottle", "bottle" is still the object (a bottle), not "alcohol".
+- Keep the same part of speech as "{word}" has in the sentence.
 - 1-3 words, no explanations.
 - The translation must be in {target}, never in {source}.
 
