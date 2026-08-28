@@ -7,6 +7,10 @@ services:
     image: langup-app
     container_name: langup-api
     env_file: [.env]
+    # Serve the cabinet frontend from the repo so UI changes need only a git
+    # pull (StaticFiles reads from disk per request) — no rebuild.
+    volumes:
+      - ./frontend:/app/frontend:ro
     ports:
       - "${PORT}:${PORT}"
     depends_on:
