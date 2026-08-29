@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 from app.core import settings
 from app.database.postgres import get_session
 from app.main import create_app
+from app.models.audio_clip import AudioClip
 from app.models.auth import EmailVerificationToken, OAuthAccount, PasswordResetToken, RefreshToken
 from app.models.exercise import Exercise
 from app.models.exercise_attempt import ExerciseAttempt
@@ -44,6 +45,7 @@ TEST_TABLES = [
     Song.__table__,
     Playlist.__table__,
     PlaylistSong.__table__,
+    AudioClip.__table__,
 ]
 
 

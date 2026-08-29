@@ -44,3 +44,12 @@ class RateLimitedException(Exception):
         self.retry_after_seconds = retry_after_seconds
         self.message = "Too many requests. Please try again later."
         super().__init__(self.message)
+
+
+class ServiceUnavailableException(Exception):
+    # A dependency we do not control is down (TTS gateway, object storage).
+    # Distinct from ServerErrorException: nothing here is broken, so the client
+    # is being told to retry rather than that we have a bug.
+    def __init__(self, message: str = "Service temporarily unavailable") -> None:
+        self.message = message
+        super().__init__(message)

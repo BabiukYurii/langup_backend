@@ -1,5 +1,6 @@
 from app.core.config.ai import AIConfig
 from app.core.config.app import AppBaseConfig
+from app.core.config.audio import AudioConfig
 from app.core.config.auth import AuthConfig
 from app.core.config.base import BaseConfig
 from app.core.config.celery import CeleryConfig
@@ -33,6 +34,7 @@ class Settings(BaseConfig):
     limits: LimitsConfig = LimitsConfig()
     email: EmailConfig = EmailConfig()
     playlists: PlaylistConfig = PlaylistConfig()
+    audio: AudioConfig = AudioConfig()
 
 
 settings = Settings()

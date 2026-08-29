@@ -18,6 +18,7 @@ from app.core.exc import (
     ObjectNotFoundException,
     RateLimitedException,
     ServerErrorException,
+    ServiceUnavailableException,
     UnauthorizedException,
     handlers,
 )
@@ -35,6 +36,7 @@ def _add_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ForbiddenException, handlers.handle_forbidden)
     app.add_exception_handler(ServerErrorException, handlers.handle_server_error)
     app.add_exception_handler(RateLimitedException, handlers.handle_rate_limited)
+    app.add_exception_handler(ServiceUnavailableException, handlers.handle_service_unavailable)
     app.add_exception_handler(AIProviderError, handlers.handle_ai_provider_error)
     app.add_exception_handler(AIResponseValidationError, handlers.handle_ai_response_validation)
 

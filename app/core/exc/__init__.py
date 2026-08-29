@@ -6,6 +6,7 @@ from app.core.exc.base import (
     ObjectNotFoundException,
     RateLimitedException,
     ServerErrorException,
+    ServiceUnavailableException,
     UnauthorizedException,
 )
 
@@ -18,5 +19,6 @@ __all__ = [
     "ObjectNotFoundException",
     "RateLimitedException",
     "ServerErrorException",
+    "ServiceUnavailableException",
     "UnauthorizedException",
 ]

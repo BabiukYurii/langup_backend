@@ -9,6 +9,7 @@ from app.core.exc.base import (
     ObjectNotFoundException,
     RateLimitedException,
     ServerErrorException,
+    ServiceUnavailableException,
     UnauthorizedException,
 )
 
@@ -39,6 +40,10 @@ async def handle_forbidden(_: Request, exc: ForbiddenException) -> JSONResponse:
 
 async def handle_server_error(_: Request, exc: ServerErrorException) -> JSONResponse:
     return _json(500, exc.message)
+
+
+async def handle_service_unavailable(_: Request, exc: ServiceUnavailableException) -> JSONResponse:
+    return _json(503, exc.message)
 
 
 async def handle_ai_provider_error(_: Request, exc: AIProviderError) -> JSONResponse:

@@ -39,6 +39,29 @@ class AIClient:
             raise AIProviderError(f"AI service request failed: {e}") from e
         return resp.json()
 
+    async def speak(self, text: str, language: str, voice: str | None = None) -> tuple[bytes, str]:
+        """Synthesize `text`; returns (WAV bytes, the voice that spoke it).
+
+        The gateway holds no cache — it re-synthesizes whatever it is asked
+        for — so callers must only reach this on a cache miss.
+        """
+        payload: dict = {"text": text, "language": language}
+        if voice:
+            payload["voice"] = voice
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(
+                    f"{self.base_url}/tts",
+                    json=payload,
+                    headers={"X-API-Key": self.api_key},
+                )
+                resp.raise_for_status()
+        except httpx.HTTPError as e:
+            raise AIProviderError(f"TTS request failed: {e}") from e
+        # The gateway reports the voice it actually used, which matters when we
+        # did not name one: the cache key is built from the resolved voice.
+        return resp.content, resp.headers.get("X-Voice", voice or "")
+
 
 def get_ai_client() -> AIClient:
     return AIClient()

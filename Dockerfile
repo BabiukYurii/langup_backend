@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     curl \
     libpq-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS builder
