@@ -20,10 +20,16 @@ logger = logging.getLogger(__name__)
 # aria-rowindex so scrolling can't produce duplicates.
 _JS_COLLECT = r"""
 () => {
-  const grid = document.querySelector('[role="grid"]');
-  const rowcount = grid ? parseInt(grid.getAttribute('aria-rowcount') || '0', 10) : 0;
+  // Scope to the playlist's OWN tracklist. The page also renders a
+  // "Recommended based on what's in this playlist" grid whose rows restart at
+  // aria-rowindex 1 — collecting document-wide let those overwrite the real
+  // tracks, so a 2-track playlist came back as 10 unrelated songs.
+  const grid = document.querySelector('[data-testid="playlist-tracklist"]');
+  if (!grid) return {rowcount: 0, name: null, rows: []};
+  const rowcount = parseInt(grid.getAttribute('aria-rowcount') || '0', 10);
   const rows = [];
-  for (const row of document.querySelectorAll('div[role="row"][aria-rowindex]')) {
+  for (const row of grid.querySelectorAll('div[role="row"][aria-rowindex]')) {
+    if (row.querySelector('[data-testid="recommended-track"]')) continue;
     const link = row.querySelector('a[data-testid="internal-track-link"]');
     if (!link) continue;
     const artist = row.querySelector('a[href^="/artist/"]');
@@ -41,7 +47,9 @@ _JS_COLLECT = r"""
 """
 
 _SCROLL_LAST = """() => {
-  const rows = document.querySelectorAll('div[role="row"][aria-rowindex]');
+  const grid = document.querySelector('[data-testid="playlist-tracklist"]');
+  if (!grid) return;
+  const rows = grid.querySelectorAll('div[role="row"][aria-rowindex]');
   if (rows.length) rows[rows.length - 1].scrollIntoView();
 }"""
 
@@ -78,7 +86,7 @@ async def fetch_playlist_via_browser(
                 await page.click("#onetrust-accept-btn-handler", timeout=4000)
             except Exception:  # noqa: BLE001 — no banner is fine
                 pass
-            await page.wait_for_selector('a[data-testid="internal-track-link"]')
+            await page.wait_for_selector('[data-testid="playlist-tracklist"] a[data-testid="internal-track-link"]')
 
             expected: int | None = None
             stable = 0
