@@ -49,7 +49,22 @@
           </div>
 
           <div class="review-card__body">
-            <p id="rc-word" class="rc__word">—</p>
+            <p class="rc__word">
+              <span id="rc-word">—</span>
+              <!-- Safe face-down: the hidden answer is the translation, not
+                   how the word sounds. -->
+              <button
+                id="rc-speak"
+                type="button"
+                class="speak"
+                data-speak=""
+                data-speak-lang=""
+                data-i18n-aria-label="audio.listen"
+                aria-label="Listen"
+              >
+                🔊
+              </button>
+            </p>
             <p id="rc-translation" class="rc__translation hidden">—</p>
           </div>
 

@@ -13,6 +13,31 @@ let languages = []; // [{language, count}] the user is learning
 
 const EX_TYPES = ["FILL_IN_BLANKS", "MULTIPLE_CHOICE", "FLASHCARD", "MATCH_PAIRS", "TYPING"];
 
+// Which exercises may be heard BEFORE they are answered.
+//
+// TYPING and FILL_IN_BLANKS are excluded because the audio would read the
+// answer out loud: in TYPING the learner is typing the very word that would be
+// spoken, and in FILL_IN_BLANKS the sentence only makes sense with the blanks
+// filled in. Speaking them early turns recall into dictation. Both become
+// audible on the result screen, where the answer is already revealed.
+//
+// The rest are safe: MULTIPLE_CHOICE speaks the word whose definition is being
+// picked, FLASHCARD is self-graded with nothing to leak, and a MATCH_PAIRS
+// board already shows every word it contains.
+const SPEAK_BEFORE_ANSWER = new Set(["MULTIPLE_CHOICE", "FLASHCARD", "MATCH_PAIRS"]);
+
+// The language of the exercise in play; the audio API needs it to pick a voice.
+function exerciseLang(ex) {
+  return (ex && ex.language) || activeLang || null;
+}
+
+// A speaker for `text`, or nothing when we have no language to speak it in.
+function maybeSpeaker(ex, text) {
+  const language = exerciseLang(ex);
+  if (!language || !text) return null;
+  return speakButton(text, language);
+}
+
 // Localised short label for a type chip; null = the "Any" chip.
 function typeLabel(type) {
   return type ? t("type." + type.toLowerCase()) : t("type.any");
@@ -353,6 +378,14 @@ function buildColumn(side) {
     card.dataset.id = id;
     card.dataset.side = side;
     card.textContent = side === "left" ? pair.word : pair.translation;
+    // Only the word column: the right column holds translations in the
+    // learner's own language, which there is no point hearing. audio.js
+    // intercepts the click while it is still capturing, so tapping the speaker
+    // plays the word instead of selecting the card it sits in.
+    if (side === "left") {
+      const say = maybeSpeaker(currentExercise, pair.word);
+      if (say) card.appendChild(say);
+    }
     if (mp.picked && mp.picked.side === side && mp.picked.id === id) {
       card.classList.add("pair--picked");
     }
@@ -474,6 +507,10 @@ function renderMultipleChoice(ex) {
   word.className = "ex__word";
   word.textContent = ex.payload.word;
   $("ex-text").appendChild(word);
+  // Safe before answering: hearing the word does not hint at which definition
+  // is the right one.
+  const say = maybeSpeaker(ex, ex.payload.word);
+  if (say) $("ex-text").appendChild(say);
 
   const row = document.createElement("div");
   row.className = "ex__options ex__options--column";
@@ -529,6 +566,10 @@ function renderFlashcard(ex) {
     card.appendChild(only);
   }
   $("ex-text").appendChild(card);
+  // Self-graded review — there is no answer to give away, so the whole
+  // sentence can be heard up front.
+  const say = maybeSpeaker(ex, ex.payload.sentence || term);
+  if (say) $("ex-text").appendChild(say);
 
   $("ex-submit").classList.add("hidden"); // flashcard has its own buttons
 
@@ -614,6 +655,36 @@ async function submit(mistakes = null, timedOut = false) {
   show("res-view");
 }
 
+// The exercise as a spoken sentence, once the answer is known.
+//
+// For TYPING and FILL_IN_BLANKS the placeholders are filled in from the answer
+// key the server just returned — the whole reason these two are silent until
+// now. Hearing the finished sentence is also the most useful moment for them:
+// the learner has just committed to a word and can check how it really sounds
+// in place.
+function answeredText(result) {
+  const ex = currentExercise;
+  const type = ex.exercise_type;
+  if (type === "MULTIPLE_CHOICE") return ex.payload.word || "";
+  if (type === "FLASHCARD") return ex.payload.sentence || ex.payload.word || "";
+  if (type === "TYPING" || type === "FILL_IN_BLANKS") {
+    const text = ex.payload.text || "";
+    return text.replace(/___(\d+)___/g, (_, n) => result.correct_answers[n] || "…");
+  }
+  return ""; // MATCH_PAIRS is a whole board, not one utterance
+}
+
+function renderResultAudio(result) {
+  const holder = $("res-audio");
+  holder.innerHTML = "";
+  const text = answeredText(result);
+  const language = exerciseLang(currentExercise);
+  holder.classList.toggle("hidden", !text || !language);
+  if (!text || !language) return;
+  holder.appendChild(document.createTextNode(text + " "));
+  holder.appendChild(speakButton(text, language));
+}
+
 function renderResult(result) {
   const banner = $("res-banner");
   banner.className = "ex__result " + (result.is_correct ? "ex__result--ok" : "ex__result--err");
@@ -641,6 +712,7 @@ function renderResult(result) {
   }
 
   $("res-mastery").textContent = result.mastery_level ? t("result.mastery", { level: masteryLabel(result.mastery_level) }) : "";
+  renderResultAudio(result);
 }
 
 function shuffle(arr) {

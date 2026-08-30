@@ -12,6 +12,10 @@ class ExerciseOut(BaseModel):
     uuid: UUID
     exercise_type: ExerciseType
     prompt: str | None
+    # The language being practised. The client needs it to speak the exercise:
+    # its own language filter can be unset (the server then picks), so the
+    # exercise itself is the only reliable source.
+    language: str | None
     difficulty: float | None
     payload: dict  # e.g. {"text": "... ___1___ ...", "blanks": [{"index": 1, "options": [...]}]}
     created_at: datetime
@@ -30,6 +34,7 @@ class ExerciseOut(BaseModel):
             uuid=ex.uuid,
             exercise_type=ex.exercise_type,
             prompt=ex.prompt,
+            language=ex.language,
             difficulty=float(ex.difficulty) if ex.difficulty is not None else None,
             payload=payload,
             created_at=ex.created_at,

@@ -91,17 +91,27 @@ async function speak(text, language, { voice = null, button = null } = {}) {
 
 // One delegated listener for the whole page, so buttons rendered later (a new
 // exercise, a lyrics line) work without anyone remembering to re-bind.
+//
+// Registered in the CAPTURE phase, which is what makes a 🔊 safe to nest inside
+// something clickable — a vocabulary row that opens a modal, a match-pairs card
+// that selects itself. A bubbling listener on `document` runs LAST, after those
+// handlers have already fired, so stopping propagation there is too late.
+// Capturing runs first, so the click never reaches the element underneath.
 function initAudio() {
-  document.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-speak]");
-    if (!button) return;
-    event.preventDefault();
-    event.stopPropagation(); // a 🔊 inside a word must not also "click" the word
-    const text = button.dataset.speak;
-    const language = button.dataset.speakLang;
-    if (!text || !language) return;
-    speak(text, language, { voice: button.dataset.speakVoice || null, button });
-  });
+  document.addEventListener(
+    "click",
+    (event) => {
+      const button = event.target.closest("[data-speak]");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const text = button.dataset.speak;
+      const language = button.dataset.speakLang;
+      if (!text || !language) return;
+      speak(text, language, { voice: button.dataset.speakVoice || null, button });
+    },
+    true,
+  );
 }
 
 // Build a speaker button. Callers that render HTML strings use speakButtonHtml.

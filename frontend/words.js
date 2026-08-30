@@ -56,7 +56,7 @@ async function loadWords(query = "") {
     mastery.className = "dict__mastery";
     mastery.textContent = masteryLabel(w.mastery_level);
 
-    // The speaker stops the click from bubbling (see audio.js), so tapping it
+    // audio.js catches the click in the capture phase, so tapping the speaker
     // plays the word instead of opening the detail modal.
     li.append(lemma, lang, mastery, speakButton(w.lemma, w.language));
     list.appendChild(li);

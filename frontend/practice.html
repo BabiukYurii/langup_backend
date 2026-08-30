@@ -50,6 +50,10 @@
         <!-- result -->
         <div id="res-view" class="hidden">
           <div id="res-banner" class="ex__result"></div>
+          <!-- Filled by renderResult: the exercise read aloud. For TYPING and
+               FILL_IN_BLANKS this is the first point the audio may be offered
+               at all, since before answering it would speak the answer. -->
+          <p id="res-audio" class="ex__sentence hidden"></p>
           <div class="form__actions">
             <span id="res-mastery" class="meta"></span>
             <div class="links-row">

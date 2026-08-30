@@ -35,6 +35,10 @@ function renderCard() {
   const item = queue[index];
   $("rc-lang").textContent = item.language;
   $("rc-word").textContent = item.lemma;
+  const say = $("rc-speak");
+  say.dataset.speak = item.lemma;
+  say.dataset.speakLang = item.language || "";
+  say.classList.toggle("hidden", !item.language);
   const tr = $("rc-translation");
   tr.textContent = item.translation || t("review.no_translation_cached");
   tr.classList.toggle("rc__translation--muted", !item.translation);
