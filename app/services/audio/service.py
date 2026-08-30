@@ -14,14 +14,18 @@ the same handful of words many times over.
 
 import logging
 
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core import settings
 from app.core.exc import BadRequestException, ServiceUnavailableException
+from app.database.postgres import get_session
 from app.models import AudioClip
 from app.repositories.audio_clip import AudioClipRepository
-from app.services.ai.client import AIClient
+from app.services.ai.client import AIClient, get_ai_client
 from app.services.audio.encode import AudioEncodingError, wav_duration_ms, wav_to_mp3
 from app.services.audio.keys import clip_hash, normalize_text, object_key
-from app.services.audio.storage import AudioStorage, AudioStorageError
+from app.services.audio.storage import AudioStorage, AudioStorageError, get_audio_storage
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +47,13 @@ class AudioService:
         cfg = settings.audio
         return cfg.voice_map.get(language.lower()[:2], cfg.AUDIO_FALLBACK_VOICE)
 
-    async def get_or_create(self, text: str, language: str, voice: str | None = None) -> AudioClip:
-        """The clip for `text`, synthesizing and storing it only on a miss."""
+    async def get_or_create(self, text: str, language: str, voice: str | None = None) -> tuple[AudioClip, bool]:
+        """(clip, was_cached) for `text`, synthesizing only on a miss.
+
+        The flag is reported rather than re-derived by the caller: a second
+        lookup to answer "was this a hit?" would cost a query on every request
+        to save nothing.
+        """
         cfg = settings.audio
         if not cfg.AUDIO_ENABLED:
             raise ServiceUnavailableException(AUDIO_DISABLED)
@@ -63,7 +72,7 @@ class AudioService:
         hash_ = clip_hash(text, language, used_voice)
         existing = await self.repo.get_by_hash(hash_)
         if existing:
-            return existing
+            return existing, True
 
         wav, _reported = await self._synthesize(text, language, used_voice)
 
@@ -80,7 +89,7 @@ class AudioService:
             logger.error("Storing %s failed: %s", key, e)
             raise ServiceUnavailableException("Could not store audio") from e
 
-        return await self.repo.create_one(
+        clip = await self.repo.create_one(
             {
                 "hash": hash_,
                 "text": text,
@@ -91,6 +100,7 @@ class AudioService:
                 "size_bytes": len(mp3),
             }
         )
+        return clip, False
 
     async def read(self, hash_: str) -> tuple[bytes, AudioClip] | None:
         """(mp3 bytes, row) for a stored clip, or None if we cannot serve it."""
@@ -116,3 +126,11 @@ class AudioService:
         except Exception as e:  # noqa: BLE001 — the gateway being down is a 503, not a 500
             logger.error("TTS failed for %r (%s): %s", text[:40], language, e)
             raise ServiceUnavailableException("Speech synthesis is unavailable") from e
+
+
+async def get_audio_service(
+    session: AsyncSession = Depends(get_session),
+    storage: AudioStorage = Depends(get_audio_storage),
+    ai: AIClient = Depends(get_ai_client),
+) -> AudioService:
+    return AudioService(AudioClipRepository(session), storage, ai)

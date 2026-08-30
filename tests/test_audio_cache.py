@@ -131,7 +131,7 @@ def test_duration_of_garbage_is_none_not_an_error():
 
 async def test_first_request_synthesizes_and_stores(audio):
     service, storage, ai = audio
-    clip = await service.get_or_create("apple", "en")
+    clip, _ = await service.get_or_create("apple", "en")
     assert len(ai.calls) == 1
     assert clip.hash == clip_hash("apple", "en", "M1")
     assert clip.object_key in storage.objects
@@ -141,8 +141,8 @@ async def test_first_request_synthesizes_and_stores(audio):
 
 async def test_second_request_is_served_from_cache(audio):
     service, _, ai = audio
-    first = await service.get_or_create("apple", "en")
-    second = await service.get_or_create("apple", "en")
+    first, _ = await service.get_or_create("apple", "en")
+    second, _ = await service.get_or_create("apple", "en")
     assert len(ai.calls) == 1  # the gateway was not asked twice
     assert first.uuid == second.uuid
 
@@ -166,8 +166,8 @@ async def test_an_explicit_voice_hits_the_cache_without_calling_the_gateway(audi
 
 async def test_different_voices_are_different_clips(audio):
     service, _, ai = audio
-    a = await service.get_or_create("apple", "en", voice="M1")
-    b = await service.get_or_create("apple", "en", voice="F1")
+    a, _ = await service.get_or_create("apple", "en", voice="M1")
+    b, _ = await service.get_or_create("apple", "en", voice="F1")
     assert a.uuid != b.uuid
     assert len(ai.calls) == 2
 
@@ -176,7 +176,7 @@ async def test_voice_is_resolved_locally_from_the_language(audio):
     """The backend, not the gateway, decides the voice — otherwise the cache key
     is unknowable before synthesis and every unnamed request misses."""
     service, _, ai = audio
-    clip = await service.get_or_create("apple", "en")
+    clip, _ = await service.get_or_create("apple", "en")
     assert clip.voice == settings.audio.voice_map["en"]
     # the resolved voice is passed on, so the gateway never has to guess
     assert ai.calls[0][2] == settings.audio.voice_map["en"]
@@ -190,7 +190,7 @@ def test_resolve_voice_falls_back_for_an_unmapped_language():
 
 async def test_read_returns_the_stored_bytes(audio):
     service, storage, _ = audio
-    clip = await service.get_or_create("apple", "en")
+    clip, _ = await service.get_or_create("apple", "en")
     data, row = await service.read(clip.hash)
     assert data == storage.objects[clip.object_key]
     assert row.uuid == clip.uuid
@@ -205,7 +205,7 @@ async def test_a_row_whose_blob_vanished_is_dropped(audio):
     """Storage can be wiped independently; the next request must re-synthesize
     rather than 404 forever."""
     service, storage, _ = audio
-    clip = await service.get_or_create("apple", "en")
+    clip, _ = await service.get_or_create("apple", "en")
     storage.objects.clear()
     assert await service.read(clip.hash) is None
     assert await service.repo.get_by_hash(clip.hash) is None

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.routers.admin import router as admin_router
+from app.routers.audio import router as audio_router
 from app.routers.auth import router as auth_router
 from app.routers.capture import router as capture_router
 from app.routers.exercises import router as exercises_router
@@ -25,4 +26,5 @@ router.include_router(exercises_router)
 router.include_router(admin_router)
 router.include_router(payments_router)
 router.include_router(playlists_router)
+router.include_router(audio_router)
 router.include_router(webhooks_router)

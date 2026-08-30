@@ -66,6 +66,8 @@ dev = [
     "ruff>=0.9.0",
     "mypy>=1.14.0",
     "pre-commit>=4.0.0",
+    # Real S3 server for the object-storage tests (aioboto3 path, not a fake).
+    "moto[s3,server]>=5.0.0",
 ]
 
 [tool.ruff]
