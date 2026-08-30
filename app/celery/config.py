@@ -9,6 +9,7 @@ celery_app = Celery(
     backend=settings.redis.url,
     include=[
         "app.celery.tasks.ai_tasks",
+        "app.celery.tasks.audio_tasks",
         "app.celery.tasks.dictionary_tasks",
         "app.celery.tasks.email_tasks",
         "app.celery.tasks.playlist_tasks",
