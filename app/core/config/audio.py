@@ -12,6 +12,10 @@ class AudioConfig(BaseConfig):
     # front. It is also where per-user voices land in the profile picker.
     AUDIO_VOICES: str = "en=M1,uk=F1,pl=F1,de=M1,es=F1,fr=F1,it=M1,pt=F1"
     AUDIO_FALLBACK_VOICE: str = "F1"
+    # Voices the learner may choose from in their profile. Supertonic-3 ships
+    # ten; listing them here (rather than in the page) keeps the picker honest
+    # if the engine's roster ever changes.
+    AUDIO_AVAILABLE_VOICES: str = "M1,M2,M3,M4,M5,F1,F2,F3,F4,F5"
 
     # Object storage for the clips themselves (MinIO in compose, any S3 API
     # elsewhere). Only metadata lives in Postgres. Names match the S3_* keys
@@ -37,6 +41,10 @@ class AudioConfig(BaseConfig):
     # Mirrors the gateway's own cap: this is a word/sentence service, never an
     # article reader.
     AUDIO_MAX_TEXT_LENGTH: int = 400
+
+    @property
+    def available_voices(self) -> list[str]:
+        return [v.strip() for v in self.AUDIO_AVAILABLE_VOICES.split(",") if v.strip()]
 
     @property
     def voice_map(self) -> dict[str, str]:

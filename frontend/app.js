@@ -50,6 +50,64 @@ function renderProfile(user) {
   show($("profile-view"));
   loadSubscription();
   loadExercisePrefs();
+  loadVoices();
+}
+
+// ---------- voice ----------
+// The chosen voice lives in User.preferences alongside the exercise settings,
+// so it is PATCHed on its own key — the server merges the blob rather than
+// replacing it, which would drop whatever another screen wrote.
+const VOICE_PREF_KEY = "tts_voice";
+
+async function loadVoices() {
+  const resp = await apiFetch("/audio/voices");
+  if (!resp.ok) return; // audio disabled or unreachable — leave the row hidden
+  const { voices, selected, defaults } = await resp.json();
+  if (!voices.length) return;
+
+  const select = $("f-voice");
+  select.innerHTML = "";
+  const auto = document.createElement("option");
+  auto.value = "";
+  auto.textContent = t("settings.voice_auto");
+  select.appendChild(auto);
+  for (const voice of voices) {
+    const opt = document.createElement("option");
+    opt.value = voice;
+    // M/F plus a number is all the engine gives us; label it in a way that at
+    // least says which is which rather than showing a bare code.
+    const kind = voice.startsWith("M") ? t("settings.voice_male") : t("settings.voice_female");
+    opt.textContent = `${kind} ${voice.slice(1)}`;
+    select.appendChild(opt);
+  }
+  select.value = selected || "";
+  $("voice-row").classList.remove("hidden");
+  voiceDefaults = defaults;
+}
+
+let voiceDefaults = {};
+
+// Which language to demo in: the one being learned, since that is what the
+// voice will actually be reading. Falls back to the interface language.
+function demoLanguage() {
+  const target = currentUser && currentUser.target_language;
+  return (target && voiceDefaults[target] ? target : null) || currentUiLang();
+}
+
+function previewVoice() {
+  const language = demoLanguage();
+  const phrase = t("settings.voice_demo");
+  speak(phrase, language, { voice: $("f-voice").value || null, button: $("voice-preview") });
+}
+
+async function saveVoice() {
+  const voice = $("f-voice").value || null;
+  const resp = await apiFetch(`/users/${currentUser.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ preferences: { [VOICE_PREF_KEY]: voice } }),
+  });
+  if (!resp.ok) return toast(t("toast.save_fail"), "err");
+  toast(t("toast.saved"));
 }
 
 // Match-pairs "fillers" preference lives on the exercises endpoint. PUT needs the
@@ -382,6 +440,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("resend-verify-btn").addEventListener("click", resendVerification);
   $("f-ui_language").addEventListener("change", onUiLanguageChange);
   $("f-fillers").addEventListener("change", saveExercisePrefs);
+  $("f-voice").addEventListener("change", saveVoice);
+  $("voice-preview").addEventListener("click", previewVoice);
 
   // Account dropdown: toggle on the avatar, close on any outside click.
   $("account-btn").addEventListener("click", (e) => {

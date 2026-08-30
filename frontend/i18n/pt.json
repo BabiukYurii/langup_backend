@@ -206,5 +206,11 @@
   "playlist.delete_confirm": "Eliminar esta playlist?",
   "playlist.deleted": "Playlist eliminada",
   "playlist.song_search_ph": "Procurar uma música…",
-  "audio.listen": "Ouvir"
+  "audio.listen": "Ouvir",
+  "settings.voice": "Voz",
+  "settings.voice_preview": "Ouvir",
+  "settings.voice_auto": "Automático",
+  "settings.voice_male": "Masculina",
+  "settings.voice_female": "Feminina",
+  "settings.voice_demo": "Olá! Sou a voz que vai ler as tuas palavras no LangUp. Vou dizer cada palavra nova devagar e depois usá-la numa frase, para ouvires como soa de verdade."
 }

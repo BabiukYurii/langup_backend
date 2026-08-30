@@ -6,7 +6,12 @@ from app.core import settings
 from app.dependencies import CaptureServiceDep, CurrentUserDep
 from app.schemas.capture import CaptureRequest, LanguageCountOut, UserWordDetailOut, UserWordOut
 from app.schemas.pagination import Page
-from app.services.learning.background import schedule_refill, schedule_translation
+from app.services.audio.keys import VOICE_PREF_KEY
+from app.services.learning.background import (
+    schedule_audio_warmup,
+    schedule_refill,
+    schedule_translation,
+)
 
 router = APIRouter(prefix="/vocabulary", tags=["Vocabulary"])
 
@@ -27,6 +32,18 @@ async def capture_word(
     # Pre-generate exercises so /exercises/next is instant despite slow CPU inference.
     if settings.exercises.EXERCISE_POOL_AUTOFILL:
         schedule_refill(background_tasks, current_user.id)
+    # Warm the word AND the sentence it was met in: those are the two things a
+    # learner taps 🔊 on, and only the first play of each is slow.
+    if settings.audio.AUDIO_ENABLED:
+        texts = [result.lemma]
+        if data.sentence:
+            texts.append(data.sentence)
+        schedule_audio_warmup(
+            background_tasks,
+            texts,
+            result.language,
+            (current_user.preferences or {}).get(VOICE_PREF_KEY),
+        )
     return result
 
 

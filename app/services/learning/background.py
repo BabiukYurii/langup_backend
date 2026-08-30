@@ -63,6 +63,23 @@ def schedule_translation(background: BackgroundTasks, user_id: int, word_uuid: U
         background.add_task(translate_word_in_background, user_id, word_uuid)
 
 
+def schedule_audio_warmup(
+    background: BackgroundTasks, texts: list[str], language: str, voice: str | None = None
+) -> None:
+    """Pre-render the clips a learner is about to tap 🔊 on.
+
+    Only the FIRST play of a given text is slow; warming it here means the
+    button is instant by the time they reach it. Purely optional — if this
+    never runs, the clip is synthesized on demand instead.
+    """
+    from app.celery.tasks.audio_tasks import warm_clips, warm_word_audio
+
+    if not texts or not language:
+        return
+    if _enqueue(warm_word_audio, texts, language, voice) is None:
+        background.add_task(warm_clips, texts, language, voice)
+
+
 def schedule_refill(background: BackgroundTasks, user_id: int) -> None:
     from app.celery.tasks.ai_tasks import refill_pool
     from app.services.learning.exercise_service import refill_pool_in_background

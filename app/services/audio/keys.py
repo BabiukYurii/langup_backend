@@ -12,6 +12,10 @@ import hashlib
 # found and are re-synthesized, instead of being served as stale audio.
 CACHE_VERSION = "v1"
 
+# Where the learner's chosen voice lives inside User.preferences — a blob
+# shared with the exercise settings, so it is merged, never overwritten.
+VOICE_PREF_KEY = "tts_voice"
+
 
 def normalize_text(text: str) -> str:
     """Collapse whitespace so trivially different requests share one clip."""

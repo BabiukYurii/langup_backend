@@ -206,5 +206,11 @@
   "playlist.delete_confirm": "Видалити цей плейліст?",
   "playlist.deleted": "Плейліст видалено",
   "playlist.song_search_ph": "Пошук пісні…",
-  "audio.listen": "Прослухати"
+  "audio.listen": "Прослухати",
+  "settings.voice": "Голос",
+  "settings.voice_preview": "Прослухати",
+  "settings.voice_auto": "Автоматично",
+  "settings.voice_male": "Чоловічий",
+  "settings.voice_female": "Жіночий",
+  "settings.voice_demo": "Привіт! Я — голос, який читатиме твої слова в LangUp. Я вимовлю кожне нове слово повільно, а потім вживу його в реченні, щоб ти почув, як воно звучить насправді."
 }

@@ -2,9 +2,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
 
+from app.core import settings
 from app.core.exc import ObjectNotFoundException
 from app.dependencies import CurrentUserDep
-from app.schemas.audio import AudioOut, AudioRequest
+from app.schemas.audio import AudioOut, AudioRequest, VoicesOut
+from app.services.audio.keys import VOICE_PREF_KEY
 from app.services.audio.service import AudioService, get_audio_service
 
 router = APIRouter(prefix="/audio", tags=["Audio"])
@@ -17,6 +19,29 @@ AudioServiceDep = Annotated[AudioService, Depends(get_audio_service)]
 _IMMUTABLE = {"Cache-Control": "public, max-age=31536000, immutable"}
 
 
+def chosen_voice(current_user, requested: str | None) -> str | None:
+    """The voice to speak with: the request's, else the learner's saved one.
+
+    Applied here rather than in the service so the service stays user-agnostic
+    — it caches by voice, not by who asked. An explicit voice still wins, which
+    is what lets the profile picker preview one before it is saved.
+    """
+    if requested:
+        return requested
+    saved = (current_user.preferences or {}).get(VOICE_PREF_KEY)
+    return saved if saved in settings.audio.available_voices else None
+
+
+@router.get("/voices", response_model=VoicesOut)
+async def list_voices(current_user: CurrentUserDep) -> VoicesOut:
+    """What the profile picker offers, and what is currently chosen."""
+    return VoicesOut(
+        voices=settings.audio.available_voices,
+        selected=(current_user.preferences or {}).get(VOICE_PREF_KEY),
+        defaults=settings.audio.voice_map,
+    )
+
+
 @router.post("", response_model=AudioOut, status_code=status.HTTP_200_OK)
 async def create_audio(data: AudioRequest, current_user: CurrentUserDep, service: AudioServiceDep) -> AudioOut:
     """The URL to play `text` from, synthesizing it only if it is not cached.
@@ -24,7 +49,7 @@ async def create_audio(data: AudioRequest, current_user: CurrentUserDep, service
     Authenticated: synthesis costs CPU, so only logged-in users may trigger it.
     Playback itself (the GET below) is open — see the note there.
     """
-    clip, cached = await service.get_or_create(data.text, data.language, data.voice)
+    clip, cached = await service.get_or_create(data.text, data.language, chosen_voice(current_user, data.voice))
     return AudioOut(
         url=f"/api/audio/{clip.hash}.mp3",
         hash=clip.hash,

@@ -206,5 +206,11 @@
   "playlist.delete_confirm": "Delete this playlist?",
   "playlist.deleted": "Playlist deleted",
   "playlist.song_search_ph": "Search a song…",
-  "audio.listen": "Listen"
+  "audio.listen": "Listen",
+  "settings.voice": "Voice",
+  "settings.voice_preview": "Preview",
+  "settings.voice_auto": "Automatic",
+  "settings.voice_male": "Male",
+  "settings.voice_female": "Female",
+  "settings.voice_demo": "Hi! I am the voice that will read your words in LangUp. I will say each new word slowly, and then use it in a sentence, so you can hear how it really sounds."
 }

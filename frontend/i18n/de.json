@@ -206,5 +206,11 @@
   "playlist.delete_confirm": "Diese Playlist löschen?",
   "playlist.deleted": "Playlist gelöscht",
   "playlist.song_search_ph": "Song suchen…",
-  "audio.listen": "Anhören"
+  "audio.listen": "Anhören",
+  "settings.voice": "Stimme",
+  "settings.voice_preview": "Anhören",
+  "settings.voice_auto": "Automatisch",
+  "settings.voice_male": "Männlich",
+  "settings.voice_female": "Weiblich",
+  "settings.voice_demo": "Hallo! Ich bin die Stimme, die deine Wörter in LangUp vorliest. Ich spreche jedes neue Wort langsam aus und verwende es dann in einem Satz, damit du hörst, wie es wirklich klingt."
 }

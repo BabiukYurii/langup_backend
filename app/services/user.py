@@ -44,6 +44,12 @@ class UserService:
     async def update_user(self, user_id: int, data: UserUpdate) -> UserOut:
         user = await self._get_or_404(user_id)
         changes = data.model_dump(exclude_unset=True)
+        if "preferences" in changes:
+            # MERGE, never replace. `preferences` is a shared blob — exercise
+            # types, the match-pairs filler flag, the chosen voice — written by
+            # several independent screens. Assigning it wholesale would mean a
+            # page that knows about one key silently wipes every other.
+            changes["preferences"] = {**(user.preferences or {}), **(changes["preferences"] or {})}
         updated = await self.repository.update_one(user, changes)
         return UserOut.model_validate(updated)
 

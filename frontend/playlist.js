@@ -251,15 +251,35 @@ function renderLyrics(data) {
       // Tag with the lemma so every occurrence of the same word can be recoloured
       // together once the learner adds it.
       if (tok.lemma) span.dataset.lemma = tok.lemma;
-      if (tok.status === "unknown") {
-        span.tabIndex = 0;
-        span.addEventListener("click", () => translateWord(tok, line, span, data.language));
-        span.addEventListener("keydown", (e) => e.key === "Enter" && translateWord(tok, line, span, data.language));
-      }
+      // Unknown words open the translate flow; words already in the dictionary
+      // open a bare "hear it" popover. Both are tappable, so the interaction is
+      // the same everywhere instead of only red words responding.
+      bindWord(span, tok, line, data.language);
       p.appendChild(span);
     }
     body.appendChild(p);
   }
+}
+
+// Wire a word span to whatever tapping it should do, by status.
+function bindWord(span, tok, line, language) {
+  const open =
+    span.classList.contains("w--unknown")
+      ? () => translateWord(tok, line, span, language)
+      : () => listenWord(tok, span, language);
+  span.tabIndex = 0;
+  span.addEventListener("click", open);
+  span.addEventListener("keydown", (e) => e.key === "Enter" && open());
+}
+
+// A word the learner already has: nothing to translate, just let them hear it.
+function listenWord(tok, span, language) {
+  closePopover();
+  const pop = popover(span);
+  const label = document.createElement("span");
+  label.className = "pop__tr";
+  label.textContent = tok.surface;
+  pop.append(label, speakButton(tok.surface, language));
 }
 
 // Tap an unknown word -> translate in context -> "I know it" / "Learn it".
@@ -284,6 +304,9 @@ async function translateWord(tok, line, span, language) {
   const tr = document.createElement("span");
   tr.className = "pop__tr";
   tr.textContent = `${tok.surface} — ${translation || "—"}`;
+  // The word only, never the line: a lyrics line is copyrighted text, and a
+  // stored clip of one would outlive the request in object storage.
+  tr.appendChild(speakButton(tok.surface, language));
 
   const actions = document.createElement("div");
   actions.className = "pop__actions";
@@ -309,19 +332,22 @@ async function addWord(tok, language, known) {
     body: JSON.stringify({ lemma: tok.surface, language, known }),
   });
   if (!resp.ok) return toast(await errText(resp, t("toast.save_fail")), "err");
-  recolourWord(tok.lemma, known ? "known" : "learning");
+  recolourWord(tok.lemma, known ? "known" : "learning", language);
   toast(known ? t("playlist.added_known") : t("playlist.added_learn"));
 }
 
 // The word is now in the dictionary, so EVERY occurrence in the song changes
 // colour — not just the one that was tapped — and stops being clickable.
-function recolourWord(lemma, status) {
+function recolourWord(lemma, status, language) {
   if (!lemma) return;
   const selector = `#lyrics-body .w[data-lemma="${CSS.escape(lemma)}"]`;
   for (const el of document.querySelectorAll(selector)) {
-    const fresh = el.cloneNode(true); // drop the click/keydown listeners
+    const fresh = el.cloneNode(false); // drop the click/keydown listeners
+    fresh.textContent = el.textContent;
     fresh.className = "w w--" + status;
-    fresh.removeAttribute("tabindex");
+    // The word just entered the dictionary, so it stops offering a translation
+    // — but it must still be playable, which cloning threw away.
+    bindWord(fresh, { surface: fresh.textContent, lemma }, null, language);
     el.replaceWith(fresh);
   }
 }
@@ -362,7 +388,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   document.addEventListener("click", (e) => {
     const pop = document.getElementById("pl-popover");
-    if (pop && !pop.contains(e.target) && !e.target.classList.contains("w--unknown")) closePopover();
+    // Any coloured word may open a popover now, not just the unknown ones, so
+    // this has to spare every .w — otherwise the click that opens the popover
+    // immediately closes it again.
+    if (pop && !pop.contains(e.target) && !e.target.closest(".w")) closePopover();
   });
   loadPlaylists();
   resumeImportIfAny();

@@ -1455,7 +1455,21 @@ a.btn {
   gap: 8px;
   max-width: 260px;
 }
-.pop__tr { font-size: 14px; }
+/* The word/translation line, with its speaker sitting inline after it. The
+   popover is a flex column, so the row needs its own alignment. */
+.pop__tr {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+/* A word in the dictionary is not clickable for a translation, but it is still
+   playable — keep the pointer so that reads as interactive. */
+.w--known,
+.w--learning {
+  cursor: pointer;
+}
 .btn--sm { padding: 5px 12px; font-size: 13px; }
 .pop__actions { display: flex; gap: 8px; }
 .pop__actions .btn { flex: 1; }

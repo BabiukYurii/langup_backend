@@ -22,3 +22,11 @@ class AudioOut(BaseModel):
     # Whether this request was served from the cache. Purely diagnostic — it
     # makes the cache's hit rate visible in the browser's network tab.
     cached: bool
+
+
+class VoicesOut(BaseModel):
+    # Every voice the learner may pick, and the one they currently use.
+    voices: list[str]
+    selected: str | None = None
+    # What each language falls back to when nothing is chosen.
+    defaults: dict[str, str]
