@@ -1475,3 +1475,52 @@ a.btn {
   font-weight: 600;
   color: #e8590c;
 }
+
+/* ---------- speech playback (audio.js) ---------- */
+/* A 🔊 that sits inline next to a word or sentence. Sized as a real touch
+   target while staying visually small, so it never crowds the text it belongs
+   to. */
+.speak {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 6px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  vertical-align: middle;
+  transition: color 0.15s, background 0.15s, opacity 0.15s;
+}
+.speak:hover {
+  color: var(--text);
+  background: var(--bg-soft);
+}
+.speak:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* Loading and playing are shown by animating the button itself rather than by
+   swapping the glyph: the label stays a speaker, so the control never looks
+   like it turned into something else mid-click. */
+.speak--loading {
+  opacity: 0.5;
+  animation: speak-pulse 0.9s ease-in-out infinite;
+}
+.speak--playing {
+  color: var(--primary);
+}
+@keyframes speak-pulse {
+  50% {
+    opacity: 1;
+  }
+}
+/* Respect a reduced-motion preference: the pulse is decoration, and the dimmed
+   state alone already communicates "working". */
+@media (prefers-reduced-motion: reduce) {
+  .speak--loading {
+    animation: none;
+  }
+}

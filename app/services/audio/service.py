@@ -23,7 +23,7 @@ from app.database.postgres import get_session
 from app.models import AudioClip
 from app.repositories.audio_clip import AudioClipRepository
 from app.services.ai.client import AIClient, get_ai_client
-from app.services.audio.encode import AudioEncodingError, wav_duration_ms, wav_to_mp3
+from app.services.audio.encode import AudioEncodingError, mp3_duration_ms, wav_to_mp3
 from app.services.audio.keys import clip_hash, normalize_text, object_key
 from app.services.audio.storage import AudioStorage, AudioStorageError, get_audio_storage
 
@@ -96,7 +96,9 @@ class AudioService:
                 "language": language,
                 "voice": used_voice,
                 "object_key": key,
-                "duration_ms": wav_duration_ms(wav),
+                # Measured on the encoded clip: transcoding trims silence, so the
+                # source WAV would overstate a single word by more than half.
+                "duration_ms": await mp3_duration_ms(mp3),
                 "size_bytes": len(mp3),
             }
         )

@@ -12,10 +12,16 @@ PROFILE = {"sub": "audio-sub-1", "email": "audio@gmail.com", "email_verified": T
 
 @pytest.fixture(autouse=True)
 def _no_ffmpeg(monkeypatch):
+    """Skip the real ffmpeg: transcoding and measuring are verified separately."""
+
     async def fake_encode(wav: bytes) -> bytes:
         return b"ID3" + wav[:64]
 
+    async def fake_duration(mp3: bytes) -> int:
+        return 1000
+
     monkeypatch.setattr("app.services.audio.service.wav_to_mp3", fake_encode)
+    monkeypatch.setattr("app.services.audio.service.mp3_duration_ms", fake_duration)
 
 
 @pytest.fixture

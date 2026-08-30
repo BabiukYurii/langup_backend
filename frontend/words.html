@@ -34,6 +34,17 @@
           <button class="modal__close" data-close data-i18n-aria-label="common.close" aria-label="Close">×</button>
           <div class="modal__head">
             <h2 id="wd-lemma" class="card__title">—</h2>
+            <button
+              id="wd-speak"
+              type="button"
+              class="speak"
+              data-speak=""
+              data-speak-lang=""
+              data-i18n-aria-label="audio.listen"
+              aria-label="Listen"
+            >
+              🔊
+            </button>
             <span id="wd-lang" class="badge badge--muted">—</span>
             <span id="wd-mastery" class="badge">new</span>
           </div>
@@ -55,6 +66,7 @@
     <script src="config.js?v=dev"></script>
     <script src="i18n.js?v=dev"></script>
     <script src="api.js?v=dev"></script>
+    <script src="audio.js?v=dev"></script>
     <script src="words.js?v=dev"></script>
   </body>
 </html>

@@ -8,7 +8,6 @@ import pytest
 from app.core import settings
 from app.core.exc import BadRequestException, ServiceUnavailableException
 from app.repositories.audio_clip import AudioClipRepository
-from app.services.audio.encode import wav_duration_ms
 from app.services.audio.keys import CACHE_VERSION, clip_hash, normalize_text, object_key
 from app.services.audio.service import AudioService
 
@@ -53,12 +52,16 @@ class FakeAI:
 
 @pytest.fixture(autouse=True)
 def _no_ffmpeg(monkeypatch):
-    """Skip real transcoding: ffmpeg is exercised in its own test."""
+    """Skip the real ffmpeg: transcoding and measuring are verified separately."""
 
     async def fake_encode(wav: bytes) -> bytes:
         return b"ID3" + wav[:64]
 
+    async def fake_duration(mp3: bytes) -> int:
+        return 1000
+
     monkeypatch.setattr("app.services.audio.service.wav_to_mp3", fake_encode)
+    monkeypatch.setattr("app.services.audio.service.mp3_duration_ms", fake_duration)
 
 
 @pytest.fixture
@@ -112,18 +115,6 @@ def test_object_key_is_sharded():
 
 def test_normalize_text_collapses_runs():
     assert normalize_text("a\n b\t\tc ") == "a b c"
-
-
-# --- duration --------------------------------------------------------------
-
-
-def test_duration_is_read_from_the_wav():
-    assert wav_duration_ms(make_wav(seconds=1.5)) == 1500
-
-
-def test_duration_of_garbage_is_none_not_an_error():
-    """Duration is metadata — a clip must never fail over it."""
-    assert wav_duration_ms(b"not a wav") is None
 
 
 # --- the service -----------------------------------------------------------

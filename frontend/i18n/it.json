@@ -205,5 +205,6 @@
   "playlist.delete": "Elimina",
   "playlist.delete_confirm": "Eliminare questa playlist?",
   "playlist.deleted": "Playlist eliminata",
-  "playlist.song_search_ph": "Cerca una canzone…"
+  "playlist.song_search_ph": "Cerca una canzone…",
+  "audio.listen": "Ascolta"
 }

@@ -10,8 +10,7 @@ one call on a cache miss, and a pipe keeps the clip off the disk entirely.
 
 import asyncio
 import logging
-import wave
-from io import BytesIO
+import re
 
 from app.core import settings
 
@@ -22,18 +21,39 @@ class AudioEncodingError(RuntimeError):
     """ffmpeg could not produce an MP3 (missing binary, bad input, timeout)."""
 
 
-def wav_duration_ms(wav_bytes: bytes) -> int | None:
-    """Playback length of a WAV, or None if it cannot be parsed.
+_TIME_RE = re.compile(r"time=(\d+):(\d+):(\d+(?:\.\d+)?)")
 
-    Read from the source WAV rather than the MP3 because a WAV header states
-    the frame count outright, while measuring an MP3 would mean decoding it.
+
+async def mp3_duration_ms(mp3_bytes: bytes) -> int | None:
+    """Playback length of the ENCODED clip.
+
+    Measured on the MP3 rather than read from the source WAV because encoding
+    trims silence: the WAV's own length overstates a single word by more than
+    half.
+
+    Done by decoding to null with ffmpeg and reading the time it reports, not
+    with ffprobe: over a pipe ffprobe cannot seek, so it answers "N/A" for an
+    MP3's duration. This also keeps ffmpeg as the only binary we depend on.
+    Runs on a cache miss only.
     """
+    cfg = settings.audio
+    args = [cfg.FFMPEG_BINARY, "-hide_banner", "-f", "mp3", "-i", "pipe:0", "-f", "null", "-"]
     try:
-        with wave.open(BytesIO(wav_bytes)) as wav:
-            rate = wav.getframerate()
-            return round(wav.getnframes() / rate * 1000) if rate else None
-    except Exception:  # noqa: BLE001 — duration is metadata; never fail a clip over it
-        logger.warning("Could not read WAV duration", exc_info=True)
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await asyncio.wait_for(proc.communicate(mp3_bytes), timeout=cfg.FFMPEG_TIMEOUT_SECONDS)
+        # Progress is reported repeatedly; the last line is the final length.
+        matches = _TIME_RE.findall(stderr.decode(errors="replace"))
+        if not matches:
+            return None
+        hours, minutes, seconds = matches[-1]
+        return round((int(hours) * 3600 + int(minutes) * 60 + float(seconds)) * 1000)
+    except Exception:  # noqa: BLE001 — metadata only; a clip must never fail over it
+        logger.warning("Could not measure MP3 duration", exc_info=True)
         return None
 
 
@@ -49,6 +69,18 @@ async def wav_to_mp3(wav_bytes: bytes) -> bytes:
         "wav",
         "-i",
         "pipe:0",
+        # Trim silence from both ends. Supertonic pads every utterance to a
+        # fixed length, so a single word arrives as ~0.6s of speech inside a
+        # 1.4s clip — measured 60% silence. Left alone that is a dead pause
+        # after every tap, which is most of the experience when a learner
+        # drills a word list. stop_periods=-1 clears trailing silence too, and
+        # keeping 0.1s at each end stops a hard consonant being clipped.
+        "-af",
+        (
+            "silenceremove="
+            "start_periods=1:start_threshold=-50dB:start_silence=0.1:"
+            "stop_periods=-1:stop_threshold=-50dB:stop_silence=0.1"
+        ),
         "-ac",
         "1",
         "-ar",
