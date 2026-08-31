@@ -121,3 +121,41 @@ def test_the_key_extension_follows_the_format(monkeypatch):
     opus_hash = clip_hash("apple", "en", "M1")
     assert opus_hash != mp3_hash  # the format is part of the cache key
     assert object_key(opus_hash).endswith(".ogg")
+
+
+async def test_aac_is_produced_when_configured(monkeypatch):
+    """MP4 normally rewinds to patch its header, which a pipe cannot do — so a
+    plain -f mp4 to stdout fails. The profile's movflags are what make it work,
+    and this is what would catch losing them."""
+    monkeypatch.setattr(settings.audio, "AUDIO_FORMAT", "aac")
+    m4a = await transcode(tone_wav(1.0))
+    assert m4a[4:8] == b"ftyp"  # MP4 box header
+
+
+async def test_aac_is_smaller_than_mp3(monkeypatch):
+    wav = tone_wav(3.0)
+    mp3 = await transcode(wav)
+    monkeypatch.setattr(settings.audio, "AUDIO_FORMAT", "aac")
+    assert len(await transcode(wav)) < len(mp3)
+
+
+async def test_duration_works_for_aac_too(monkeypatch):
+    monkeypatch.setattr(settings.audio, "AUDIO_FORMAT", "aac")
+    duration = await clip_duration_ms(await transcode(tone_wav(1.0)))
+    assert duration is not None
+    assert 900 <= duration <= 1300
+
+
+def test_each_format_has_its_own_bitrate():
+    """A rate transparent in one codec is wasteful in another, so the profile
+    carries it rather than one global setting."""
+    from app.core.config.audio import AUDIO_FORMATS
+
+    assert AUDIO_FORMATS["mp3"].bitrate != AUDIO_FORMATS["opus"].bitrate
+
+
+async def test_an_explicit_bitrate_overrides_the_profile(monkeypatch):
+    monkeypatch.setattr(settings.audio, "AUDIO_FORMAT", "aac")
+    default = await transcode(tone_wav(3.0))
+    monkeypatch.setattr(settings.audio, "AUDIO_BITRATE", "96k")
+    assert len(await transcode(tone_wav(3.0))) > len(default)

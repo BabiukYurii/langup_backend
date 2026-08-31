@@ -63,9 +63,9 @@ async def transcode(wav_bytes: bytes) -> bytes:
     """Transcode WAV bytes to mono audio in the configured format."""
     cfg = settings.audio
     fmt = cfg.format
-    # Opus is efficient enough that mp3's bitrate would be wasteful on it; each
-    # format carries the rate that is actually transparent for speech.
-    bitrate = cfg.AUDIO_OPUS_BITRATE if fmt.codec == "libopus" else cfg.AUDIO_BITRATE
+    # Each profile carries the rate that is actually transparent for speech in
+    # its own codec; AUDIO_BITRATE overrides it when someone wants to tune.
+    bitrate = cfg.AUDIO_BITRATE or fmt.bitrate
     args = [
         cfg.FFMPEG_BINARY,
         "-hide_banner",
@@ -94,6 +94,7 @@ async def transcode(wav_bytes: bytes) -> bytes:
         "-b:a",
         bitrate,
         *(("-c:a", fmt.codec) if fmt.codec else ()),
+        *fmt.extra_args,
         "-f",
         fmt.ffmpeg_format,
         "pipe:1",
