@@ -151,23 +151,18 @@
                 <input id="f-fillers" type="checkbox" />
                 <span data-i18n="practice.fillers_toggle">Fill match-pairs rounds with words from the shared dictionary</span>
               </label>
-              <!-- Voice picker. The demo is synthesized through the normal
-                   audio endpoint with an explicit voice, so no pre-rendered
-                   samples have to be shipped: the first learner to preview a
-                   voice fills the shared cache for everyone after. -->
-              <div id="voice-row" class="field-row hidden">
-                <label class="field">
-                  <span data-i18n="settings.voice">Voice</span>
-                  <select id="f-voice"></select>
-                </label>
-                <button
-                  id="voice-preview"
-                  class="btn btn--ghost"
-                  type="button"
-                  data-i18n="settings.voice_preview"
-                >
-                  Preview
-                </button>
+              <!-- Voice picker: one row per language being learned, since a
+                   learner studying two languages is listening to two different
+                   voices. The demo is synthesized through the normal audio
+                   endpoint with an explicit voice, so no pre-rendered samples
+                   have to be shipped: the first learner to preview a voice
+                   fills the shared cache for everyone after. -->
+              <div id="voice-block" class="hidden">
+                <span class="field__label" data-i18n="settings.voice">Voice</span>
+                <p class="meta" data-i18n="settings.voice_hint">
+                  Choose a voice for each language you are learning.
+                </p>
+                <div id="voice-rows"></div>
               </div>
               <div class="form__actions">
                 <span id="p-created" class="meta">—</span>

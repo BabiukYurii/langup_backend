@@ -54,59 +54,127 @@ function renderProfile(user) {
 }
 
 // ---------- voice ----------
-// The chosen voice lives in User.preferences alongside the exercise settings,
-// so it is PATCHed on its own key — the server merges the blob rather than
-// replacing it, which would drop whatever another screen wrote.
-const VOICE_PREF_KEY = "tts_voice";
+// Voices live in User.preferences as a MAP of language -> voice, PATCHed on
+// their own key (the server merges the blob rather than replacing it, which
+// would drop whatever another screen wrote).
+//
+// One voice per language, not one for the account: a learner studying English
+// and Polish is listening to two different languages, and the voice that suits
+// one says nothing about the other.
+const VOICES_PREF_KEY = "tts_voices";
+
+let voiceState = { voices: [], selected: {}, defaults: {} };
+
+// The languages to offer a voice for: the ones actually being learned. Taken
+// from the vocabulary, because that is what the learner really studies; the
+// profile's single "I'm learning" field is added so a brand-new account with no
+// words yet still gets a row.
+async function learnedLanguages() {
+  const codes = [];
+  const resp = await apiFetch("/vocabulary/languages");
+  if (resp.ok) {
+    for (const item of await resp.json()) codes.push(item.language);
+  }
+  const target = currentUser && currentUser.target_language;
+  if (target && !codes.includes(target)) codes.push(target);
+  return codes;
+}
+
+function voiceSelect(language) {
+  const select = document.createElement("select");
+  const auto = document.createElement("option");
+  auto.value = "";
+  // Name the fallback rather than just saying "automatic", so it is clear what
+  // will actually be heard.
+  const fallback = voiceState.defaults[language];
+  auto.textContent = fallback
+    ? `${t("settings.voice_auto")} (${voiceLabel(fallback)})`
+    : t("settings.voice_auto");
+  select.appendChild(auto);
+  for (const voice of voiceState.voices) {
+    const opt = document.createElement("option");
+    opt.value = voice;
+    opt.textContent = voiceLabel(voice);
+    select.appendChild(opt);
+  }
+  select.value = voiceState.selected[language] || "";
+  return select;
+}
+
+// The demo must be spoken IN the language being previewed, not in the interface
+// language: sending Ukrainian text to be read as English would just garble it.
+// The phrase exists in every locale file under the same key, so it is read from
+// the target language's locale and cached — the learner may click through
+// several voices in a row.
+const demoPhrases = {};
+
+async function demoPhrase(language) {
+  if (!(language in demoPhrases)) {
+    const locale = await loadLocale(language);
+    // Fall back to the interface language's phrase: still better than silence,
+    // and only reachable for a language we ship no locale for.
+    demoPhrases[language] = locale["settings.voice_demo"] || t("settings.voice_demo");
+  }
+  return demoPhrases[language];
+}
+
+// M/F plus a number is all the engine gives us; label it so it at least says
+// which is which rather than showing a bare code.
+function voiceLabel(voice) {
+  const kind = voice.startsWith("M") ? t("settings.voice_male") : t("settings.voice_female");
+  return `${kind} ${voice.slice(1)}`;
+}
 
 async function loadVoices() {
   const resp = await apiFetch("/audio/voices");
-  if (!resp.ok) return; // audio disabled or unreachable — leave the row hidden
-  const { voices, selected, defaults } = await resp.json();
-  if (!voices.length) return;
+  if (!resp.ok) return; // audio disabled or unreachable — leave the block hidden
+  voiceState = await resp.json();
+  if (!voiceState.voices.length) return;
 
-  const select = $("f-voice");
-  select.innerHTML = "";
-  const auto = document.createElement("option");
-  auto.value = "";
-  auto.textContent = t("settings.voice_auto");
-  select.appendChild(auto);
-  for (const voice of voices) {
-    const opt = document.createElement("option");
-    opt.value = voice;
-    // M/F plus a number is all the engine gives us; label it in a way that at
-    // least says which is which rather than showing a bare code.
-    const kind = voice.startsWith("M") ? t("settings.voice_male") : t("settings.voice_female");
-    opt.textContent = `${kind} ${voice.slice(1)}`;
-    select.appendChild(opt);
+  const languages = await learnedLanguages();
+  if (!languages.length) return; // nothing being learned yet — nothing to voice
+
+  const rows = $("voice-rows");
+  rows.innerHTML = "";
+  for (const language of languages) {
+    const row = document.createElement("div");
+    row.className = "field-row";
+
+    const field = document.createElement("label");
+    field.className = "field";
+    const name = document.createElement("span");
+    name.textContent = languageName(language);
+    const select = voiceSelect(language);
+    select.addEventListener("change", () => saveVoice(language, select.value));
+    field.append(name, select);
+
+    const preview = document.createElement("button");
+    preview.type = "button";
+    preview.className = "btn btn--ghost";
+    preview.textContent = t("settings.voice_preview");
+    // Preview in THIS language, with whatever is selected right now — that is
+    // what the learner is deciding about, and it works before saving.
+    preview.addEventListener("click", async () =>
+      speak(await demoPhrase(language), language, { voice: select.value || null, button: preview }),
+    );
+
+    row.append(field, preview);
+    rows.appendChild(row);
   }
-  select.value = selected || "";
-  $("voice-row").classList.remove("hidden");
-  voiceDefaults = defaults;
+  $("voice-block").classList.remove("hidden");
 }
 
-let voiceDefaults = {};
+async function saveVoice(language, voice) {
+  const next = { ...voiceState.selected };
+  if (voice) next[language] = voice;
+  else delete next[language];
 
-// Which language to demo in: the one being learned, since that is what the
-// voice will actually be reading. Falls back to the interface language.
-function demoLanguage() {
-  const target = currentUser && currentUser.target_language;
-  return (target && voiceDefaults[target] ? target : null) || currentUiLang();
-}
-
-function previewVoice() {
-  const language = demoLanguage();
-  const phrase = t("settings.voice_demo");
-  speak(phrase, language, { voice: $("f-voice").value || null, button: $("voice-preview") });
-}
-
-async function saveVoice() {
-  const voice = $("f-voice").value || null;
   const resp = await apiFetch(`/users/${currentUser.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ preferences: { [VOICE_PREF_KEY]: voice } }),
+    body: JSON.stringify({ preferences: { [VOICES_PREF_KEY]: next } }),
   });
   if (!resp.ok) return toast(t("toast.save_fail"), "err");
+  voiceState.selected = next;
   toast(t("toast.saved"));
 }
 
@@ -440,8 +508,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("resend-verify-btn").addEventListener("click", resendVerification);
   $("f-ui_language").addEventListener("change", onUiLanguageChange);
   $("f-fillers").addEventListener("change", saveExercisePrefs);
-  $("f-voice").addEventListener("change", saveVoice);
-  $("voice-preview").addEventListener("click", previewVoice);
 
   // Account dropdown: toggle on the avatar, close on any outside click.
   $("account-btn").addEventListener("click", (e) => {

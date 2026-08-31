@@ -212,5 +212,6 @@
   "settings.voice_auto": "Automático",
   "settings.voice_male": "Masculina",
   "settings.voice_female": "Feminina",
-  "settings.voice_demo": "Olá! Sou a voz que vai ler as tuas palavras no LangUp. Vou dizer cada palavra nova devagar e depois usá-la numa frase, para ouvires como soa de verdade."
+  "settings.voice_demo": "Olá! Sou a voz que vai ler as tuas palavras no LangUp. Vou dizer cada palavra nova devagar e depois usá-la numa frase, para ouvires como soa de verdade.",
+  "settings.voice_hint": "Escolha uma voz para cada idioma que está a aprender."
 }

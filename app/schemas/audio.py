@@ -25,8 +25,11 @@ class AudioOut(BaseModel):
 
 
 class VoicesOut(BaseModel):
-    # Every voice the learner may pick, and the one they currently use.
+    # Every voice the learner may pick from.
     voices: list[str]
-    selected: str | None = None
-    # What each language falls back to when nothing is chosen.
+    # Their chosen voice PER LANGUAGE. A learner studying English and Polish is
+    # listening to two different languages, so one account-wide voice would be
+    # the wrong shape.
+    selected: dict[str, str] = Field(default_factory=dict)
+    # What each language falls back to when nothing is chosen for it.
     defaults: dict[str, str]

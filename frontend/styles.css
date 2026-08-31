@@ -1490,6 +1490,28 @@ a.btn {
   color: #e8590c;
 }
 
+/* The voice picker's heading — it labels a group of rows rather than a single
+   input, so it cannot be a <label> the way .field's own span is. */
+.field__label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+}
+#voice-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+/* Each row is "language + select" next to its preview button; the button lines
+   up with the select rather than the label above it. */
+#voice-rows .field-row {
+  align-items: flex-end;
+}
+#voice-rows .field {
+  flex: 1;
+}
+
 /* ---------- speech playback (audio.js) ---------- */
 /* A 🔊 that sits inline next to a word or sentence. Sized as a real touch
    target while staying visually small, so it never crowds the text it belongs

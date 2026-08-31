@@ -212,5 +212,6 @@
   "settings.voice_auto": "Automatisch",
   "settings.voice_male": "Männlich",
   "settings.voice_female": "Weiblich",
-  "settings.voice_demo": "Hallo! Ich bin die Stimme, die deine Wörter in LangUp vorliest. Ich spreche jedes neue Wort langsam aus und verwende es dann in einem Satz, damit du hörst, wie es wirklich klingt."
+  "settings.voice_demo": "Hallo! Ich bin die Stimme, die deine Wörter in LangUp vorliest. Ich spreche jedes neue Wort langsam aus und verwende es dann in einem Satz, damit du hörst, wie es wirklich klingt.",
+  "settings.voice_hint": "Wählen Sie eine Stimme für jede Sprache, die Sie lernen."
 }

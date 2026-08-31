@@ -12,9 +12,17 @@ import hashlib
 # found and are re-synthesized, instead of being served as stale audio.
 CACHE_VERSION = "v1"
 
-# Where the learner's chosen voice lives inside User.preferences — a blob
+# Where the learner's chosen voices live inside User.preferences — a blob
 # shared with the exercise settings, so it is merged, never overwritten.
-VOICE_PREF_KEY = "tts_voice"
+#
+# A MAP of language -> voice, not one voice for the account: a learner studying
+# English and Polish is listening to two different languages, and the voice that
+# suits one has no bearing on the other.
+VOICES_PREF_KEY = "tts_voices"
+
+# The first cut stored a single voice for everything. Read for continuity so an
+# account that set one keeps hearing it until a per-language choice replaces it.
+LEGACY_VOICE_PREF_KEY = "tts_voice"
 
 
 def normalize_text(text: str) -> str:

@@ -4,9 +4,9 @@ from fastapi import APIRouter, BackgroundTasks, status
 
 from app.core import settings
 from app.dependencies import CaptureServiceDep, CurrentUserDep
+from app.routers.audio import chosen_voice
 from app.schemas.capture import CaptureRequest, LanguageCountOut, UserWordDetailOut, UserWordOut
 from app.schemas.pagination import Page
-from app.services.audio.keys import VOICE_PREF_KEY
 from app.services.learning.background import (
     schedule_audio_warmup,
     schedule_refill,
@@ -38,11 +38,13 @@ async def capture_word(
         texts = [result.lemma]
         if data.sentence:
             texts.append(data.sentence)
+        # The learner's voice FOR THIS LANGUAGE — warming under any other one
+        # would cache a clip nobody ever looks up.
         schedule_audio_warmup(
             background_tasks,
             texts,
             result.language,
-            (current_user.preferences or {}).get(VOICE_PREF_KEY),
+            chosen_voice(current_user, result.language, None),
         )
     return result
 

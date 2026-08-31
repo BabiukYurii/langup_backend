@@ -6,7 +6,7 @@ from app.core import settings
 from app.core.exc import ObjectNotFoundException
 from app.dependencies import CurrentUserDep
 from app.schemas.audio import AudioOut, AudioRequest, VoicesOut
-from app.services.audio.keys import VOICE_PREF_KEY
+from app.services.audio.keys import LEGACY_VOICE_PREF_KEY, VOICES_PREF_KEY
 from app.services.audio.service import AudioService, get_audio_service
 
 router = APIRouter(prefix="/audio", tags=["Audio"])
@@ -19,8 +19,28 @@ AudioServiceDep = Annotated[AudioService, Depends(get_audio_service)]
 _IMMUTABLE = {"Cache-Control": "public, max-age=31536000, immutable"}
 
 
-def chosen_voice(current_user, requested: str | None) -> str | None:
-    """The voice to speak with: the request's, else the learner's saved one.
+def saved_voices(current_user) -> dict[str, str]:
+    """The learner's language -> voice choices, ignoring anything unusable.
+
+    Filtered against the engine's roster so a stale or hand-edited preference
+    cannot send a voice the model does not have.
+    """
+    prefs = current_user.preferences or {}
+    stored = prefs.get(VOICES_PREF_KEY)
+    available = settings.audio.available_voices
+
+    if isinstance(stored, dict):
+        return {str(lang).lower()[:2]: voice for lang, voice in stored.items() if voice in available}
+    # Continuity with the first cut, which stored one voice for the whole
+    # account: apply it to every language until per-language choices replace it.
+    legacy = prefs.get(LEGACY_VOICE_PREF_KEY)
+    if legacy in available:
+        return dict.fromkeys(settings.audio.voice_map, legacy)
+    return {}
+
+
+def chosen_voice(current_user, language: str, requested: str | None) -> str | None:
+    """The voice to speak `language` with: the request's, else the learner's.
 
     Applied here rather than in the service so the service stays user-agnostic
     — it caches by voice, not by who asked. An explicit voice still wins, which
@@ -28,16 +48,15 @@ def chosen_voice(current_user, requested: str | None) -> str | None:
     """
     if requested:
         return requested
-    saved = (current_user.preferences or {}).get(VOICE_PREF_KEY)
-    return saved if saved in settings.audio.available_voices else None
+    return saved_voices(current_user).get((language or "").lower()[:2])
 
 
 @router.get("/voices", response_model=VoicesOut)
 async def list_voices(current_user: CurrentUserDep) -> VoicesOut:
-    """What the profile picker offers, and what is currently chosen."""
+    """What the profile picker offers, and what is chosen per language."""
     return VoicesOut(
         voices=settings.audio.available_voices,
-        selected=(current_user.preferences or {}).get(VOICE_PREF_KEY),
+        selected=saved_voices(current_user),
         defaults=settings.audio.voice_map,
     )
 
@@ -49,7 +68,8 @@ async def create_audio(data: AudioRequest, current_user: CurrentUserDep, service
     Authenticated: synthesis costs CPU, so only logged-in users may trigger it.
     Playback itself (the GET below) is open — see the note there.
     """
-    clip, cached = await service.get_or_create(data.text, data.language, chosen_voice(current_user, data.voice))
+    voice = chosen_voice(current_user, data.language, data.voice)
+    clip, cached = await service.get_or_create(data.text, data.language, voice)
     return AudioOut(
         url=f"/api/audio/{clip.hash}.mp3",
         hash=clip.hash,
