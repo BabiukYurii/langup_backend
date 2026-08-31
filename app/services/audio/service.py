@@ -152,6 +152,39 @@ class AudioService:
             logger.info("Deleted %d orphaned audio object(s)", removed)
         return orphans, removed
 
+    async def sweep_stale(self, delete: bool = False) -> tuple[list[str], int]:
+        """Rows whose key can no longer be produced from their own data.
+
+        Distinct from an orphan: the row and its blob both still exist and
+        agree with each other, but nothing will ever ASK for them, because the
+        hash the app now computes for that text no longer matches the one
+        stored. That happens on a CACHE_VERSION bump, an audio format switch,
+        or a change to how text is normalised.
+
+        Left alone these are invisible dead weight — the orphan sweep cannot
+        see them, since the row still points at its object. Removing the row
+        turns the blob into an ordinary orphan, so both go in one pass.
+
+        Returns (stale hashes, how many were removed).
+        """
+        rows, _ = await self.repo.get_many(page=1, limit=100_000)
+        stale = [r for r in rows if clip_hash(r.text, r.language, r.voice) != r.hash]
+        hashes = [r.hash for r in stale]
+        if not delete:
+            return hashes, 0
+
+        removed = 0
+        for row in stale:
+            try:
+                await self.storage.delete(row.object_key)
+            except AudioStorageError:
+                logger.warning("Could not delete blob for stale %s", row.hash, exc_info=True)
+            await self.repo.delete_one(row)
+            removed += 1
+        if removed:
+            logger.info("Removed %d unreachable audio clip(s)", removed)
+        return hashes, removed
+
     async def _synthesize(self, text: str, language: str, voice: str | None) -> tuple[bytes, str]:
         try:
             return await self.ai.speak(text=text, language=language, voice=voice)

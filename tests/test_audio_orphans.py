@@ -150,3 +150,65 @@ async def test_list_keys_follows_the_continuation_token(monkeypatch):
 
     assert await storage.list_keys() == ["clips/aa/1.mp3", "clips/bb/2.mp3"]
     assert client.tokens_seen == [None, "tok"]  # second call carried the token
+
+
+# --- stale rows ------------------------------------------------------------
+
+
+async def test_a_cache_version_bump_makes_rows_unreachable(audio, monkeypatch):
+    """The case that bit us: the row and blob still agree, but the hash the app
+    now computes no longer matches, so nothing will ever ask for it."""
+    import app.services.audio.keys as keys
+
+    service, storage = audio
+    clip, _ = await service.get_or_create("apple", "en")
+    assert await service.sweep_stale() == ([], 0)  # reachable right now
+
+    monkeypatch.setattr(keys, "CACHE_VERSION", "v2")
+    stale, removed = await service.sweep_stale()
+    assert stale == [clip.hash]
+    assert removed == 0  # reporting only
+
+
+async def test_an_orphan_check_alone_would_miss_them(audio, monkeypatch):
+    """Why the sweep needs both passes: the row still points at its blob, so
+    nothing looks orphaned even though the pair is dead."""
+    import app.services.audio.keys as keys
+
+    service, _ = audio
+    await service.get_or_create("apple", "en")
+    monkeypatch.setattr(keys, "CACHE_VERSION", "v2")
+
+    assert await service.sweep_orphans() == ([], 0)  # invisible to this check
+    assert len((await service.sweep_stale())[0]) == 1
+
+
+async def test_deleting_stale_removes_the_row_and_the_blob(audio, monkeypatch):
+    import app.services.audio.keys as keys
+
+    service, storage = audio
+    clip, _ = await service.get_or_create("apple", "en")
+    monkeypatch.setattr(keys, "CACHE_VERSION", "v2")
+
+    _, removed = await service.sweep_stale(delete=True)
+    assert removed == 1
+    assert clip.object_key not in storage.objects
+    assert await service.repo.get_by_hash(clip.hash) is None
+
+
+async def test_a_format_switch_makes_rows_unreachable(audio, monkeypatch):
+    """Same mechanism, the reason it actually happened."""
+    from app.core import settings
+
+    service, _ = audio
+    await service.get_or_create("apple", "en")
+    monkeypatch.setattr(settings.audio, "AUDIO_FORMAT", "opus")
+    assert len((await service.sweep_stale())[0]) == 1
+
+
+async def test_live_rows_are_never_swept(audio):
+    service, storage = audio
+    clip, _ = await service.get_or_create("apple", "en")
+    await service.sweep_stale(delete=True)
+    assert await service.repo.get_by_hash(clip.hash) is not None
+    assert clip.object_key in storage.objects

@@ -1,9 +1,16 @@
-"""Delete audio blobs that no database row points at any more.
+"""Collect audio nothing can reach any more.
 
-Orphans appear whenever a clip's cache key changes but its blob does not go
-with it: bumping CACHE_VERSION, editing a demo phrase that was already warmed,
-changing the voice a language defaults to. The old object stays in storage
-forever and nothing will ever ask for it again.
+Two kinds of dead weight, both left behind when the cache key changes —
+bumping CACHE_VERSION, switching AUDIO_FORMAT, editing a phrase that was
+already warmed, changing a language's default voice:
+
+  STALE ROWS  the row and its blob still agree, but the hash the app now
+              computes for that text no longer matches the stored one, so
+              nothing will ever look it up. Invisible to an orphan check,
+              because the row does still point at its object.
+
+  ORPHANS     a blob no row points at. Removing a stale row turns its blob
+              into one of these, so the two passes run in that order.
 
 Reports by default and deletes nothing. Pass --delete to actually remove them:
 
