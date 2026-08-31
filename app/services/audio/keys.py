@@ -7,6 +7,8 @@ agreeing with itself across processes and restarts.
 
 import hashlib
 
+from app.core import settings
+
 # Bump when a change makes previously cached audio wrong — a new TTS engine, a
 # different sample rate, a bitrate change. Old rows then simply stop being
 # found and are re-synthesized, instead of being served as stale audio.
@@ -36,14 +38,18 @@ def clip_hash(text: str, language: str, voice: str) -> str:
     Case is preserved: capitalisation can change how a sentence is read, and a
     proper noun is not the same utterance as a common one.
     """
-    payload = f"{CACHE_VERSION}|{normalize_text(text)}|{language.lower()}|{voice}"
+    # The format is part of the key: switching it must re-render rather than
+    # serve an mp3 from a URL that now claims to be ogg. The blobs left under
+    # the old keys become orphans, which the sweep collects.
+    fmt = settings.audio.format.name
+    payload = f"{CACHE_VERSION}|{normalize_text(text)}|{language.lower()}|{voice}|{fmt}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def object_key(hash_: str) -> str:
+def object_key(hash_: str, extension: str | None = None) -> str:
     """Storage path for a clip.
 
     Sharded by the first two hex characters: a flat prefix with hundreds of
     thousands of keys is slow to list and awkward to browse in the MinIO console.
     """
-    return f"clips/{hash_[:2]}/{hash_}.mp3"
+    return f"clips/{hash_[:2]}/{hash_}{extension or settings.audio.format.extension}"

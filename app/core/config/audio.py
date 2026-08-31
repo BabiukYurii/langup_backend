@@ -1,5 +1,24 @@
 # Spoken audio: where clips are stored and how they are encoded.
+from dataclasses import dataclass
+
 from app.core.config.base import BaseConfig
+
+
+@dataclass(frozen=True)
+class AudioFormat:
+    """One encoding target: what ffmpeg is told, and how it is served."""
+
+    name: str
+    extension: str
+    mime: str
+    ffmpeg_format: str  # -f
+    codec: str | None  # -c:a, None = the muxer's default
+
+
+AUDIO_FORMATS = {
+    "mp3": AudioFormat("mp3", ".mp3", "audio/mpeg", "mp3", None),
+    "opus": AudioFormat("opus", ".ogg", "audio/ogg", "ogg", "libopus"),
+}
 
 
 class AudioConfig(BaseConfig):
@@ -28,11 +47,23 @@ class AudioConfig(BaseConfig):
     S3_BUCKET: str = "langup"
     S3_REGION: str = "us-east-1"
 
-    # MP3 rather than the gateway's WAV: one 13-second clip is ~1.1 MB as
-    # 44.1 kHz PCM but ~100 KB at 64 kbps mono — a 10x saving on both storage
-    # and every playback. Speech at 64 kbps mono is transparent enough that the
-    # difference is inaudible for single words and sentences.
+    # Anything but the gateway's WAV: one 13-second clip is ~1.1 MB as 44.1 kHz
+    # PCM but ~70 KB encoded.
+    #
+    # "mp3" is the default because it plays everywhere, and our failure mode is
+    # silent — audio.js swallows errors, so a browser that cannot decode the
+    # format shows a button that simply does nothing.
+    #
+    # "opus" (in Ogg) is measurably better: ~half the size at equal or better
+    # speech quality (a word measured 6.2 KB as mp3@64k vs 2.9 KB as
+    # opus@32k). The catch is Safari, which only learned to play Ogg Opus in
+    # 17.4 — older iPhones would go quiet. Switch by setting AUDIO_FORMAT and
+    # bumping nothing else: the format is part of the cache key, so clips
+    # re-render under new keys and the old blobs become orphans the sweep
+    # collects.
+    AUDIO_FORMAT: str = "mp3"
     AUDIO_BITRATE: str = "64k"
+    AUDIO_OPUS_BITRATE: str = "32k"
     AUDIO_SAMPLE_RATE: int = 24000
     # ffmpeg must be on PATH (it is installed in the image).
     FFMPEG_BINARY: str = "ffmpeg"
@@ -41,6 +72,11 @@ class AudioConfig(BaseConfig):
     # Mirrors the gateway's own cap: this is a word/sentence service, never an
     # article reader.
     AUDIO_MAX_TEXT_LENGTH: int = 400
+
+    @property
+    def format(self) -> "AudioFormat":
+        """The encoding profile in force, falling back to mp3 if misconfigured."""
+        return AUDIO_FORMATS.get(self.AUDIO_FORMAT.lower(), AUDIO_FORMATS["mp3"])
 
     @property
     def available_voices(self) -> list[str]:

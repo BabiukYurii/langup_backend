@@ -82,6 +82,35 @@ class AudioStorage:
         except Exception as e:  # noqa: BLE001
             raise AudioStorageError(f"Could not read {key}: {e}") from e
 
+    async def list_keys(self, prefix: str = "clips/") -> list[str]:
+        """Every object key under `prefix`.
+
+        Paginated explicitly: S3 caps a listing at 1000 keys per call and
+        silently truncates, so a one-shot list would quietly under-report once
+        the cache outgrows that — and a sweep built on it would then think
+        nothing is orphaned.
+        """
+        keys: list[str] = []
+        try:
+            async with self._client() as s3:
+                token: str | None = None
+                while True:
+                    kwargs = {"Bucket": settings.audio.S3_BUCKET, "Prefix": prefix}
+                    if token:
+                        kwargs["ContinuationToken"] = token
+                    page = await s3.list_objects_v2(**kwargs)
+                    keys.extend(item["Key"] for item in page.get("Contents", []))
+                    if not page.get("IsTruncated"):
+                        break
+                    token = page.get("NextContinuationToken")
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") == "NoSuchBucket":
+                return []
+            raise AudioStorageError(f"Could not list {prefix}: {e}") from e
+        except Exception as e:  # noqa: BLE001
+            raise AudioStorageError(f"Could not list {prefix}: {e}") from e
+        return keys
+
     async def delete(self, key: str) -> None:
         try:
             async with self._client() as s3:

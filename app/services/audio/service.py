@@ -23,7 +23,7 @@ from app.database.postgres import get_session
 from app.models import AudioClip
 from app.repositories.audio_clip import AudioClipRepository
 from app.services.ai.client import AIClient, get_ai_client
-from app.services.audio.encode import AudioEncodingError, mp3_duration_ms, wav_to_mp3
+from app.services.audio.encode import AudioEncodingError, clip_duration_ms, transcode
 from app.services.audio.keys import clip_hash, normalize_text, object_key
 from app.services.audio.storage import AudioStorage, AudioStorageError, get_audio_storage
 
@@ -77,14 +77,14 @@ class AudioService:
         wav, _reported = await self._synthesize(text, language, used_voice)
 
         try:
-            mp3 = await wav_to_mp3(wav)
+            encoded = await transcode(wav)
         except AudioEncodingError as e:
             logger.error("Encoding failed for %r: %s", text[:40], e)
             raise ServiceUnavailableException("Could not encode audio") from e
 
         key = object_key(hash_)
         try:
-            await self.storage.put(key, mp3)
+            await self.storage.put(key, encoded, content_type=settings.audio.format.mime)
         except AudioStorageError as e:
             logger.error("Storing %s failed: %s", key, e)
             raise ServiceUnavailableException("Could not store audio") from e
@@ -98,14 +98,14 @@ class AudioService:
                 "object_key": key,
                 # Measured on the encoded clip: transcoding trims silence, so the
                 # source WAV would overstate a single word by more than half.
-                "duration_ms": await mp3_duration_ms(mp3),
-                "size_bytes": len(mp3),
+                "duration_ms": await clip_duration_ms(encoded),
+                "size_bytes": len(encoded),
             }
         )
         return clip, False
 
     async def read(self, hash_: str) -> tuple[bytes, AudioClip] | None:
-        """(mp3 bytes, row) for a stored clip, or None if we cannot serve it."""
+        """(encoded bytes, row) for a stored clip, or None if we cannot serve it."""
         clip = await self.repo.get_by_hash(hash_)
         if not clip:
             return None
@@ -121,6 +121,36 @@ class AudioService:
             await self.repo.delete_one(clip)
             return None
         return data, clip
+
+    async def sweep_orphans(self, delete: bool = False) -> tuple[list[str], int]:
+        """Object keys storage holds that no row points at any more.
+
+        These appear whenever the cache key changes but the blob does not get
+        collected with it: bumping CACHE_VERSION, editing a phrase that was
+        already warmed, or changing the voice a language defaults to. The old
+        object stays addressable forever and nothing will ever ask for it.
+
+        Returns (orphan keys, how many were deleted). `delete` is off by
+        default: this compares two systems that can disagree for innocent
+        reasons — a clip written a moment ago whose row has not committed yet
+        would look orphaned — so the caller sees the list before anything goes.
+        """
+        stored = set(await self.storage.list_keys())
+        referenced = await self.repo.all_object_keys()
+        orphans = sorted(stored - referenced)
+        if not delete:
+            return orphans, 0
+
+        removed = 0
+        for key in orphans:
+            try:
+                await self.storage.delete(key)
+                removed += 1
+            except AudioStorageError:
+                logger.warning("Could not delete orphaned %s", key, exc_info=True)
+        if removed:
+            logger.info("Deleted %d orphaned audio object(s)", removed)
+        return orphans, removed
 
     async def _synthesize(self, text: str, language: str, voice: str | None) -> tuple[bytes, str]:
         try:

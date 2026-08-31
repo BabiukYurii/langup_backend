@@ -1,4 +1,4 @@
-"""WAV -> MP3, and how long the result plays.
+"""WAV -> the configured compressed format, and how long the result plays.
 
 The gateway speaks 44.1 kHz PCM because that is what the model emits; storing
 and serving that would be wasteful for what is almost always a single word. We
@@ -18,26 +18,28 @@ logger = logging.getLogger(__name__)
 
 
 class AudioEncodingError(RuntimeError):
-    """ffmpeg could not produce an MP3 (missing binary, bad input, timeout)."""
+    """ffmpeg could not produce a clip (missing binary, bad input, timeout)."""
 
 
 _TIME_RE = re.compile(r"time=(\d+):(\d+):(\d+(?:\.\d+)?)")
 
 
-async def mp3_duration_ms(mp3_bytes: bytes) -> int | None:
+async def clip_duration_ms(audio_bytes: bytes) -> int | None:
     """Playback length of the ENCODED clip.
 
-    Measured on the MP3 rather than read from the source WAV because encoding
-    trims silence: the WAV's own length overstates a single word by more than
-    half.
+    Measured on the encoded clip rather than read from the source WAV because
+    encoding trims silence: the WAV's own length overstates a single word by
+    more than half.
 
     Done by decoding to null with ffmpeg and reading the time it reports, not
-    with ffprobe: over a pipe ffprobe cannot seek, so it answers "N/A" for an
-    MP3's duration. This also keeps ffmpeg as the only binary we depend on.
-    Runs on a cache miss only.
+    with ffprobe: over a pipe ffprobe cannot seek, so it answers "N/A" for a
+    compressed stream's duration. This also keeps ffmpeg as the only binary we
+    depend on. Runs on a cache miss only.
     """
     cfg = settings.audio
-    args = [cfg.FFMPEG_BINARY, "-hide_banner", "-f", "mp3", "-i", "pipe:0", "-f", "null", "-"]
+    # No -f on the input: ffmpeg probes it, so this works for whichever format
+    # is configured without having to be told which.
+    args = [cfg.FFMPEG_BINARY, "-hide_banner", "-i", "pipe:0", "-f", "null", "-"]
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -45,7 +47,7 @@ async def mp3_duration_ms(mp3_bytes: bytes) -> int | None:
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
         )
-        _, stderr = await asyncio.wait_for(proc.communicate(mp3_bytes), timeout=cfg.FFMPEG_TIMEOUT_SECONDS)
+        _, stderr = await asyncio.wait_for(proc.communicate(audio_bytes), timeout=cfg.FFMPEG_TIMEOUT_SECONDS)
         # Progress is reported repeatedly; the last line is the final length.
         matches = _TIME_RE.findall(stderr.decode(errors="replace"))
         if not matches:
@@ -53,13 +55,17 @@ async def mp3_duration_ms(mp3_bytes: bytes) -> int | None:
         hours, minutes, seconds = matches[-1]
         return round((int(hours) * 3600 + int(minutes) * 60 + float(seconds)) * 1000)
     except Exception:  # noqa: BLE001 — metadata only; a clip must never fail over it
-        logger.warning("Could not measure MP3 duration", exc_info=True)
+        logger.warning("Could not measure clip duration", exc_info=True)
         return None
 
 
-async def wav_to_mp3(wav_bytes: bytes) -> bytes:
-    """Transcode WAV bytes to mono MP3 at the configured bitrate."""
+async def transcode(wav_bytes: bytes) -> bytes:
+    """Transcode WAV bytes to mono audio in the configured format."""
     cfg = settings.audio
+    fmt = cfg.format
+    # Opus is efficient enough that mp3's bitrate would be wasteful on it; each
+    # format carries the rate that is actually transparent for speech.
+    bitrate = cfg.AUDIO_OPUS_BITRATE if fmt.codec == "libopus" else cfg.AUDIO_BITRATE
     args = [
         cfg.FFMPEG_BINARY,
         "-hide_banner",
@@ -86,9 +92,10 @@ async def wav_to_mp3(wav_bytes: bytes) -> bytes:
         "-ar",
         str(cfg.AUDIO_SAMPLE_RATE),
         "-b:a",
-        cfg.AUDIO_BITRATE,
+        bitrate,
+        *(("-c:a", fmt.codec) if fmt.codec else ()),
         "-f",
-        "mp3",
+        fmt.ffmpeg_format,
         "pipe:1",
     ]
     try:

@@ -19,8 +19,8 @@ def _no_ffmpeg(monkeypatch):
     async def fake_duration(mp3: bytes) -> int:
         return 1000
 
-    monkeypatch.setattr("app.services.audio.service.wav_to_mp3", fake_encode)
-    monkeypatch.setattr("app.services.audio.service.mp3_duration_ms", fake_duration)
+    monkeypatch.setattr("app.services.audio.service.transcode", fake_encode)
+    monkeypatch.setattr("app.services.audio.service.clip_duration_ms", fake_duration)
 
 
 @pytest.fixture

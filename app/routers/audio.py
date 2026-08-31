@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response, status
 
 from app.core import settings
+from app.core.config.audio import AUDIO_FORMATS
 from app.core.exc import ObjectNotFoundException
 from app.dependencies import CurrentUserDep
 from app.schemas.audio import AudioOut, AudioRequest, VoicesOut
@@ -17,6 +18,14 @@ AudioServiceDep = Annotated[AudioService, Depends(get_audio_service)]
 # the same URL can never return different audio. Telling the browser to keep it
 # for a year means a word is fetched once per device, ever.
 _IMMUTABLE = {"Cache-Control": "public, max-age=31536000, immutable"}
+
+
+def mime_for(object_key: str) -> str:
+    """The content type of a stored clip, judged by its own extension."""
+    for fmt in AUDIO_FORMATS.values():
+        if object_key.endswith(fmt.extension):
+            return fmt.mime
+    return settings.audio.format.mime
 
 
 def saved_voices(current_user) -> dict[str, str]:
@@ -71,7 +80,7 @@ async def create_audio(data: AudioRequest, current_user: CurrentUserDep, service
     voice = chosen_voice(current_user, data.language, data.voice)
     clip, cached = await service.get_or_create(data.text, data.language, voice)
     return AudioOut(
-        url=f"/api/audio/{clip.hash}.mp3",
+        url=f"/api/audio/{clip.hash}{settings.audio.format.extension}",
         hash=clip.hash,
         voice=clip.voice,
         duration_ms=clip.duration_ms,
@@ -79,9 +88,14 @@ async def create_audio(data: AudioRequest, current_user: CurrentUserDep, service
     )
 
 
-@router.get("/{hash_}.mp3")
-async def get_audio(hash_: str, service: AudioServiceDep) -> Response:
+@router.get("/{filename}")
+async def get_audio(filename: str, service: AudioServiceDep) -> Response:
     """Stream a stored clip.
+
+    The extension is taken off rather than matched, so the route does not have
+    to be rewritten when AUDIO_FORMAT changes — and a link handed out under the
+    previous extension keeps resolving to the row, which then answers with
+    whatever that clip actually is.
 
     Deliberately NOT behind authentication. An <audio> element cannot send an
     Authorization header, so gating this would force every clip through a blob
@@ -89,13 +103,16 @@ async def get_audio(hash_: str, service: AudioServiceDep) -> Response:
     word, carries no personal data, and is addressed by a hash nobody can guess
     without already knowing the text.
     """
+    hash_ = filename.rsplit(".", 1)[0]
     found = await service.read(hash_)
     if not found:
-        raise ObjectNotFoundException(hash_, "Audio clip")
+        raise ObjectNotFoundException(filename, "Audio clip")
     data, clip = found
     return Response(
         content=data,
-        media_type="audio/mpeg",
+        # From the stored key, not the current setting: a clip written before a
+        # format switch is still the old format and must be labelled as such.
+        media_type=mime_for(clip.object_key),
         headers={
             **_IMMUTABLE,
             "Content-Length": str(len(data)),

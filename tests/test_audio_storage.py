@@ -7,6 +7,7 @@ covers the code path that talks to MinIO in production.
 """
 
 import socket
+from uuid import uuid4
 
 import pytest
 
@@ -25,14 +26,19 @@ def _free_port() -> int:
 
 @pytest.fixture
 def s3(monkeypatch):
-    """A throwaway S3 endpoint, with settings pointed at it."""
+    """A throwaway S3 endpoint, with settings pointed at it.
+
+    The bucket name is unique per test: moto keeps its backends in process-level
+    globals, so a fresh server still sees objects the previous test wrote, and a
+    listing would pick them up.
+    """
     port = _free_port()
     server = moto_server.ThreadedMotoServer(port=port, verbose=False)
     server.start()
     monkeypatch.setattr(settings.audio, "S3_ENDPOINT_URL", f"http://127.0.0.1:{port}")
     monkeypatch.setattr(settings.audio, "S3_ACCESS_KEY", "test")
     monkeypatch.setattr(settings.audio, "S3_SECRET_KEY", "test")
-    monkeypatch.setattr(settings.audio, "S3_BUCKET", "langup-test")
+    monkeypatch.setattr(settings.audio, "S3_BUCKET", f"langup-test-{uuid4().hex[:12]}")
     yield AudioStorage()
     server.stop()
 
@@ -68,3 +74,14 @@ async def test_sharded_keys_survive_the_round_trip(s3):
     await s3.put(key, b"ID3x")
     assert key == f"clips/{hash_[:2]}/{hash_}.mp3"
     assert await s3.get(key) == b"ID3x"
+
+
+async def test_list_keys_returns_what_was_stored(s3):
+    keys = [object_key(clip_hash(f"word {i}", "en", "M1")) for i in range(3)]
+    for key in keys:
+        await s3.put(key, b"ID3x")
+    assert sorted(await s3.list_keys()) == sorted(keys)
+
+
+async def test_listing_an_empty_bucket_is_not_an_error(s3):
+    assert await s3.list_keys() == []
