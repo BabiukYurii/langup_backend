@@ -35,28 +35,33 @@ from app.services.audio.service import AudioService
 from app.services.audio.storage import get_audio_storage
 
 
+def report(what: str, items: list[str], removed: int, delete: bool) -> None:
+    if not items:
+        return
+    print(f"{len(items)} {what}:")
+    for item in items[:10]:
+        print(f"  {item}")
+    if len(items) > 10:
+        print(f"  ... and {len(items) - 10} more")
+    print(f"  -> deleted {removed}" if delete else "  -> re-run with --delete to remove")
+
+
 async def main(delete: bool) -> int:
     engine = create_async_engine(settings.db.url, connect_args=settings.db.connect_args, pool_pre_ping=True)
     try:
         async with async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)() as session:
             service = AudioService(AudioClipRepository(session), get_audio_storage(), AIClient())
-            orphans, removed = await service.sweep_orphans(delete=delete)
+            # Stale rows first: dropping them turns their blobs into orphans,
+            # which the second pass then collects in the same run.
+            stale, stale_removed = await service.sweep_stale(delete=delete)
+            orphans, orphans_removed = await service.sweep_orphans(delete=delete)
     finally:
         await engine.dispose()
 
-    if not orphans:
-        print("no orphaned audio objects")
-        return 0
-
-    for key in orphans[:20]:
-        print(f"  {key}")
-    if len(orphans) > 20:
-        print(f"  ... and {len(orphans) - 20} more")
-
-    if delete:
-        print(f"\ndeleted {removed} of {len(orphans)} orphaned object(s)")
-    else:
-        print(f"\n{len(orphans)} orphaned object(s); re-run with --delete to remove them")
+    report("unreachable clip(s)", stale, stale_removed, delete)
+    report("orphaned object(s)", orphans, orphans_removed, delete)
+    if not stale and not orphans:
+        print("nothing to collect")
     return 0
 
 
