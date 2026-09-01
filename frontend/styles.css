@@ -1466,6 +1466,19 @@ a.btn {
 }
 /* A word in the dictionary is not clickable for a translation, but it is still
    playable — keep the pointer so that reads as interactive. */
+/* Common words: drawn as plain text on purpose — the page must not turn into a
+   wall of red — but tappable, because "take", "away" and "long" are ordinary
+   vocabulary that a search-engine stopword list happens to discard. The dotted
+   underline only appears on hover, so the affordance is discoverable without
+   marking up every second word. */
+.w--common {
+  cursor: pointer;
+}
+.w--common:hover,
+.w--common:focus-visible {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
 .w--known,
 .w--learning {
   cursor: pointer;

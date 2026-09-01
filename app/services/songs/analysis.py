@@ -301,6 +301,72 @@ _PHRASAL_VERBS = frozenset(
 )
 
 
+# Articles, per language. The one class of word there is no point offering:
+# they carry no meaning to look up, and a learner meets them in the first
+# lesson. Everything else a stopword list flags — "do", "take", "away",
+# "long", "still" — is ordinary vocabulary and stays offerable, just unmarked.
+#
+# Deliberately articles only, rather than the whole stopword list: those lists
+# are built for search engines, where the goal is discarding anything frequent.
+# That is the opposite of what a learner needs.
+_ARTICLES = frozenset(
+    {
+        # en
+        "a",
+        "an",
+        "the",
+        # de
+        "der",
+        "die",
+        "das",
+        "den",
+        "dem",
+        "des",
+        "ein",
+        "eine",
+        "einen",
+        "einem",
+        "eines",
+        "einer",
+        # es
+        "el",
+        "la",
+        "los",
+        "las",
+        "un",
+        "una",
+        "unos",
+        "unas",
+        "lo",
+        # fr
+        "le",
+        "les",
+        "du",
+        "de",
+        # it
+        "il",
+        "gli",
+        "i",
+        "uno",
+        "del",
+        "dello",
+        "della",
+        "dei",
+        "degli",
+        "delle",
+        # pt
+        "o",
+        "os",
+        "as",
+        "um",
+        "uma",
+        "uns",
+        "umas",
+    }
+)
+# uk and pl have no articles, so nothing is excluded there.
+
+
 @lru_cache(maxsize=16)
 def _stopwords(language: str) -> frozenset[str]:
     try:
@@ -321,11 +387,29 @@ def _chunks(line: str):
         yield line[idx:], False
 
 
-def _is_junk(surface: str, lemma: str, stops: frozenset[str]) -> bool:
+def _is_noise(surface: str, lemma: str) -> bool:
+    """Not vocabulary at all: too short, an interjection, or an article.
+
+    These are never offered — there is nothing to look up and nothing to learn.
+    """
     low = surface.lower()
     if " " in low:  # a merged phrasal verb is always worth learning
         return False
-    return len(surface) < _MIN_WORD_LEN or low in _INTERJECTIONS or low in stops or lemma in stops
+    return len(surface) < _MIN_WORD_LEN or low in _INTERJECTIONS or low in _ARTICLES or lemma.lower() in _ARTICLES
+
+
+def _is_common(surface: str, lemma: str, stops: frozenset[str]) -> bool:
+    """A word frequent enough not to flag, but still a word worth being able to
+    look up and save."""
+    low = surface.lower()
+    if " " in low:
+        return False
+    return low in stops or lemma in stops
+
+
+def _is_junk(surface: str, lemma: str, stops: frozenset[str]) -> bool:
+    """Excluded from the shared content-lemma set (see content_lemmas)."""
+    return _is_noise(surface, lemma) or _is_common(surface, lemma, stops)
 
 
 def _units(line: str, language: str):
@@ -383,6 +467,7 @@ def analyze_lyrics(
 
     known_lemmas    -> mastered words (green).
     learning_lemmas -> words in their vocabulary still being learned (amber).
+    common          -> too frequent to flag, but still a word (plain, clickable).
     Anything else that is a real word is unknown (red).
     """
     learning_lemmas = learning_lemmas or set()
@@ -396,12 +481,20 @@ def analyze_lyrics(
             if lemma is None:
                 tokens.append(AnalyzedToken(surface=surface, status="skip"))
                 continue
-            if _is_junk(surface, lemma, stops):
+            if _is_noise(surface, lemma):
                 tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="skip"))
+            # The vocabulary check comes before the frequency one: a common word
+            # the learner has actually saved should show as theirs, not be
+            # greyed out with the rest.
             elif lemma in known_lemmas:
                 tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="known"))
             elif lemma in learning_lemmas:
                 tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="learning"))
+            elif _is_common(surface, lemma, stops):
+                # Left unmarked — flagging every "take" and "away" would make
+                # the page a wall of red — but still offerable, because plenty
+                # of them are worth learning.
+                tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="common"))
             else:
                 tokens.append(AnalyzedToken(surface=surface, lemma=lemma, status="unknown"))
                 unknown.setdefault(lemma, raw_line.strip())

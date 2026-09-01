@@ -37,10 +37,14 @@ class AnalyzedToken(BaseModel):
     #   known    -> mastered word (render green)
     #   learning -> in the user's vocabulary but not mastered yet (render amber)
     #   unknown  -> a real word they don't have yet (render red, clickable)
-    #   skip     -> stopword / punctuation / whitespace (render plain)
+    #   common   -> too frequent to flag, but still a word (render plain,
+    #               clickable) — "take", "away", "long" are worth learning even
+    #               though a stopword list calls them noise
+    #   skip     -> punctuation, whitespace, interjections, articles (plain,
+    #               not clickable): nothing there to look up
     surface: str
     lemma: str | None = None
-    status: Literal["known", "learning", "unknown", "skip"]
+    status: Literal["known", "learning", "unknown", "common", "skip"]
 
 
 class AnalyzedLine(BaseModel):

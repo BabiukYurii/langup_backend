@@ -3,8 +3,10 @@
 // "Understand your playlist": import a Spotify link (parsed + analysed in the
 // background), browse saved playlists and their songs with per-song new-word
 // counts, open a song to read the lyrics with known words green, learning amber
-// and unknown red; tap a red word to translate it and add it (as known or to
-// learn). CFG/TOKENS/apiFetch/t from api.js / i18n.js.
+// and unknown red. Tapping a red word translates it and offers to add it; the
+// same works on plain words, which are only left unmarked because flagging
+// every "take" and "away" would bury the ones that matter.
+// CFG/TOKENS/apiFetch/t from api.js / i18n.js.
 const $ = (id) => document.getElementById(id);
 const show = (el) => el.classList.remove("hidden");
 const hide = (el) => el.classList.add("hidden");
@@ -241,6 +243,7 @@ function renderLyrics(data) {
     p.className = "lyrics__line";
     if (!line.tokens.length) p.innerHTML = "&nbsp;";
     for (const tok of line.tokens) {
+      // Punctuation, whitespace, interjections, articles: nothing to look up.
       if (tok.status === "skip") {
         p.appendChild(document.createTextNode(tok.surface));
         continue;
@@ -262,11 +265,16 @@ function renderLyrics(data) {
 }
 
 // Wire a word span to whatever tapping it should do, by status.
+//
+// "common" words behave exactly like unknown ones — translate, then keep or
+// learn. They are only drawn differently: flagging every "take" and "away" in
+// red would bury the words that actually need attention, but plenty of them
+// are still worth saving, so the offer has to be there.
 function bindWord(span, tok, line, language) {
-  const open =
-    span.classList.contains("w--unknown")
-      ? () => translateWord(tok, line, span, language)
-      : () => listenWord(tok, span, language);
+  const offerable = span.classList.contains("w--unknown") || span.classList.contains("w--common");
+  const open = offerable
+    ? () => translateWord(tok, line, span, language)
+    : () => listenWord(tok, span, language);
   span.tabIndex = 0;
   span.addEventListener("click", open);
   span.addEventListener("keydown", (e) => e.key === "Enter" && open());
