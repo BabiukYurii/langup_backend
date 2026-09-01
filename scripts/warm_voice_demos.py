@@ -18,31 +18,17 @@ Safe to re-run: anything already cached is skipped without touching the gateway.
 """
 
 import asyncio
-import json
 import sys
 import time
-from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core import settings
 from app.repositories.audio_clip import AudioClipRepository
 from app.services.ai.client import AIClient
+from app.services.audio.demos import demo_phrases
 from app.services.audio.service import AudioService
 from app.services.audio.storage import get_audio_storage
-
-DEMO_KEY = "settings.voice_demo"
-I18N_DIR = Path(__file__).resolve().parent.parent / "frontend" / "i18n"
-
-
-def demo_phrases() -> dict[str, str]:
-    """language -> the demo phrase the picker will actually speak."""
-    phrases = {}
-    for path in sorted(I18N_DIR.glob("*.json")):
-        text = json.loads(path.read_text(encoding="utf-8")).get(DEMO_KEY)
-        if text:
-            phrases[path.stem] = text
-    return phrases
 
 
 async def main() -> int:

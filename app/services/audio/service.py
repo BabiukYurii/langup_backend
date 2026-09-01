@@ -185,6 +185,46 @@ class AudioService:
             logger.info("Removed %d unreachable audio clip(s)", removed)
         return hashes, removed
 
+    async def sweep_unused_voices(
+        self,
+        in_use: set[tuple[str, str]],
+        exempt_texts: set[str] | None = None,
+        delete: bool = False,
+    ) -> tuple[list[str], int]:
+        """Clips in a (language, voice) nobody would be served any more.
+
+        This is what a voice change eventually leaves behind. Re-voicing itself
+        needs nothing: the voice is part of the cache key, so the next request
+        simply misses and re-synthesizes. The old clip is not wrong, just
+        unwanted — and only if NOBODY still uses that voice, because the cache
+        is shared across users and one learner switching says nothing about the
+        rest.
+
+        `exempt_texts` spares the picker's demo phrases, which exist in every
+        voice on purpose: any learner may audition any voice, so those are in
+        use by definition.
+
+        Returns (hashes, how many were removed).
+        """
+        exempt = exempt_texts or set()
+        rows, _ = await self.repo.get_many(page=1, limit=100_000)
+        unused = [r for r in rows if (r.language, r.voice) not in in_use and normalize_text(r.text) not in exempt]
+        hashes = [r.hash for r in unused]
+        if not delete:
+            return hashes, 0
+
+        removed = 0
+        for row in unused:
+            try:
+                await self.storage.delete(row.object_key)
+            except AudioStorageError:
+                logger.warning("Could not delete blob for unused %s", row.hash, exc_info=True)
+            await self.repo.delete_one(row)
+            removed += 1
+        if removed:
+            logger.info("Removed %d clip(s) in voices nobody uses", removed)
+        return hashes, removed
+
     async def _synthesize(self, text: str, language: str, voice: str | None) -> tuple[bytes, str]:
         try:
             return await self.ai.speak(text=text, language=language, voice=voice)

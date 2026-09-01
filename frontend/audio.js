@@ -49,6 +49,13 @@ function markButton(button, state) {
   button.classList.toggle("speak--playing", state === "playing");
 }
 
+// Drop the remembered URLs. Called when the learner changes voice: a request
+// that names no voice is resolved server-side from their profile, so the SAME
+// key would otherwise keep returning the clip in the voice they just left.
+function forgetAudioUrls() {
+  AUDIO_STATE.urls.clear();
+}
+
 async function resolveAudioUrl(text, language, voice) {
   const key = `${text}|${language}|${voice || ""}`;
   if (AUDIO_STATE.urls.has(key)) return AUDIO_STATE.urls.get(key);

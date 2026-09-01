@@ -9,8 +9,15 @@ already warmed, changing a language's default voice:
               nothing will ever look it up. Invisible to an orphan check,
               because the row does still point at its object.
 
-  ORPHANS     a blob no row points at. Removing a stale row turns its blob
-              into one of these, so the two passes run in that order.
+  UNUSED      a clip in a (language, voice) nobody would be served any more,
+              left behind when someone changed voice. Only swept when NO user
+              still uses that voice — the cache is shared, so one learner
+              switching says nothing about the rest. The picker's demo phrases
+              are spared: every voice is auditionable by anyone.
+
+  ORPHANS     a blob no row points at. Removing a row of either kind above
+              turns its blob into one of these, so the passes run in that
+              order.
 
 Reports by default and deletes nothing. Pass --delete to actually remove them:
 
@@ -31,8 +38,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core import settings
 from app.repositories.audio_clip import AudioClipRepository
 from app.services.ai.client import AIClient
+from app.services.audio.demos import demo_texts
 from app.services.audio.service import AudioService
 from app.services.audio.storage import get_audio_storage
+from app.services.audio.usage import voices_in_use
 
 
 def report(what: str, items: list[str], removed: int, delete: bool) -> None:
@@ -51,16 +60,20 @@ async def main(delete: bool) -> int:
     try:
         async with async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)() as session:
             service = AudioService(AudioClipRepository(session), get_audio_storage(), AIClient())
-            # Stale rows first: dropping them turns their blobs into orphans,
-            # which the second pass then collects in the same run.
+            # Row passes first: dropping a row turns its blob into an orphan,
+            # which the last pass then collects in the same run.
             stale, stale_removed = await service.sweep_stale(delete=delete)
+            unused, unused_removed = await service.sweep_unused_voices(
+                await voices_in_use(session), demo_texts(), delete=delete
+            )
             orphans, orphans_removed = await service.sweep_orphans(delete=delete)
     finally:
         await engine.dispose()
 
     report("unreachable clip(s)", stale, stale_removed, delete)
+    report("clip(s) in voices nobody uses", unused, unused_removed, delete)
     report("orphaned object(s)", orphans, orphans_removed, delete)
-    if not stale and not orphans:
+    if not stale and not unused and not orphans:
         print("nothing to collect")
     return 0
 

@@ -175,6 +175,10 @@ async function saveVoice(language, voice) {
   });
   if (!resp.ok) return toast(t("toast.save_fail"), "err");
   voiceState.selected = next;
+  // Anything already played on this page was resolved under the old voice, and
+  // those URLs are remembered by text alone — so they have to go, or the
+  // profile would keep speaking in the voice that was just replaced.
+  forgetAudioUrls();
   toast(t("toast.saved"));
 }
 
