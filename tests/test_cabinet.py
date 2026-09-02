@@ -127,3 +127,26 @@ async def test_an_old_stamp_still_serves_the_app(flutter_client):
 async def test_an_asset_path_cannot_escape_the_build(flutter_client):
     for path in ("../../.env", "..%2f..%2f.env"):
         assert (await flutter_client.get(f"/app/v/abc/{path}")).status_code == 404
+
+
+async def test_the_site_root_opens_the_app(flutter_client):
+    """The whole hostname is LangUp — the landing page is on the apex domain —
+    so the root has nothing else to be, and it is where people type first."""
+    resp = await flutter_client.get("/", follow_redirects=False)
+    assert resp.status_code in (302, 307)
+    assert resp.headers["location"] == "/app/"
+
+
+async def test_old_bookmarks_reach_the_matching_screen(flutter_client):
+    """The cabinet was a page per URL; the app routes on the fragment, which a
+    server never sees — so a saved link only survives if mapped here."""
+    for page, route in [("words", "/words"), ("practice", "/practice"), ("playlist", "/playlists")]:
+        resp = await flutter_client.get(f"/app/{page}.html", follow_redirects=False)
+        assert resp.status_code in (302, 307)
+        assert resp.headers["location"] == f"/app/#{route}"
+
+
+async def test_an_unmapped_bookmark_still_opens_the_app(flutter_client):
+    """Better the front door than a 404 for a page that no longer exists."""
+    resp = await flutter_client.get("/app/whatever.html", follow_redirects=False)
+    assert resp.headers["location"] == "/app/#/"

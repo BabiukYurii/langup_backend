@@ -6,7 +6,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.core import settings
@@ -57,6 +57,17 @@ _NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
 # so nothing cached under the old one can ever be served in its place.
 _IMMUTABLE_ASSET = {"Cache-Control": "public, max-age=31536000, immutable"}
 _SAFE_PAGE = re.compile(r"^[a-z0-9_-]+$")
+
+# Where each page of the old HTML cabinet lives in the app now. Anything not
+# listed goes to the root, which routes on to login or the dashboard.
+_LEGACY_ROUTES = {
+    "index": "/",
+    "words": "/words",
+    "practice": "/practice",
+    "review": "/review",
+    "dashboard": "/dashboard",
+    "playlist": "/playlists",
+}
 
 
 class _CabinetFiles(StaticFiles):
@@ -130,6 +141,20 @@ def _register_flutter_app(app: FastAPI) -> None:
     @app.get("/app/", include_in_schema=False)
     async def flutter_index() -> HTMLResponse:
         return index()
+
+    # The whole hostname belongs to LangUp — the landing page lives on the apex
+    # domain — so the root has nothing else to be. It answered 404 before, which
+    # is simply where people type first.
+    @app.get("/", include_in_schema=False)
+    async def flutter_root() -> RedirectResponse:
+        return RedirectResponse("/app/")
+
+    # The old cabinet was a page per URL; the app routes on the fragment, which
+    # a server never sees. So a bookmark can only be sent to the right screen by
+    # mapping it here — otherwise every saved link lands on a 404.
+    @app.get("/app/{name}.html", include_in_schema=False)
+    async def legacy_page(name: str) -> RedirectResponse:
+        return RedirectResponse(f"/app/#{_LEGACY_ROUTES.get(name, '/')}")
 
     @app.get("/app/v/{stamp}/{path:path}", include_in_schema=False)
     async def flutter_asset(stamp: str, path: str) -> Response:
