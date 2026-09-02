@@ -7,10 +7,25 @@ services:
     image: langup-app
     container_name: langup-api
     env_file: [.env]
-    # Serve the cabinet frontend from the repo so UI changes need only a git
-    # pull (StaticFiles reads from disk per request) — no rebuild.
+    # Serve the cabinet from disk so UI changes need only a file swap
+    # (StaticFiles reads per request) — no image rebuild.
     volumes:
       - ./frontend:/app/frontend:ro
+      # The Flutter web build, when there is one. Building it needs the Flutter
+      # SDK, which does not belong in this image, so the artifact is produced
+      # elsewhere and copied here:
+      #   cd langup_mobile
+      #   flutter build web --release --base-href=/app/ --dart-define=API_BASE_URL=/api
+      #   rsync -a --delete build/web/ <server>:~/Desktop/apps/langup_backend/webapp/
+      #
+      # The app is served the moment this directory holds an index.html, and the
+      # original HTML cabinet comes back the moment it does not — no code change
+      # either way. Empty by default, so nothing changes until it is filled.
+      #
+      # Assets are then served under /app/v/<hash of main.dart.js>/, so a new
+      # build is a new URL and no cache — browser or Cloudflare — can answer it
+      # with the old one. Nothing to purge after a deploy.
+      - ./webapp:/app/webapp:ro
     ports:
       - "${PORT}:${PORT}"
     depends_on:

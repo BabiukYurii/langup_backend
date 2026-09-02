@@ -20,3 +20,6 @@ logs/
 
 # uv
 # (uv.lock IS committed; the virtualenv is not)
+
+# Flutter web build, produced outside this repo and bind-mounted
+webapp/

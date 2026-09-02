@@ -1,11 +1,12 @@
 # FastAPI application factory: wires routers, middleware and exception handlers.
+import hashlib
 import re
 from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.core import settings
@@ -27,6 +28,16 @@ from app.routers import router
 
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
+# The Flutter web build, when one has been placed here. It is not in the repo:
+# building it needs the Flutter SDK, which has no business in this image, so the
+# artifact is produced elsewhere and bind-mounted (see docker-compose).
+#
+# Its presence is what selects the cabinet: with a build in place the Flutter
+# app is served, without one the original HTML cabinet is. That makes the switch
+# — and the way back — a matter of what is on disk, with no code change and no
+# redeploy of the API.
+_WEBAPP_DIR = Path(__file__).resolve().parent.parent / "webapp"
+
 
 def _add_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ObjectNotFoundException, handlers.handle_object_not_found)
@@ -42,6 +53,9 @@ def _add_handlers(app: FastAPI) -> None:
 
 
 _NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
+# Safe only because the URL carries a build stamp: a new build is a new path,
+# so nothing cached under the old one can ever be served in its place.
+_IMMUTABLE_ASSET = {"Cache-Control": "public, max-age=31536000, immutable"}
 _SAFE_PAGE = re.compile(r"^[a-z0-9_-]+$")
 
 
@@ -66,6 +80,64 @@ def _asset_version() -> str:
         default=0.0,
     )
     return f"{int(newest):x}"
+
+
+def _build_stamp() -> str:
+    """A short id that changes whenever the build does.
+
+    Content, not timestamps: the build is copied onto the server with rsync,
+    which preserves mtimes, so a file that did not change keeps its old one —
+    and a file that did would otherwise have to be noticed by clock alone.
+    """
+    entry = _WEBAPP_DIR / "main.dart.js"
+    if not entry.is_file():
+        return "0"
+    digest = hashlib.sha256()
+    with entry.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()[:12]
+
+
+def _register_flutter_app(app: FastAPI) -> None:
+    """Serve the Flutter web build at /app, with every asset URL versioned.
+
+    Flutter emits `main.dart.js` under a fixed name with no version in it, so a
+    deploy changes what that URL means without changing the URL — exactly what
+    a cache is entitled to ignore. Cloudflare makes that concrete: it rewrites
+    our `no-cache` into its own four-hour browser TTL, so users would keep
+    running yesterday's app for hours.
+
+    So assets are served under /app/v/<stamp>/, and the stamp moves with the
+    build. A deploy produces URLs nothing has ever seen, which no cache can
+    answer stale — and precisely because of that, those URLs are then safe to
+    mark immutable, so a returning user re-downloads nothing.
+
+    Only index.html is uncached, and it is ~2 KB carrying the current stamp.
+
+    An unknown stamp still serves the current files rather than 404-ing: a
+    browser holding an older index must get a working app, not a blank page.
+    """
+
+    def index() -> HTMLResponse:
+        html = (_WEBAPP_DIR / "index.html").read_text(encoding="utf-8")
+        # Flutter resolves every asset against <base>, so redirecting that one
+        # tag moves the whole app onto the versioned path.
+        html = html.replace('<base href="/app/">', f'<base href="/app/v/{_build_stamp()}/">')
+        return HTMLResponse(html, headers=_NO_CACHE)
+
+    @app.get("/app", include_in_schema=False)
+    @app.get("/app/", include_in_schema=False)
+    async def flutter_index() -> HTMLResponse:
+        return index()
+
+    @app.get("/app/v/{stamp}/{path:path}", include_in_schema=False)
+    async def flutter_asset(stamp: str, path: str) -> Response:
+        target = (_WEBAPP_DIR / path).resolve()
+        # Keep the traversal inside the build directory: `path` is user input.
+        if not target.is_relative_to(_WEBAPP_DIR.resolve()) or not target.is_file():
+            raise ObjectNotFoundException(path, "Asset")
+        return FileResponse(target, headers=_IMMUTABLE_ASSET)
 
 
 def _register_cabinet(app: FastAPI) -> None:
@@ -106,8 +178,11 @@ def create_app() -> FastAPI:
     app.include_router(router)
     _add_handlers(app)
 
-    # Serve the small profile frontend at /app (same origin as the API).
-    if _FRONTEND_DIR.is_dir():
+    # Serve the cabinet at /app (same origin as the API, so no CORS and no
+    # second deployment). The Flutter build wins when it is present.
+    if (_WEBAPP_DIR / "index.html").is_file():
+        _register_flutter_app(app)
+    elif _FRONTEND_DIR.is_dir():
         _register_cabinet(app)
 
     return app
