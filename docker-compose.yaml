@@ -18,6 +18,12 @@ services:
       #   flutter build web --release --base-href=/app/ --dart-define=API_BASE_URL=/api
       #   rsync -a --delete build/web/ <server>:~/Desktop/apps/langup_backend/webapp/
       #
+      # Replace the CONTENTS, never the directory. A bind mount is bound to the
+      # inode, so `rm -rf webapp && mkdir webapp` leaves the container looking
+      # at the deleted one — the files are on the host, /app/webapp is empty,
+      # and every request 500s until the container is recreated. rsync --delete
+      # above is safe precisely because it clears the contents in place.
+      #
       # The app is served the moment this directory holds an index.html, and the
       # original HTML cabinet comes back the moment it does not — no code change
       # either way. Empty by default, so nothing changes until it is filled.
