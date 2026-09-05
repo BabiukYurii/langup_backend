@@ -89,41 +89,63 @@ def context_lines(analyzed) -> list[tuple[str, str]]:
     return pairs
 
 
+async def _someone_is_waiting() -> bool:
+    """Whether a learner is currently asking the gateway for something."""
+    from app.services.learning.model_busy import model_is_busy
+
+    return await model_is_busy()
+
+
 async def _stop_reason(words_done: int, cap: int, started: float, budget: float) -> str | None:
     """Why this run should stop before the next word, or None to carry on.
 
     Checked between words rather than inside one: an inference cannot be
     interrupted, so one word is the finest grain of politeness available.
     """
-    from app.services.learning.model_busy import model_is_busy
-
     if words_done >= cap:
         return "capped"  # one long song must not take the whole night
     if time.monotonic() - started >= budget:
         return "budget"  # keep every task short, resume on the next tick
-    if await model_is_busy():
+    if await _someone_is_waiting():
         return "yielded"  # someone is waiting: their tap beats our night work
     return None
+
+
+# Words handed to the TTS gateway between two politeness checks. Small enough
+# that a learner never waits long for the batch in flight to finish, large
+# enough that the check is not most of the work.
+_CLIP_BATCH = 10
 
 
 async def _warm_clips_for(session: AsyncSession, candidate, words: list[str], warm_audio) -> int:
     """Speak the song's words in every voice its listeners actually chose.
 
-    Audio is cheap next to inference (about a second against tens), shared by
-    everyone on that voice, and never touches the model — so it runs to the end
-    regardless of what the translations spent. Warming a voice nobody selected
-    would cache clips no request will ever look up, hence the query; the
-    learners who never touched the setting are covered by the language default.
+    Synthesis is not inference, but it goes to the SAME gateway on the SAME
+    machine — so it competes for the box a learner is waiting on just as surely,
+    and gets the same treatment: batched, with a check between batches. An
+    earlier version let this phase run unchecked on the theory that it "never
+    touches the model"; the first live song spent two of its three and a half
+    minutes here, unthrottled.
+
+    Deduplicated by word, because a clip is keyed by (text, language, voice) and
+    knows nothing about lines: a word appearing in five lines is one clip, not
+    five lookups. Warming a voice nobody selected would cache clips no request
+    ever looks up, hence the query; learners who never touched the setting are
+    covered by the language default.
     """
     from app.services.songs.warm_scheduler import voices_for_song
 
     if warm_audio is None or not settings.audio.AUDIO_ENABLED:
         return 0
+    unique = list(dict.fromkeys(words))  # reading order, one entry per word
     voices = await voices_for_song(session, candidate.song_uuid)
     default = settings.audio.voice_map.get(candidate.source_language.lower()[:2])
     warmed = 0
     for voice in {*voices, default} - {None}:
-        warmed += await warm_audio(words, candidate.source_language, voice)
+        for start in range(0, len(unique), _CLIP_BATCH):
+            if await _someone_is_waiting():
+                return warmed
+            warmed += await warm_audio(unique[start : start + _CLIP_BATCH], candidate.source_language, voice)
     return warmed
 
 

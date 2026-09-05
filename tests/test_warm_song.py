@@ -220,3 +220,46 @@ async def test_a_word_the_model_refuses_does_not_fail_the_song(sessionmaker):
 
     assert result.words_translated > 0
     assert result.completed is False  # left open, so the word is retried later
+
+
+# --- audio shares the gateway, so it is throttled too ----------------------
+
+
+async def test_a_word_in_many_lines_is_spoken_once(sessionmaker):
+    """A clip is keyed by (text, language, voice) and knows nothing about lines,
+    so repeating the word only repeats the lookup."""
+    spoken: list[str] = []
+
+    async def fake_audio(words, language, voice):
+        spoken.extend(words)
+        return len(words)
+
+    async with sessionmaker() as session:
+        await warm_tasks.warm_song(session, _candidate(), _CountingGen(), warm_audio=fake_audio)
+
+    # Exact strings, not case-folded: clip_hash keeps case on purpose, so
+    # "Wandering" opening a line really is a different clip from "wandering".
+    assert len(spoken) == len(set(spoken))
+    assert any(w.lower() == "wandering" for w in spoken)  # and it is in there
+
+
+async def test_audio_stops_when_a_learner_starts_waiting(sessionmaker, monkeypatch):
+    """Synthesis is not inference, but it goes to the same gateway on the same
+    machine — so it must yield like everything else."""
+    calls = {"n": 0}
+
+    async def fake_audio(words, language, voice):
+        calls["n"] += 1
+        return len(words)
+
+    async def busy():
+        return True
+
+    async with sessionmaker() as session:
+        # Translate first while the gateway is free, then have a learner arrive.
+        await warm_tasks.warm_song(session, _candidate(), _CountingGen())
+        monkeypatch.setattr("app.services.learning.model_busy.model_is_busy", busy)
+        result = await warm_tasks.warm_song(session, _candidate(), _CountingGen(), warm_audio=fake_audio)
+
+    assert calls["n"] == 0
+    assert result.clips_warmed == 0
