@@ -29,6 +29,7 @@ from app.models.webhook_event import WebhookEvent
 from app.models.usage_limit import UsageLimit
 from app.models.playlist import Playlist, PlaylistSong, Song
 from app.models.audio_clip import AudioClip
+from app.models.song_warm_state import SongWarmState
 from app.models.word_translation import WordTranslation
 
 __all__ = [
@@ -38,5 +39,5 @@ __all__ = [
     "LearningSession", "LearningPath", "ReviewSchedule", "AIGeneration",
     "Plan", "Subscription", "Payment", "Invoice", "PromoCode",
     "WebhookEvent", "UsageLimit", "Playlist", "PlaylistSong", "Song", "AudioClip",
-    "WordTranslation",
+    "WordTranslation", "SongWarmState",
 ]

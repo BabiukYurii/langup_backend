@@ -13,6 +13,7 @@ from app.core.config.payments import PaymentsConfig
 from app.core.config.playlists import PlaylistConfig
 from app.core.config.rate_limit import RateLimitConfig
 from app.core.config.redis import RedisConfig
+from app.core.config.warm import WarmConfig
 
 __all__ = ["Settings", "settings"]
 
@@ -35,6 +36,7 @@ class Settings(BaseConfig):
     email: EmailConfig = EmailConfig()
     playlists: PlaylistConfig = PlaylistConfig()
     audio: AudioConfig = AudioConfig()
+    warm: WarmConfig = WarmConfig()
 
 
 settings = Settings()

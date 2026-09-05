@@ -2,8 +2,10 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security.rbac import ADMIN_ROLES, require_roles
+from app.database.postgres import get_session
 from app.schemas.admin import (
     AdminExerciseOut,
     AdminExerciseUpdate,
@@ -19,6 +21,7 @@ from app.schemas.dictionary import DictionaryImportRequest, DictionaryImportResu
 from app.schemas.pagination import Page
 from app.schemas.user import UserOut
 from app.services.admin_service import AdminService, get_admin_service
+from app.services.songs.warm_scheduler import WarmStats, warm_stats
 from app.services.vocabulary.dictionary_service import (
     DictionaryImportService,
     content_lines,
@@ -30,6 +33,9 @@ from app.services.vocabulary.dictionary_service import (
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 AdminUserDep = Annotated[UserOut, Depends(require_roles(*ADMIN_ROLES))]
+# The warm stats are plain aggregate queries with no service behind them, so the
+# session is taken directly rather than wrapping two counts in a class.
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 AdminServiceDep = Annotated[AdminService, Depends(get_admin_service)]
 
 
@@ -91,6 +97,16 @@ async def add_vocabulary(
 async def remove_vocabulary(user_id: int, user_word_uuid: UUID, admin: AdminUserDep, service: AdminServiceDep) -> None:
     """Remove a word from a user's vocabulary (leaves the shared dictionary)."""
     await service.remove_vocabulary(user_id, user_word_uuid)
+
+
+@router.get("/warm", response_model=WarmStats)
+async def warm_progress(admin: AdminUserDep, session: SessionDep) -> WarmStats:
+    """How far the playlist warmer has got, and how much is still queued.
+
+    Without this the feature is invisible: it spends the model at night and
+    nobody can tell whether the glosses it leaves are ever read.
+    """
+    return await warm_stats(session)
 
 
 @router.get("/words", response_model=Page[AdminWordOut])

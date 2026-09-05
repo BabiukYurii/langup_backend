@@ -166,11 +166,14 @@ class SongService:
         """
         from app.core.exc import AIProviderError, AIResponseValidationError
         from app.services.learning.exercise_service import translation_language_for
+        from app.services.learning.model_busy import mark_user_work
 
         target = await translation_language_for(self.session, user_id)
         cached = await self.translations.get_cached(word, language, target, line)
         if cached is not None:
             return cached
+        # A miss means someone is watching a spinner: claim the model.
+        await mark_user_work()
         try:
             result = await self.generator.generate_translation(
                 TranslationParams(word=word, sentence=line or None, source_language=language, target_language=target)
@@ -193,6 +196,9 @@ class SongService:
         if " " in surface.strip():
             return surface.strip().lower()
         if settings.exercises.DETECT_LANGUAGE_ON_CAPTURE:
+            from app.services.learning.model_busy import mark_user_work
+
+            await mark_user_work()
             try:
                 result = await self.generator.analyze_word(surface)
                 if result.lemma:

@@ -94,6 +94,22 @@ services:
       db: { condition: service_healthy }
     restart: unless-stopped
 
+  # Warming rides in its own worker on its own queue, so a song nobody has
+  # opened yet can never sit in front of a learner's exercise refill. Both
+  # workers still share one model — that contention is settled in Redis, see
+  # services/learning/model_busy.
+  celery_warm:
+    image: langup-app
+    container_name: langup-celery-warm
+    env_file: [.env]
+    entrypoint:
+      ["uv", "run", "celery", "-A", "app.celery.config:celery_app", "worker",
+       "--loglevel=info", "--concurrency=1", "--queues=warm"]
+    depends_on:
+      redis: { condition: service_healthy }
+      db: { condition: service_healthy }
+    restart: unless-stopped
+
   celery_beat:
     image: langup-app
     container_name: langup-celery-beat

@@ -74,8 +74,11 @@ def translate_word(user_id: int, word_uuid: str) -> int:
     async def job(session: AsyncSession) -> int:
         from app.repositories.word import WordRepository
         from app.services.learning.exercise_service import translation_language_for
+        from app.services.learning.model_busy import mark_user_work
         from app.services.vocabulary.translation_service import TranslationService
 
+        # A learner is waiting at the end of this: hold the warmer off.
+        await mark_user_work()
         word = await WordRepository(session).get_one(uuid=UUID(word_uuid))
         if not word:
             return 0
@@ -94,6 +97,11 @@ def refill_pool(user_id: int, exercise_type: str | None = None, language: str | 
     """Top a user's exercise pool back up; returns how many were added."""
 
     async def job(session: AsyncSession) -> int:
+        from app.services.learning.model_busy import mark_user_work
+
+        # Several inferences back to back — precisely what warming must not
+        # queue behind, and must not get in front of.
+        await mark_user_work()
         wanted = ExerciseType(exercise_type) if exercise_type else None
         created = await _pool_service(session).replenish(user_id, wanted, language)
         logger.info("Refilled pool for user %s: %d exercise(s)", user_id, created)

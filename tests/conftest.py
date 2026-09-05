@@ -14,6 +14,7 @@ from app.models.exercise_attempt import ExerciseAttempt
 from app.models.payment import Payment
 from app.models.plan import Plan
 from app.models.playlist import Playlist, PlaylistSong, Song
+from app.models.song_warm_state import SongWarmState
 from app.models.source import Source
 from app.models.subscription import Subscription
 from app.models.usage_limit import UsageLimit
@@ -48,6 +49,7 @@ TEST_TABLES = [
     PlaylistSong.__table__,
     AudioClip.__table__,
     WordTranslation.__table__,
+    SongWarmState.__table__,
 ]
 
 
