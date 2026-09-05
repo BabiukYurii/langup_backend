@@ -120,6 +120,60 @@ async def test_get_is_cached_forever_by_the_browser(audio_app, client, headers):
     assert "max-age=31536000" in cache_control
 
 
+async def _stored_clip(client, headers) -> tuple[str, bytes]:
+    """A synthesized clip's hash and its full body, for the range tests below."""
+    created = await client.post("/api/audio", json={"text": "apple", "language": "en"}, headers=headers)
+    hash_ = created.json()["hash"]
+    body = (await client.get(f"/api/audio/{hash_}.mp3")).content
+    return hash_, body
+
+
+async def test_get_advertises_that_it_serves_ranges(audio_app, client, headers):
+    """AVPlayer decides how to fetch from this header before it asks for anything."""
+    hash_, _ = await _stored_clip(client, headers)
+    resp = await client.get(f"/api/audio/{hash_}.mp3")
+    assert resp.headers["accept-ranges"] == "bytes"
+
+
+async def test_get_answers_a_byte_range_with_206(audio_app, client, headers):
+    """iOS opens every clip with `bytes=0-1`; a plain 200 there is what broke playback."""
+    hash_, full = await _stored_clip(client, headers)
+
+    resp = await client.get(f"/api/audio/{hash_}.mp3", headers={"Range": "bytes=0-1"})
+    assert resp.status_code == 206
+    assert resp.content == full[:2]
+    assert resp.headers["content-range"] == f"bytes 0-1/{len(full)}"
+    assert resp.headers["content-length"] == "2"
+
+
+async def test_get_serves_an_open_ended_range_to_the_end(audio_app, client, headers):
+    hash_, full = await _stored_clip(client, headers)
+
+    resp = await client.get(f"/api/audio/{hash_}.mp3", headers={"Range": "bytes=2-"})
+    assert resp.status_code == 206
+    assert resp.content == full[2:]
+    assert resp.headers["content-range"] == f"bytes 2-{len(full) - 1}/{len(full)}"
+
+
+async def test_get_serves_a_suffix_range(audio_app, client, headers):
+    """`bytes=-N` means the LAST n bytes — a player reading trailing metadata."""
+    hash_, full = await _stored_clip(client, headers)
+
+    resp = await client.get(f"/api/audio/{hash_}.mp3", headers={"Range": "bytes=-3"})
+    assert resp.status_code == 206
+    assert resp.content == full[-3:]
+
+
+async def test_get_falls_back_to_the_whole_clip_for_a_range_it_cannot_serve(audio_app, client, headers):
+    """Answering in full is always valid, so an odd range must never be an error."""
+    hash_, full = await _stored_clip(client, headers)
+
+    for header in ("bytes=999999-", "bytes=0-1,4-5", "chunks=0-1", "nonsense"):
+        resp = await client.get(f"/api/audio/{hash_}.mp3", headers={"Range": header})
+        assert resp.status_code == 200, header
+        assert resp.content == full, header
+
+
 async def test_get_of_an_unknown_hash_is_404(audio_app, client):
     assert (await client.get(f"/api/audio/{'0' * 64}.mp3")).status_code == 404
 
