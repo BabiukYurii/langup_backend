@@ -22,6 +22,7 @@ from app.models.user_word import UserWord
 from app.models.webhook_event import WebhookEvent
 from app.models.word import Word
 from app.models.word_context import WordContext
+from app.models.word_translation import WordTranslation
 
 # Tables the test suite needs (created on the in-memory sqlite engine).
 # Order matters for FKs: sources before word_contexts; exercises before attempts.
@@ -46,6 +47,7 @@ TEST_TABLES = [
     Playlist.__table__,
     PlaylistSong.__table__,
     AudioClip.__table__,
+    WordTranslation.__table__,
 ]
 
 

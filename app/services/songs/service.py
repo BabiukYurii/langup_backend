@@ -19,6 +19,7 @@ from app.repositories.playlist import PlaylistRepository, PlaylistSongRepository
 from app.repositories.user import UserRepository
 from app.repositories.user_word import UserWordRepository
 from app.repositories.word import WordRepository
+from app.repositories.word_translation import WordTranslationRepository
 from app.schemas.ai import TranslationParams
 from app.schemas.playlist import (
     AnalyzedLyrics,
@@ -51,6 +52,7 @@ class SongService:
         self.words = WordRepository(session)
         self.playlists = PlaylistRepository(session)
         self.links = PlaylistSongRepository(session)
+        self.translations = WordTranslationRepository(session)
         self.generator = generator
 
     # --- saved playlists ---------------------------------------------------
@@ -155,11 +157,20 @@ class SongService:
         `word` is the surface form as it appears in the lyrics — deliberately not
         our offline lemma, which can mangle a word ("straight" -> "stretch") and
         make the model translate something the learner never saw.
+
+        Read through a shared cache. The answer turns on the word, the line and
+        the two languages and never on who asked, so the first learner to tap a
+        word pays the model and everyone after them reads a row. On one CPU that
+        is the difference between a chorus costing twenty inferences and one —
+        and it is what lets the same glosses be filled in ahead of time.
         """
         from app.core.exc import AIProviderError, AIResponseValidationError
         from app.services.learning.exercise_service import translation_language_for
 
         target = await translation_language_for(self.session, user_id)
+        cached = await self.translations.get_cached(word, language, target, line)
+        if cached is not None:
+            return cached
         try:
             result = await self.generator.generate_translation(
                 TranslationParams(word=word, sentence=line or None, source_language=language, target_language=target)
@@ -167,6 +178,8 @@ class SongService:
         except (AIProviderError, AIResponseValidationError) as e:
             logger.warning("Song word translation failed for %r: %s: %s", word, type(e).__name__, e)
             return None
+        if result.translation:
+            await self.translations.remember(word, language, target, line, result.translation)
         return result.translation
 
     async def _dictionary_form(self, surface: str, language: str) -> str:
