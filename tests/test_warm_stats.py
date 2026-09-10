@@ -99,6 +99,7 @@ async def test_an_admin_sees_the_progress(client, session):
     assert set(body) == {
         "pairs_completed",
         "pairs_pending",
+        "pairs_given_up",
         "words_warmed",
         "translations_cached",
         "last_attempt",

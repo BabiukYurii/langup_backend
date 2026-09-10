@@ -76,7 +76,20 @@ async def next_candidate(session: AsyncSession) -> WarmCandidate | None:
         .where(Song.language.isnot(None))
         # Nobody needs English glossed into English.
         .where(func.lower(Song.language) != target)
-        .where(or_(SongWarmState.completed_at.is_(None), SongWarmState.completed_at < stale_before))
+        # Still worth picking: never finished and not yet given up on, or
+        # finished so long ago it is worth re-checking. A pair that has been
+        # picked WARM_MAX_ATTEMPTS times without completing drops out here —
+        # without that, one song the model cannot finish blocks every song at a
+        # later position, which is exactly what happened in production.
+        .where(
+            or_(
+                SongWarmState.completed_at < stale_before,
+                and_(
+                    SongWarmState.completed_at.is_(None),
+                    func.coalesce(SongWarmState.fruitless_attempts, 0) < settings.warm.WARM_MAX_FRUITLESS_ATTEMPTS,
+                ),
+            )
+        )
         .order_by(
             # 1. the round: every first song before any second song
             PlaylistSong.position.asc(),
@@ -138,6 +151,9 @@ class WarmStats(BaseModel):
 
     pairs_completed: int
     pairs_pending: int
+    # Picked too many times without finishing, so no longer re-checked. A
+    # number climbing here means songs the model keeps refusing.
+    pairs_given_up: int
     words_warmed: int
     translations_cached: int
     last_attempt: datetime | None
@@ -154,6 +170,12 @@ async def warm_stats(session: AsyncSession) -> WarmStats:
 
     completed = await session.scalar(
         select(func.count()).select_from(SongWarmState).where(SongWarmState.completed_at.isnot(None))
+    )
+    given_up = await session.scalar(
+        select(func.count())
+        .select_from(SongWarmState)
+        .where(SongWarmState.completed_at.is_(None))
+        .where(SongWarmState.fruitless_attempts >= settings.warm.WARM_MAX_FRUITLESS_ATTEMPTS)
     )
     words = await session.scalar(select(func.coalesce(func.sum(SongWarmState.words_warmed), 0)))
     cached = await session.scalar(select(func.count()).select_from(WordTranslation))
@@ -178,12 +200,21 @@ async def warm_stats(session: AsyncSession) -> WarmStats:
         .where(Song.lyrics_found.is_(True))
         .where(Song.language.isnot(None))
         .where(func.lower(Song.language) != target)
-        .where(or_(SongWarmState.completed_at.is_(None), SongWarmState.completed_at < stale_before))
+        .where(
+            or_(
+                SongWarmState.completed_at < stale_before,
+                and_(
+                    SongWarmState.completed_at.is_(None),
+                    func.coalesce(SongWarmState.fruitless_attempts, 0) < settings.warm.WARM_MAX_FRUITLESS_ATTEMPTS,
+                ),
+            )
+        )
     )
 
     return WarmStats(
         pairs_completed=completed or 0,
         pairs_pending=pending or 0,
+        pairs_given_up=given_up or 0,
         words_warmed=words or 0,
         translations_cached=cached or 0,
         last_attempt=last,

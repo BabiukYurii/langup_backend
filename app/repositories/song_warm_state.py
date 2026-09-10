@@ -21,7 +21,33 @@ class SongWarmStateRepository(BaseRepository[SongWarmState]):
         the rotation on, or one unwarmable song would be chosen forever.
         """
         state = await self.get_or_create(song_uuid, target_language)
-        return await self.update_one(state, {"attempted_at": datetime.now(UTC).replace(tzinfo=None)})
+        return await self.update_one(
+            state,
+            {
+                "attempted_at": datetime.now(UTC).replace(tzinfo=None),
+                # Counted here, before the work, for the same reason the
+                # timestamp is: a run that dies must still count against the
+                # pair, or a song that crashes the worker would be immortal.
+                # A run that goes on to translate something clears it again.
+                "fruitless_attempts": (state.fruitless_attempts or 0) + 1,
+            },
+        )
+
+    async def record_progress(self, song_uuid: UUID, target_language: str, words_warmed: int) -> SongWarmState:
+        """Bank what an unfinished run managed, and clear the fruitless count.
+
+        This is what keeps a long song alive: it may need several runs to get
+        through its words, and as long as each one moves it forward it never
+        looks like a pair worth giving up on.
+        """
+        state = await self.get_or_create(song_uuid, target_language)
+        return await self.update_one(
+            state,
+            {
+                "words_warmed": (state.words_warmed or 0) + words_warmed,
+                "fruitless_attempts": 0,
+            },
+        )
 
     async def mark_completed(self, song_uuid: UUID, target_language: str, words_warmed: int = 0) -> SongWarmState:
         """Stamp a pair as fully warmed, so it stops being fetched."""
@@ -33,5 +59,8 @@ class SongWarmStateRepository(BaseRepository[SongWarmState]):
                 "attempted_at": now,
                 "completed_at": now,
                 "words_warmed": (state.words_warmed or 0) + words_warmed,
+                # Finishing wipes the slate: if this pair is ever re-checked
+                # after WARM_RECHECK_DAYS it starts with a full set of tries.
+                "fruitless_attempts": 0,
             },
         )

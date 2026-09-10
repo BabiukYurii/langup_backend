@@ -24,6 +24,12 @@ class SongWarmState(Base, UUIDMixin, TimestampMixin):
     song_uuid = Column(UUIDType, ForeignKey("songs.uuid", ondelete="CASCADE"), index=True, nullable=False)
     target_language = Column(String(8), nullable=False, index=True)
     attempted_at = Column(DateTime, nullable=True)
+    # Runs IN A ROW that translated nothing. Any run that manages even one word
+    # resets it, so a long song working through its words never accumulates —
+    # only a pair going nowhere does. Past WARM_MAX_FRUITLESS_ATTEMPTS it leaves
+    # the rotation, so one song that can never finish cannot starve every song
+    # behind it. See the config note for what that cost in production.
+    fruitless_attempts = Column(Integer, nullable=False, server_default="0")
     completed_at = Column(DateTime, nullable=True, index=True)
     # Cumulative, for the admin view: is this feature earning its electricity?
     words_warmed = Column(Integer, nullable=False, server_default="0")

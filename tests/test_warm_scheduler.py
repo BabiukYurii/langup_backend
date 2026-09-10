@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.core import settings
 from app.models import Playlist, PlaylistSong, Song, User
 from app.repositories.song_warm_state import SongWarmStateRepository
 from app.services.songs.warm_scheduler import next_candidate, voices_for_song
@@ -173,3 +174,106 @@ async def test_only_voices_someone_actually_chose_are_collected(sessionmaker):
         await session.commit()
 
         assert await voices_for_song(session, song.uuid) == [chosen]
+
+
+# --- the ceiling that stops one song starving the rest ----------------------
+
+
+async def test_a_pair_that_never_finishes_is_eventually_given_up_on(sessionmaker):
+    async with sessionmaker() as session:
+        user = await _user(session, "ceiling@x.io")
+        song = await _song(session, "Unfinishable")
+        await _playlist(session, user, [song])
+        await session.commit()
+
+        states = SongWarmStateRepository(session)
+        for _ in range(settings.warm.WARM_MAX_FRUITLESS_ATTEMPTS):
+            candidate = await next_candidate(session)
+            assert candidate is not None
+            await states.mark_attempted(candidate.song_uuid, candidate.target_language)
+
+        assert await next_candidate(session) is None  # out of the rotation
+
+
+async def test_a_stuck_song_does_not_starve_a_later_position(sessionmaker):
+    """The bug that froze production for five days.
+
+    Rotation goes by playlist position, so a pair at position 1 that can never
+    complete — a lyric with a proper noun the model refuses — kept every song at
+    position 2 and beyond from ever being looked at.
+    """
+    async with sessionmaker() as session:
+        user = await _user(session, "starved@x.io")
+        stuck = await _song(session, "Stuck")
+        later = await _song(session, "Later")
+        await _playlist(session, user, [stuck, later])  # positions 0 and 1
+        await session.commit()
+
+        states = SongWarmStateRepository(session)
+        # The song at position 0 is picked over and over and never completes.
+        for _ in range(settings.warm.WARM_MAX_FRUITLESS_ATTEMPTS):
+            candidate = await next_candidate(session)
+            assert candidate is not None
+            await states.mark_attempted(candidate.song_uuid, candidate.target_language)
+
+        # Once it is given up on, the rotation finally reaches position 1.
+        nxt = await next_candidate(session)
+        assert nxt is not None, "the later position must not be starved"
+        assert nxt.title == "Later"
+
+
+async def test_finishing_restores_a_full_set_of_tries(sessionmaker):
+    """A pair re-checked after WARM_RECHECK_DAYS must not inherit old attempts."""
+    async with sessionmaker() as session:
+        user = await _user(session, "reset@x.io")
+        song = await _song(session, "Done")
+        await _playlist(session, user, [song])
+        await session.commit()
+
+        states = SongWarmStateRepository(session)
+        await states.mark_attempted(song.uuid, "uk")
+        await states.mark_attempted(song.uuid, "uk")
+        state = await states.mark_completed(song.uuid, "uk")
+
+        assert state.fruitless_attempts == 0
+
+
+async def test_attempts_are_counted_before_the_work(sessionmaker):
+    """A run that dies must still count, or a crashing song would be immortal."""
+    async with sessionmaker() as session:
+        user = await _user(session, "counted@x.io")
+        song = await _song(session, "Counted")
+        await _playlist(session, user, [song])
+        await session.commit()
+
+        states = SongWarmStateRepository(session)
+        # Read the count out at once: both calls return the SAME ORM object,
+        # so holding on to it would show only the final value.
+        first = (await states.mark_attempted(song.uuid, "uk")).fruitless_attempts
+        second = (await states.mark_attempted(song.uuid, "uk")).fruitless_attempts
+
+        assert (first, second) == (1, 2)
+
+
+async def test_a_long_song_making_progress_is_never_given_up_on(sessionmaker):
+    """The ceiling counts runs that achieved NOTHING, in a row.
+
+    A song of 150 words needs several runs to get through them at 40 a run, and
+    with a ceiling of two a total count would retire it long before it finished.
+    Any run that translates even one word clears the count.
+    """
+    async with sessionmaker() as session:
+        user = await _user(session, "long-song@x.io")
+        song = await _song(session, "Long")
+        await _playlist(session, user, [song])
+        await session.commit()
+
+        states = SongWarmStateRepository(session)
+        # Far more runs than the ceiling, each one moving the song forward.
+        for _ in range(settings.warm.WARM_MAX_FRUITLESS_ATTEMPTS * 3):
+            candidate = await next_candidate(session)
+            assert candidate is not None, "a song still making progress must stay in the rotation"
+            await states.mark_attempted(candidate.song_uuid, candidate.target_language)
+            await states.record_progress(candidate.song_uuid, candidate.target_language, words_warmed=40)
+
+        assert await next_candidate(session) is not None

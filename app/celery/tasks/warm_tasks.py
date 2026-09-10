@@ -257,8 +257,9 @@ async def run_tick() -> WarmResult:
         if result.completed:
             await states.mark_completed(candidate.song_uuid, candidate.target_language, result.words_translated)
         elif result.words_translated:
-            state = await states.get_or_create(candidate.song_uuid, candidate.target_language)
-            await states.update_one(state, {"words_warmed": (state.words_warmed or 0) + result.words_translated})
+            # Unfinished but moving: bank the words and clear the fruitless
+            # count, so a long song is never mistaken for a stuck one.
+            await states.record_progress(candidate.song_uuid, candidate.target_language, result.words_translated)
         return result
 
 
