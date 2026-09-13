@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -300,10 +301,14 @@ async def test_webhook_cancel_at_marks_not_renewing(app, client, session, monkey
         content=json.dumps(_checkout_event(me["id"], plan.uuid)),
         headers={"Stripe-Signature": "x"},
     )
+    # Relative, not a fixed epoch: the hard-coded one silently became a PAST
+    # date as real time moved past it, and the subscription it described was
+    # then genuinely expired rather than "active until the cancel date".
+    cancel_at = int((datetime.now(UTC) + timedelta(days=30)).timestamp())
     updated = {
         "id": "evt_cancel_at",
         "type": "customer.subscription.updated",
-        "data": {"object": {"id": "sub_1", "status": "active", "cancel_at": 1787866092, "cancel_at_period_end": False}},
+        "data": {"object": {"id": "sub_1", "status": "active", "cancel_at": cancel_at, "cancel_at_period_end": False}},
     }
     await client.post("/api/webhooks/stripe", content=json.dumps(updated), headers={"Stripe-Signature": "x"})
 
