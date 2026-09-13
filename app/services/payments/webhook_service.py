@@ -36,6 +36,21 @@ def _ts(value) -> datetime | None:
     return datetime.fromtimestamp(value, UTC).replace(tzinfo=None) if value else None
 
 
+def _invoice_period(invoice: dict) -> tuple[datetime | None, datetime | None]:
+    """The span an invoice actually paid for.
+
+    Stripe reports it on the LINE ITEM. The invoice's own `period_start`/
+    `period_end` describe the billing moment, and on a first invoice both sit at
+    the start of the subscription — using them would file a fresh payment as a
+    period that already ended, which is the opposite of what was paid for.
+    """
+    lines = (invoice.get("lines") or {}).get("data") or []
+    period = (lines[0].get("period") if lines else None) or {}
+    if period.get("end"):
+        return _ts(period.get("start")), _ts(period["end"])
+    return _ts(invoice.get("period_start")), _ts(invoice.get("period_end"))
+
+
 class WebhookService:
     """Verifies Stripe webhooks, dedups them via the webhook_events store, and
     projects the ones we care about onto the user's subscription."""
@@ -135,11 +150,29 @@ class WebhookService:
 
     async def _on_invoice_paid(self, obj: dict) -> None:
         invoice_id = obj.get("id")
+        sub = await self._subscription_for_invoice(obj)
+
+        # A paid invoice is the only event that reliably says how long the
+        # customer has paid for — `customer.subscription.updated` may not even
+        # be enabled on the endpoint, and checkout.session.completed carries no
+        # period at all. Without this the row kept whatever period it was
+        # created with, so a successful payment left the account reading Free.
+        if sub:
+            start, end = _invoice_period(obj)
+            if end:
+                await self.subscriptions.update_one(
+                    sub,
+                    {
+                        "status": SubscriptionStatus.ACTIVE.value,
+                        "current_period_start": start,
+                        "current_period_end": end,
+                    },
+                )
+
+        # The period is advanced before this: a repeated delivery of the same
+        # invoice must not skip it just because the payment is already recorded.
         if invoice_id and await self.payments.get_by_provider_id(invoice_id):
             return
-        sub = None
-        if obj.get("subscription"):
-            sub = await self.subscriptions.get_by_provider_id(obj["subscription"])
         await self.payments.create_one(
             {
                 "user_id": sub.user_id if sub else None,
@@ -151,6 +184,24 @@ class WebhookService:
                 "status": PaymentStatus.SUCCEEDED.value,
             }
         )
+
+    async def _subscription_for_invoice(self, obj: dict):
+        """The local subscription an invoice belongs to.
+
+        By provider id first. The fallback matters on the very first payment:
+        `invoice.paid` arrives before `checkout.session.completed` has stored
+        the new subscription id, so the lookup would miss and the period would
+        never be set — Stripe puts our checkout metadata on the invoice for
+        exactly this reason.
+        """
+        if obj.get("subscription"):
+            found = await self.subscriptions.get_by_provider_id(obj["subscription"])
+            if found:
+                return found
+        meta = ((obj.get("subscription_details") or {}).get("metadata")) or {}
+        if meta.get("user_id"):
+            return await self.subscriptions.get_for_user(int(meta["user_id"]))
+        return None
 
     async def _upsert_subscription(
         self, *, user_id: int, plan_uuid: UUID, provider_subscription_id, status: SubscriptionStatus
