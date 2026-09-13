@@ -32,8 +32,33 @@ def normalize_text(text: str) -> str:
     return " ".join(text.split())
 
 
-def clip_hash(text: str, language: str, voice: str) -> str:
-    """Stable id for (text, language, voice).
+# What a sentence ends with. Word count alone cannot tell a sentence from a
+# vocabulary entry — "go in one ear and out the other" is eight words and still
+# a single thing to learn, read at normal speed — but a coursebook example
+# sentence is punctuated and a dictionary phrase is not.
+_SENTENCE_END = (".", "!", "?", "…")
+
+
+def tempo_for(text: str) -> float:
+    """How fast to read this back, as a multiple of the engine's own pace.
+
+    Lives here rather than in the service because it feeds the cache key: two
+    requests for the same words at different speeds are different clips, and
+    whatever decides that has to be the same function in both places.
+    """
+    cfg = settings.audio
+    cleaned = normalize_text(text)
+    if not cleaned.endswith(_SENTENCE_END):
+        return 1.0  # a phrase or a single word, however long
+    if len(cleaned.split()) < cfg.AUDIO_SENTENCE_MIN_WORDS:
+        return 1.0  # "Hi." is not what anybody is struggling to follow
+    # atempo refuses anything outside this; a typo in .env should slow the
+    # voice down, not break every clip.
+    return min(2.0, max(0.5, cfg.AUDIO_SENTENCE_TEMPO))
+
+
+def clip_hash(text: str, language: str, voice: str, tempo: float = 1.0) -> str:
+    """Stable id for (text, language, voice) at a given speed.
 
     Case is preserved: capitalisation can change how a sentence is read, and a
     proper noun is not the same utterance as a common one.
@@ -43,6 +68,12 @@ def clip_hash(text: str, language: str, voice: str) -> str:
     # the old keys become orphans, which the sweep collects.
     fmt = settings.audio.format.name
     payload = f"{CACHE_VERSION}|{normalize_text(text)}|{language.lower()}|{voice}|{fmt}"
+    # Appended only when the speed is not the engine's own, so introducing a
+    # sentence tempo re-renders sentences and leaves every single-word clip
+    # exactly where it is — of 14,000 cached clips at the time, 134 were
+    # sentences. Unconditional would have thrown the other 13,900 away.
+    if tempo != 1.0:
+        payload += f"|t{tempo:g}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

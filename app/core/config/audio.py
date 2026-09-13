@@ -93,6 +93,20 @@ class AudioConfig(BaseConfig):
     # article reader.
     AUDIO_MAX_TEXT_LENGTH: int = 400
 
+    # How fast a whole sentence is read back, as a multiple of the engine's own
+    # pace. 1.0 leaves it alone; 0.9 is a tenth slower.
+    #
+    # Single words come out fine — the complaint is only ever about sentences,
+    # where the engine runs them together at a pace a learner cannot follow in
+    # a language they are still learning. ffmpeg's atempo changes speed without
+    # touching pitch, so the voice does not deepen.
+    AUDIO_SENTENCE_TEMPO: float = 0.9
+    # A sentence is punctuated AND at least this long. Length alone will not
+    # do it: "go in one ear and out the other" is eight words and still a
+    # single vocabulary entry, read fine at full speed, while a coursebook
+    # example sentence always ends in a full stop.
+    AUDIO_SENTENCE_MIN_WORDS: int = 4
+
     @property
     def format(self) -> "AudioFormat":
         """The encoding profile in force, falling back to mp3 if misconfigured."""

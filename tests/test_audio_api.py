@@ -14,7 +14,7 @@ PROFILE = {"sub": "audio-sub-1", "email": "audio@gmail.com", "email_verified": T
 def _no_ffmpeg(monkeypatch):
     """Skip the real ffmpeg: transcoding and measuring are verified separately."""
 
-    async def fake_encode(wav: bytes) -> bytes:
+    async def fake_encode(wav: bytes, tempo: float = 1.0) -> bytes:
         return b"ID3" + wav[:64]
 
     async def fake_duration(mp3: bytes) -> int:

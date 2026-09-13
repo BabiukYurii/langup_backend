@@ -24,7 +24,7 @@ from app.models import AudioClip
 from app.repositories.audio_clip import AudioClipRepository
 from app.services.ai.client import AIClient, get_ai_client
 from app.services.audio.encode import AudioEncodingError, clip_duration_ms, transcode
-from app.services.audio.keys import clip_hash, normalize_text, object_key
+from app.services.audio.keys import clip_hash, normalize_text, object_key, tempo_for
 from app.services.audio.storage import AudioStorage, AudioStorageError, get_audio_storage
 
 logger = logging.getLogger(__name__)
@@ -68,8 +68,11 @@ class AudioService:
         # make the key unknowable until after synthesis, so every request that
         # did not name a voice would miss the cache — which is most of them.
         used_voice = self.resolve_voice(language, voice)
+        # Decided once and used twice: a sentence read slowly is a different
+        # clip from the same sentence at full speed, so the key has to know.
+        tempo = tempo_for(text)
 
-        hash_ = clip_hash(text, language, used_voice)
+        hash_ = clip_hash(text, language, used_voice, tempo)
         existing = await self.repo.get_by_hash(hash_)
         if existing:
             return existing, True
@@ -77,7 +80,7 @@ class AudioService:
         wav, _reported = await self._synthesize(text, language, used_voice)
 
         try:
-            encoded = await transcode(wav)
+            encoded = await transcode(wav, tempo)
         except AudioEncodingError as e:
             logger.error("Encoding failed for %r: %s", text[:40], e)
             raise ServiceUnavailableException("Could not encode audio") from e

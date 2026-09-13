@@ -12,7 +12,7 @@ from tests.test_audio_orphans import ListableStorage  # noqa: F401 — fixture s
 
 @pytest.fixture(autouse=True)
 def _no_ffmpeg(monkeypatch):
-    async def fake_encode(wav: bytes) -> bytes:
+    async def fake_encode(wav: bytes, tempo: float = 1.0) -> bytes:
         return b"ID3" + wav[:64]
 
     async def fake_duration(mp3: bytes) -> int:

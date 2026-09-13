@@ -59,8 +59,12 @@ async def clip_duration_ms(audio_bytes: bytes) -> int | None:
         return None
 
 
-async def transcode(wav_bytes: bytes) -> bytes:
-    """Transcode WAV bytes to mono audio in the configured format."""
+async def transcode(wav_bytes: bytes, tempo: float = 1.0) -> bytes:
+    """Transcode WAV bytes to mono audio in the configured format.
+
+    `tempo` below 1.0 slows the speech down without changing its pitch — see
+    keys.tempo_for for which clips get it and why.
+    """
     cfg = settings.audio
     fmt = cfg.format
     # Each profile carries the rate that is actually transparent for speech in
@@ -85,7 +89,10 @@ async def transcode(wav_bytes: bytes) -> bytes:
         (
             "silenceremove="
             "start_periods=1:start_threshold=-50dB:start_silence=0.1:"
-            "stop_periods=-1:stop_threshold=-50dB:stop_silence=0.1"
+            "stop_periods=-1:stop_threshold=-50dB:stop_silence=0.1" + (f",atempo={tempo:g}" if tempo != 1.0 else "")
+            # After the trim, so the silence thresholds still see the original
+            # timing. atempo is a resampler, not a pitch shift: the voice slows
+            # without dropping in register.
         ),
         "-ac",
         "1",
