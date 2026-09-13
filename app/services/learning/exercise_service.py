@@ -248,6 +248,78 @@ class ExercisePoolService:
         await self.usage.consume_generations(user_id, created)
         return created
 
+    async def generate_for_word(self, user_id: int, user_word_uuid: UUID) -> int:
+        """Build every per-word exercise type for ONE freshly saved word.
+
+        The pool tops up to a GLOBAL target, which is the right shape for a
+        learner adding words one at a time and the wrong one for anybody who
+        adds forty: the whole vocabulary shared five exercises, so practice
+        waited on the model at almost every card. Doing a word's full set the
+        moment it is saved moves that wait off the practice screen for good.
+
+        MATCH_PAIRS is deliberately absent: a round is a session spanning many
+        words, not a card about one, so it stays with the pool refill that can
+        see the whole vocabulary.
+        """
+        uw = await self.user_words.get_for_user(user_id, user_word_uuid)
+        if not uw:
+            return 0
+
+        budget = await self.usage.generation_budget(user_id)
+        if budget is not None and budget <= 0:
+            return 0
+
+        enabled = (await self.get_preferences(user_id)).exercise_types
+        # Only what this word does not already have. Nothing is skipped for a
+        # fresh capture, where it has none — but it makes a second call free,
+        # which is what lets the backfill finish a half-built set without
+        # paying for the half that already exists.
+        already = await self.exercises.types_for_word(user_id, uw.word_uuid)
+        wanted = [t for t in enabled if t != ExerciseType.MATCH_PAIRS and t.value not in already]
+        if not wanted:
+            return 0
+        if budget is not None:
+            # A free account would otherwise spend its whole day on one word.
+            wanted = wanted[:budget]
+
+        created = 0
+        for ex_type in wanted:
+            try:
+                await self._generate_and_store(user_id, uw, ex_type)
+            except (AIProviderError, AIResponseValidationError) as e:
+                logger.warning("Skipping %s for %r: %s: %s", ex_type.value, uw.word.lemma, type(e).__name__, e)
+                continue
+            created += 1
+        await self.usage.consume_generations(user_id, created)
+        return created
+
+    async def backfill_missing(self, user_id: int, limit: int | None = None) -> int:
+        """Build what is missing for words that never got their full set.
+
+        Generation happens once, at capture, so anything that failed then —
+        a spent daily allowance, a gateway outage, a word saved before the
+        per-word strategy existed — stays missing forever. This is the only
+        thing that goes back for it.
+
+        Yields between words: it is catch-up work on the same single model a
+        learner may be waiting on right now.
+        """
+        from app.services.learning.model_busy import model_is_busy
+
+        per_run = limit or settings.exercises.EXERCISE_BACKFILL_WORDS_PER_RUN
+        enabled = (await self.get_preferences(user_id)).exercise_types
+        wanted = [t for t in enabled if t != ExerciseType.MATCH_PAIRS]
+        if not wanted:
+            return 0
+
+        uuids = await self.exercises.words_missing_types(user_id, [t.value for t in wanted], per_run)
+        created = 0
+        for user_word_uuid in uuids:
+            if await model_is_busy():
+                break  # a learner is waiting; the rest keeps until next time
+            created += await self.generate_for_word(user_id, user_word_uuid)
+        return created
+
     async def _generate_of_type(self, user_id: int, ex_type: ExerciseType, language: str | None = None) -> int:
         """Make exercises of one type because the learner asked for that type."""
         budget = await self.usage.generation_budget(user_id)
@@ -562,6 +634,25 @@ async def translate_word_in_background(user_id: int, word_uuid: UUID) -> None:
                 logger.info("Translated %r -> %r (%s)", word.lemma, translation, language)
     except Exception:  # noqa: BLE001 — background task must never crash the worker
         logger.exception("Background translation failed for word %s", word_uuid)
+
+
+async def generate_word_exercises_in_background(user_id: int, user_word_uuid: UUID) -> None:
+    """Full exercise set for one word, for FastAPI BackgroundTasks.
+
+    The fallback used when no Celery worker is running; same work, same order,
+    just in-process. Never propagates: a learner has already been told their
+    word was saved.
+    """
+    from app.database.postgres import async_session
+    from app.services.ai.client import AIClient
+
+    try:
+        async with async_session() as session:
+            service = ExercisePoolService(session, ExerciseGenerationService(AIClient()))
+            created = await service.generate_for_word(user_id, user_word_uuid)
+            logger.info("Built %d exercise(s) for user word %s", created, user_word_uuid)
+    except Exception:  # noqa: BLE001 — background task must never crash the worker
+        logger.exception("Background exercise generation failed for %s", user_word_uuid)
 
 
 async def refill_pool_in_background(user_id: int) -> None:

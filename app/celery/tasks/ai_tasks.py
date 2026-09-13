@@ -92,6 +92,62 @@ def translate_word(user_id: int, word_uuid: str) -> int:
     return _run(job)
 
 
+@celery_app.task(name="ai.generate_word_exercises", **_RETRY_KWARGS)
+def generate_word_exercises(user_id: int, user_word_uuid: str) -> int:
+    """Build the full exercise set for one newly saved word."""
+
+    async def job(session: AsyncSession) -> int:
+        from app.services.learning.model_busy import mark_user_work
+
+        # A learner is going to practise this word shortly: claim the model so
+        # the playlist warmer stands aside.
+        await mark_user_work()
+        created = await _pool_service(session).generate_for_word(user_id, UUID(user_word_uuid))
+        logger.info("Built %d exercise(s) for user word %s", created, user_word_uuid)
+        return created
+
+    return _run(job)
+
+
+@celery_app.task(name="ai.backfill_exercises")
+def backfill_exercises(user_id: int | None = None) -> int:
+    """Catch up words that never got their full set of exercises.
+
+    Generation happens once, at capture. A word saved while the daily
+    allowance was spent, or while the gateway was down, is never revisited —
+    so this is the only thing that goes back for it. Called by beat with no
+    argument (every account), or with one to catch a single account up now.
+
+    Not retried on failure: it runs again on the next tick anyway, and the
+    words it did not reach are exactly the ones it will find next time.
+    """
+
+    async def job(session: AsyncSession) -> int:
+        from sqlalchemy import distinct, select
+
+        from app.models import UserWord
+        from app.services.learning.model_busy import model_is_busy
+
+        service = _pool_service(session)
+        if user_id is not None:
+            # Asked for explicitly, so the schedule's on/off switch does not
+            # apply — somebody is waiting for this account to catch up.
+            return await service.backfill_missing(user_id)
+        if not settings.exercises.EXERCISE_BACKFILL_ENABLED:
+            return 0
+
+        total = 0
+        for uid in (await session.execute(select(distinct(UserWord.user_id)))).scalars().all():
+            if await model_is_busy():
+                break  # a learner is mid-request; the rest keeps until next tick
+            total += await service.backfill_missing(uid)
+        if total:
+            logger.info("Backfilled %d exercise(s)", total)
+        return total
+
+    return _run(job)
+
+
 @celery_app.task(name="ai.refill_pool", **_RETRY_KWARGS)
 def refill_pool(user_id: int, exercise_type: str | None = None, language: str | None = None) -> int:
     """Top a user's exercise pool back up; returns how many were added."""

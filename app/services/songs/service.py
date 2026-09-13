@@ -110,21 +110,22 @@ class SongService:
             raise ObjectNotFoundException(playlist_uuid, "Playlist")
         await self.playlists.delete_one(playlist)  # playlist_songs cascade
 
-    async def add_word(self, user_id: int, lemma: str, language: str, known: bool) -> bool:
+    async def add_word(self, user_id: int, lemma: str, language: str, known: bool) -> UUID | None:
         """Add a song word to the user's vocabulary.
 
         known=True  -> mark it MASTERED and parked (they already know it; no
                        exercises, never scheduled for review).
-        known=False -> a normal new word to learn; the caller then schedules the
-                       exercise pool refill.
-        Returns True when a UserWord was created, False when it already existed.
+        known=False -> a normal new word to learn; the caller then builds its
+                       exercises.
+        Returns the new UserWord's uuid, or None when it already existed — the
+        caller needs the id to generate exercises for exactly this word.
         """
         lemma = await self._dictionary_form(lemma, language)
         word = await self.words.get_by_lemma_language(lemma, language)
         if not word:
             word = await self.words.create_one({"lemma": lemma, "language": language})
         if await self.user_words.get_by_user_word(user_id, word.uuid):
-            return False  # already in the user's dictionary — idempotent
+            return None  # already in the user's dictionary — idempotent
 
         data = {"user_id": user_id, "word_uuid": word.uuid}
         if known:
@@ -135,8 +136,8 @@ class SongService:
                 "repetitions": 1,
                 "due_at": now + timedelta(days=_KNOWN_INTERVAL_DAYS),
             }
-        await self.user_words.create_one(data)
-        return True
+        created = await self.user_words.create_one(data)
+        return created.uuid
 
     async def analyze_track(self, user_id: int, title: str, artist: str) -> AnalyzedLyrics:
         lyrics = await fetch_lyrics(title, artist)

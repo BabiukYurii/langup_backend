@@ -5,6 +5,14 @@ from app.core.config.base import BaseConfig
 class ExerciseConfig(BaseConfig):
     # Desired number of READY exercises to keep in each user's pool.
     EXERCISE_POOL_TARGET: int = 5
+
+    # Catching up words that never got their full set of exercises — because a
+    # daily cap ran out, the gateway was down, or they were saved before the
+    # per-word strategy existed. Nothing else re-checks: generation happens at
+    # capture, once, so without this a word skipped then stays skipped.
+    EXERCISE_BACKFILL_ENABLED: bool = False
+    EXERCISE_BACKFILL_WORDS_PER_RUN: int = 5
+    EXERCISE_BACKFILL_TICK_SECONDS: int = 900
     # Auto-refill the pool in a background task after a word is captured.
     # Off by default so tests/CI never reach the AI gateway; enabled in production.
     EXERCISE_POOL_AUTOFILL: bool = False

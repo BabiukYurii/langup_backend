@@ -64,7 +64,9 @@ async def test_analyze_song_requires_auth(client):
 async def test_add_word_known_marks_known_and_skips_exercises(app, client, monkeypatch):
     headers = await _login(app, client)
     calls = []
-    monkeypatch.setattr("app.routers.playlists.schedule_refill", lambda bg, uid: calls.append(uid))
+    monkeypatch.setattr(
+        "app.routers.playlists.schedule_word_exercises", lambda bg, uid, word_uuid: calls.append(word_uuid)
+    )
 
     resp = await client.post(
         "/api/playlists/song/word", json={"lemma": "dog", "language": "en", "known": True}, headers=headers
@@ -80,17 +82,21 @@ async def test_add_word_known_marks_known_and_skips_exercises(app, client, monke
     assert statuses["dog"] == "known"
 
 
-async def test_add_word_learning_schedules_exercise_refill(app, client, monkeypatch):
+async def test_add_word_learning_builds_that_words_exercises(app, client, monkeypatch):
     headers = await _login(app, client)
     calls = []
-    monkeypatch.setattr("app.routers.playlists.schedule_refill", lambda bg, uid: calls.append(uid))
+    monkeypatch.setattr(
+        "app.routers.playlists.schedule_word_exercises", lambda bg, uid, word_uuid: calls.append(word_uuid)
+    )
 
     resp = await client.post(
         "/api/playlists/song/word", json={"lemma": "cat", "language": "en", "known": False}, headers=headers
     )
     assert resp.status_code == 201
     assert resp.json() == {"added": True, "known": False}
-    assert len(calls) == 1  # "add to learning" tops up the exercise pool
+    # The word just added, by id — not a top-up of a pool that may already be
+    # full of other words, which is what used to leave it with nothing.
+    assert len(calls) == 1 and calls[0] is not None
 
     # a learning word renders in the third (amber) state, not green/red
     _patch_lyrics(monkeypatch, "The cat runs across the green field every single morning")
@@ -101,7 +107,7 @@ async def test_add_word_learning_schedules_exercise_refill(app, client, monkeypa
 
 async def test_add_word_is_idempotent(app, client, monkeypatch):
     headers = await _login(app, client)
-    monkeypatch.setattr("app.routers.playlists.schedule_refill", lambda bg, uid: None)
+    monkeypatch.setattr("app.routers.playlists.schedule_word_exercises", lambda bg, uid, word_uuid: None)
     body = {"lemma": "cat", "language": "en", "known": True}
     await client.post("/api/playlists/song/word", json=body, headers=headers)
     again = await client.post("/api/playlists/song/word", json=body, headers=headers)

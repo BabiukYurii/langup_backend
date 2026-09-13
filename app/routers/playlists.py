@@ -19,7 +19,7 @@ from app.schemas.playlist import (
     SongTranslateOut,
     SongTranslateRequest,
 )
-from app.services.learning.background import schedule_refill
+from app.services.learning.background import schedule_word_exercises
 from app.services.songs.import_service import playlist_import_status, schedule_playlist_import
 from app.services.songs.service import SongService, get_song_service
 from app.services.spotify.playlist_parser import fetch_playlist_preview
@@ -72,10 +72,12 @@ async def add_song_word(
     `known=true` marks it as already known (no exercises); `known=false` adds it
     for learning and schedules the exercise pool to be topped up with it.
     """
-    added = await service.add_word(current_user.id, data.lemma, data.language, data.known)
-    if added and not data.known:
-        schedule_refill(background, current_user.id)
-    return SongAddWordOut(added=added, known=data.known)
+    user_word_uuid = await service.add_word(current_user.id, data.lemma, data.language, data.known)
+    # This word's own full set, not a pool top-up: a word tapped in a song is
+    # exactly one the learner means to practise next.
+    if user_word_uuid and not data.known:
+        schedule_word_exercises(background, current_user.id, user_word_uuid)
+    return SongAddWordOut(added=user_word_uuid is not None, known=data.known)
 
 
 # --- saved playlists -------------------------------------------------------

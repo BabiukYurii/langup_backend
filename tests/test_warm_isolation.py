@@ -63,8 +63,12 @@ def test_warm_tasks_are_routed_off_the_default_queue():
 
 
 def test_user_facing_tasks_stay_on_the_default_queue():
+    """Named explicitly rather than by prefix: ai.backfill_exercises is an
+    `ai.` task that belongs on the warm queue precisely because nobody is
+    waiting for it. The ones somebody IS waiting for must stay put."""
     routes = celery_app.conf.task_routes
-    assert not any(pattern.startswith("ai.") for pattern in routes)
+    for name in ("ai.translate_word", "ai.refill_pool", "ai.generate_word_exercises"):
+        assert name not in routes
 
 
 # --- the mark --------------------------------------------------------------

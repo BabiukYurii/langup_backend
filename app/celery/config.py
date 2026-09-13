@@ -39,7 +39,12 @@ celery_app.conf.update(
     # the model itself — see services/learning/model_busy — they solve
     # contention on the worker slot, which is a different problem with the same
     # symptom.
-    task_routes={"warm.*": {"queue": "warm"}},
+    task_routes={
+        "warm.*": {"queue": "warm"},
+        # Catch-up work, not a learner's request: same queue as the warmer so
+        # it can never sit in front of a refill somebody is waiting on.
+        "ai.backfill_exercises": {"queue": "warm"},
+    },
 )
 
 # The first periodic work in the project: beat had been running with an empty
@@ -52,5 +57,10 @@ celery_app.conf.beat_schedule = {
         # A tick that arrives while the last one is still running is pointless:
         # drop it rather than pile up a backlog of songs to warm.
         "options": {"expires": float(settings.warm.WARM_TICK_SECONDS)},
-    }
+    },
+    "backfill-missing-exercises": {
+        "task": "ai.backfill_exercises",
+        "schedule": float(settings.exercises.EXERCISE_BACKFILL_TICK_SECONDS),
+        "options": {"expires": float(settings.exercises.EXERCISE_BACKFILL_TICK_SECONDS)},
+    },
 }

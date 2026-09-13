@@ -9,8 +9,8 @@ from app.schemas.capture import CaptureRequest, LanguageCountOut, UserWordDetail
 from app.schemas.pagination import Page
 from app.services.learning.background import (
     schedule_audio_warmup,
-    schedule_refill,
     schedule_translation,
+    schedule_word_exercises,
 )
 
 router = APIRouter(prefix="/vocabulary", tags=["Vocabulary"])
@@ -29,9 +29,11 @@ async def capture_word(
     # context we have; exercises built later then need no inference.
     if settings.exercises.TRANSLATE_ON_CAPTURE:
         schedule_translation(background_tasks, current_user.id, result.word_uuid)
-    # Pre-generate exercises so /exercises/next is instant despite slow CPU inference.
+    # Build THIS word's full set of exercises, not a top-up of a shared pool:
+    # the pool's global target meant a freshly saved word often got nothing,
+    # and practice then waited on the model at almost every card.
     if settings.exercises.EXERCISE_POOL_AUTOFILL:
-        schedule_refill(background_tasks, current_user.id)
+        schedule_word_exercises(background_tasks, current_user.id, result.uuid)
     # Warm the word AND the sentence it was met in: those are the two things a
     # learner taps 🔊 on, and only the first play of each is slow.
     if settings.audio.AUDIO_ENABLED:

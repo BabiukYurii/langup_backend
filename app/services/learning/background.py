@@ -80,6 +80,20 @@ def schedule_audio_warmup(
         background.add_task(warm_clips, texts, language, voice)
 
 
+def schedule_word_exercises(background: BackgroundTasks, user_id: int, user_word_uuid: UUID) -> None:
+    """Build every exercise type for a word the moment it is saved.
+
+    Replaces a pool top-up on capture. The pool is a global target, so adding a
+    word used to leave the new word with no exercises of its own whenever the
+    pool was already full — and practice then paid for the model card by card.
+    """
+    from app.celery.tasks.ai_tasks import generate_word_exercises
+    from app.services.learning.exercise_service import generate_word_exercises_in_background
+
+    if _enqueue(generate_word_exercises, user_id, str(user_word_uuid)) is None:
+        background.add_task(generate_word_exercises_in_background, user_id, user_word_uuid)
+
+
 def schedule_refill(background: BackgroundTasks, user_id: int) -> None:
     from app.celery.tasks.ai_tasks import refill_pool
     from app.services.learning.exercise_service import refill_pool_in_background
