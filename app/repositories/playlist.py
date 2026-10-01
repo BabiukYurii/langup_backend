@@ -34,6 +34,18 @@ class PlaylistSongRepository(BaseRepository[PlaylistSong]):
         stmt = select(func.count()).select_from(PlaylistSong).where(PlaylistSong.playlist_uuid == playlist_uuid)
         return (await self.session.execute(stmt)).scalar() or 0
 
+    async def max_priority(self, playlist_uuid: UUID) -> int:
+        """Highest warming priority in this playlist, 0 when it has none.
+
+        An ordinal counter rather than a timestamp: two tracks pasted in the
+        same second have to come out in the order they were pasted, and seconds
+        cannot express that.
+        """
+        stmt = select(func.coalesce(func.max(PlaylistSong.priority), 0)).where(
+            PlaylistSong.playlist_uuid == playlist_uuid
+        )
+        return int((await self.session.execute(stmt)).scalar() or 0)
+
     async def songs_for_playlist(self, playlist_uuid: UUID) -> list[tuple[PlaylistSong, Song]]:
         """Ordered (link, song) pairs for a playlist."""
         stmt = (

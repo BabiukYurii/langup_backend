@@ -45,3 +45,8 @@ class PlaylistSong(Base, UUIDMixin, TimestampMixin):
     playlist_uuid = Column(UUIDType, ForeignKey("playlists.uuid", ondelete="CASCADE"), index=True, nullable=False)
     song_uuid = Column(UUIDType, ForeignKey("songs.uuid", ondelete="CASCADE"), index=True, nullable=False)
     position = Column(Integer, nullable=False, server_default="0")
+    # Warming order. 0 for a playlist track, so those keep going strictly by
+    # position; a single track pasted on its own gets the current epoch, which
+    # puts every single ahead of every playlist and the newest single first.
+    # Somebody who pastes one song wants to read THAT song, now.
+    priority = Column(Integer, nullable=False, server_default="0", index=True)

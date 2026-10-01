@@ -2,7 +2,9 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database.postgres import get_session
 from app.dependencies import CurrentUserDep
 from app.schemas.playlist import (
     AnalyzedLyrics,
@@ -20,22 +22,31 @@ from app.schemas.playlist import (
     SongTranslateRequest,
 )
 from app.services.learning.background import schedule_word_exercises
-from app.services.songs.import_service import playlist_import_status, schedule_playlist_import
+from app.services.songs.import_service import (
+    playlist_import_status,
+    run_track_import,
+    schedule_playlist_import,
+)
 from app.services.songs.service import SongService, get_song_service
-from app.services.spotify.playlist_parser import fetch_playlist_preview
+from app.services.spotify.playlist_parser import fetch_playlist_preview, fetch_track, link_kind
 
 router = APIRouter(prefix="/playlists", tags=["Playlists"])
 
 SongServiceDep = Annotated[SongService, Depends(get_song_service)]
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
 @router.post("/preview", response_model=PlaylistPreviewOut, status_code=status.HTTP_200_OK)
 async def preview_playlist(data: PlaylistPreviewRequest, current_user: CurrentUserDep) -> PlaylistPreviewOut:
-    """Read a public Spotify playlist's track list (title + artist only).
+    """Read what a pasted Spotify link contains (titles and artists only).
 
-    Capped at PLAYLIST_MAX_TRACKS; the response's `truncated` flag lets the UI
-    warn when a longer playlist had tracks skipped. No audio or lyrics.
+    Accepts a playlist or a single track, because the UI has one field for
+    both. A playlist is capped at PLAYLIST_MAX_TRACKS and the `truncated` flag
+    lets the client warn that the rest were skipped. No audio or lyrics.
     """
+    if link_kind(data.url) == "track":
+        track = await fetch_track(data.url)
+        return PlaylistPreviewOut(name=track.title, tracks=[track], total=1, truncated=False, limit=1)
     return await fetch_playlist_preview(data.url)
 
 
@@ -85,13 +96,24 @@ async def add_song_word(
 
 @router.post("", response_model=PlaylistImportOut, status_code=status.HTTP_202_ACCEPTED)
 async def import_playlist(
-    data: PlaylistImportRequest, current_user: CurrentUserDep, background: BackgroundTasks
+    data: PlaylistImportRequest,
+    current_user: CurrentUserDep,
+    background: BackgroundTasks,
+    session: SessionDep,
 ) -> PlaylistImportOut:
-    """Import a playlist: parse it and analyse its songs in the background.
+    """Import whatever was pasted: a whole playlist, or one song.
 
-    Returns a task id to poll; when it finishes, the status carries the new
-    playlist's uuid.
+    A playlist is parsed and analysed in the background, and the response is a
+    task id to poll. A single track is done inline — one page from Spotify, one
+    lyrics lookup — and comes back with the ids to open it, because somebody who
+    pasted one song means to read that song now. It also jumps the warming
+    queue ahead of every playlist.
     """
+    if link_kind(data.url) == "track":
+        result = await run_track_import(session, current_user.id, data.url)
+        return PlaylistImportOut(
+            kind="track", **{k: result[k] for k in ("playlist_uuid", "song_uuid", "title", "artist")}
+        )
     task_id = schedule_playlist_import(background, current_user.id, data.url)
     return PlaylistImportOut(task_id=task_id)
 

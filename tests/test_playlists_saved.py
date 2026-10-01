@@ -42,7 +42,12 @@ async def test_import_endpoint_returns_task_id(app, client, monkeypatch):
         "/api/playlists", json={"url": "https://open.spotify.com/playlist/5g4ppcqdDHUCVpkAWQ5zbG"}, headers=headers
     )
     assert resp.status_code == 202
-    assert resp.json() == {"task_id": "task-123"}
+    body = resp.json()
+    # Asserted field by field, not as a whole body: the response grew optional
+    # fields when the same endpoint learned to take a single track link.
+    assert body["task_id"] == "task-123"
+    assert body["kind"] == "playlist"
+    assert body["song_uuid"] is None
 
 
 async def test_list_and_detail_with_unknown_counts(app, client, session):
@@ -95,3 +100,36 @@ async def test_delete_playlist(app, client, session):
 async def test_saved_playlist_endpoints_require_auth(client):
     assert (await client.get("/api/playlists")).status_code == 401
     assert (await client.post("/api/playlists", json={"url": "x"})).status_code == 401
+
+
+async def test_import_endpoint_takes_a_single_track_link(app, client, monkeypatch):
+    """One field for both kinds of link. A track is done inline and comes back
+    with the ids to open it, because there is nothing to wait for."""
+    from app.services.spotify import playlist_parser
+
+    async def fake_fetch(url, what):
+        from tests.test_track_import import _embed_html
+
+        return _embed_html(title="Billie Jean", artists=("Michael Jackson",))
+
+    monkeypatch.setattr(playlist_parser, "_fetch_embed", fake_fetch)
+
+    async def no_lyrics(session, song):
+        return song
+
+    monkeypatch.setattr("app.services.songs.import_service.analyze_song", no_lyrics)
+
+    headers = await _login(app, client)
+    resp = await client.post(
+        "/api/playlists",
+        json={"url": "https://open.spotify.com/track/0OZQ0HLug7pmpqYXXe7aYp?si=abc"},
+        headers=headers,
+    )
+
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["kind"] == "track"
+    assert body["task_id"] is None  # nothing to poll
+    assert body["title"] == "Billie Jean"
+    assert body["artist"] == "Michael Jackson"
+    assert body["song_uuid"] and body["playlist_uuid"]

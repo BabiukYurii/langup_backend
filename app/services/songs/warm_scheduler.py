@@ -91,6 +91,9 @@ async def next_candidate(session: AsyncSession) -> WarmCandidate | None:
             )
         )
         .order_by(
+            # 0. anything pasted as a single song, newest first. Playlist tracks
+            #    all sit at 0, so for them this changes nothing.
+            PlaylistSong.priority.desc(),
             # 1. the round: every first song before any second song
             PlaylistSong.position.asc(),
             # 2. within a round, whatever was left alone longest — so a song

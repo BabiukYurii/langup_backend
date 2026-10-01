@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 # open.spotify.com/playlist/{id}, /embed/playlist/{id}, or spotify:playlist:{id}.
 _ID_RE = re.compile(r"(?:playlist[:/])([0-9A-Za-z]{22})")
+# The same three shapes for a single track.
+_TRACK_ID_RE = re.compile(r"(?:track[:/])([0-9A-Za-z]{22})")
+_TRACK_EMBED_URL = "https://open.spotify.com/embed/track/{id}"
 _NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.DOTALL)
 
 
@@ -32,17 +35,73 @@ def extract_playlist_id(url: str) -> str:
     return match.group(1)
 
 
-def _tracks_from_next_data(html: str) -> tuple[str | None, list[PlaylistTrackOut]]:
-    """Pull (playlist name, tracks) out of the embed page's __NEXT_DATA__ blob."""
+def extract_track_id(url: str) -> str:
+    """The 22-char track id from a link/URI, else a 400."""
+    match = _TRACK_ID_RE.search(url or "")
+    if not match:
+        raise BadRequestException("Not a valid Spotify track link")
+    return match.group(1)
+
+
+def link_kind(url: str) -> str:
+    """Whether a pasted link points at a playlist or a single track.
+
+    Checked before the id patterns rather than by trying each in turn, because
+    the same field accepts both and the answer decides which import runs.
+    """
+    text = url or ""
+    if _TRACK_ID_RE.search(text):
+        return "track"
+    if _ID_RE.search(text):
+        return "playlist"
+    raise BadRequestException("Not a valid Spotify playlist or track link")
+
+
+def _entity_from_next_data(html: str) -> dict:
+    """The embed page's entity blob, whatever kind of thing it describes."""
     blob = _NEXT_DATA_RE.search(html)
     if not blob:
-        raise BadRequestException("Could not read the playlist (unexpected page format)")
+        raise BadRequestException("Could not read the page (unexpected format)")
     try:
-        entity = json.loads(blob.group(1))["props"]["pageProps"]["state"]["data"]["entity"]
+        return json.loads(blob.group(1))["props"]["pageProps"]["state"]["data"]["entity"]
     except (json.JSONDecodeError, KeyError, TypeError) as e:
-        logger.warning("Playlist embed parse failed: %s", e)
-        raise BadRequestException("Could not read the playlist (unexpected page format)") from e
+        logger.warning("Spotify embed parse failed: %s", e)
+        raise BadRequestException("Could not read the page (unexpected format)") from e
 
+
+async def _fetch_embed(url: str, what: str) -> str:
+    """GET an embed page, turning every failure into a readable 400."""
+    try:
+        async with httpx.AsyncClient(timeout=settings.playlists.PLAYLIST_FETCH_TIMEOUT_SECONDS) as client:
+            resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"}, follow_redirects=True)
+    except httpx.HTTPError as e:
+        logger.warning("Spotify fetch failed for %s: %s", url, e)
+        raise BadRequestException("Could not reach Spotify. Try again.") from e
+    if resp.status_code != 200:
+        raise BadRequestException(f"{what} not found or not public")
+    return resp.text
+
+
+async def fetch_track(url: str) -> PlaylistTrackOut:
+    """Title and artist of one track from its embed page.
+
+    A track's entity is shaped differently from a playlist's: there is no
+    trackList, and `subtitle` is empty — the performer lives in `artists`, as a
+    list, joined here the way a playlist's subtitle already presents them.
+    """
+    track_id = extract_track_id(url)
+    entity = _entity_from_next_data(await _fetch_embed(_TRACK_EMBED_URL.format(id=track_id), "Track"))
+
+    title = (entity.get("title") or entity.get("name") or "").strip()
+    if not title:
+        raise BadRequestException("Could not read the track")
+    artists = [(a.get("name") or "").strip() for a in entity.get("artists") or []]
+    return PlaylistTrackOut(title=title, artist=", ".join(a for a in artists if a), spotify_id=track_id)
+
+
+def _tracks_from_next_data(html: str) -> tuple[str | None, list[PlaylistTrackOut]]:
+    """Pull (playlist name, tracks) out of the embed page's __NEXT_DATA__ blob."""
+    entity = _entity_from_next_data(html)
     tracks: list[PlaylistTrackOut] = []
     for item in entity.get("trackList") or []:
         title = (item.get("title") or "").strip()

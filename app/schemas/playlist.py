@@ -107,6 +107,14 @@ class PlaylistImportRequest(BaseModel):
 class PlaylistImportOut(BaseModel):
     # Celery task id to poll for progress; None when it ran in-process.
     task_id: str | None = None
+    # "playlist" or "track". A single pasted track is imported inline, so the
+    # fields below are filled in and there is nothing to poll — the client can
+    # open the song straight away.
+    kind: str = "playlist"
+    playlist_uuid: str | None = None
+    song_uuid: str | None = None
+    title: str | None = None
+    artist: str | None = None
 
 
 class PlaylistImportStatus(BaseModel):
