@@ -8,6 +8,17 @@ class UserRepository(BaseRepository[User]):
     def __init__(self, session) -> None:
         super().__init__(session=session, model=User)
 
+    async def any_with_role(self, roles: tuple[str, ...]) -> bool:
+        """Whether anybody holds one of these roles.
+
+        Asked before seeding the first administrator, so the seed is a no-op on
+        every start but the one that needs it.
+        """
+        from sqlalchemy import select
+
+        stmt = select(User.id).where(User.role.in_(roles)).limit(1)
+        return (await self.session.execute(stmt)).first() is not None
+
     async def get_by_email(self, email: str) -> User | None:
         return await self.get_one(email=email)
 
