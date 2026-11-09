@@ -6,6 +6,19 @@ from pydantic import BaseModel, Field
 from app.enums.vocabulary import MasteryLevel
 
 
+class StreakOut(BaseModel):
+    """The learner's practice run, under "skip a day, but not two"."""
+
+    current: int
+    longest: int
+    # Whether anything has been answered today, so the UI can show the day as
+    # already done rather than nagging.
+    practised_today: bool
+    # Days left to practise before the run lapses. 1 means today is the last
+    # chance, which is what a reminder can say out loud.
+    days_left: int
+
+
 class ReviewRequest(BaseModel):
     # SM-2 recall quality: 0 (blackout) .. 5 (perfect).
     quality: int = Field(ge=0, le=5)

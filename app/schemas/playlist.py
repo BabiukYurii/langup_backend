@@ -136,6 +136,12 @@ class PlaylistSongOut(BaseModel):
     title: str
     artist: str
     language: str | None
+    # How much of the song the learner already has words for, 0-100, or None
+    # when it has not been analysed. The motivating number: it rises on its own
+    # every time a word is saved that happens to appear here.
+    comprehension: int | None = None
+    # Content lemmas in the song — the denominator behind `comprehension`.
+    total_lemmas: int | None = None
     # Words in the song the user doesn't have yet (None if not analysed).
     unknown_count: int | None = None
     # True when the song's language is one the user is learning.
@@ -147,3 +153,7 @@ class PlaylistDetailOut(BaseModel):
     name: str | None
     status: str
     songs: list[PlaylistSongOut]
+    # The whole playlist, weighted by song length rather than a mean of the
+    # per-song figures, so a two-line interlude does not count as much as a
+    # verse-heavy song. None until something in it has been analysed.
+    comprehension: int | None = None

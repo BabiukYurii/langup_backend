@@ -33,6 +33,19 @@ from app.services.songs.analysis import analyze_lyrics
 from app.services.songs.language import detect_language
 from app.utils.lemmatize import to_lemma
 
+
+def comprehension_percent(total: int | None, unknown: int | None) -> int | None:
+    """How much of a song the learner has words for, 0-100.
+
+    None when there is nothing to measure — an unanalysed song, or one whose
+    lyrics turned out to hold no content words at all. Rounded down, so 99%
+    never reads as a finished song.
+    """
+    if not total or unknown is None:
+        return None
+    return int((total - unknown) * 100 // total)
+
+
 logger = logging.getLogger(__name__)
 
 # Machine-readable markers for the client.
@@ -85,12 +98,13 @@ class SongService:
             # language). Unanalysed songs (language None) are kept until analysed.
             if learned and song.language and song.language not in learned:
                 continue
-            unknown = None
+            unknown = total = None
             if song.language and song.lemmas is not None:
                 if song.language not in vocab_by_lang:
                     states = await self.user_words.lemma_states_for_user(user_id, song.language)
                     vocab_by_lang[song.language] = set(states.keys())
                 have = vocab_by_lang[song.language]
+                total = len(song.lemmas)
                 unknown = sum(1 for lemma in song.lemmas if lemma not in have)
             songs.append(
                 PlaylistSongOut(
@@ -98,11 +112,24 @@ class SongService:
                     title=song.title,
                     artist=song.artist,
                     language=song.language,
+                    comprehension=comprehension_percent(total, unknown),
+                    total_lemmas=total,
                     unknown_count=unknown,
                     in_learned_language=bool(song.language and song.language in learned),
                 )
             )
-        return PlaylistDetailOut(uuid=playlist.uuid, name=playlist.name, status=playlist.status, songs=songs)
+        return PlaylistDetailOut(
+            uuid=playlist.uuid,
+            name=playlist.name,
+            status=playlist.status,
+            songs=songs,
+            # Over the whole playlist, weighted by song length rather than a mean
+            # of percentages: a two-line interlude should not count as much as a
+            # verse-heavy song.
+            comprehension=comprehension_percent(
+                sum(s.total_lemmas or 0 for s in songs), sum(s.unknown_count or 0 for s in songs)
+            ),
+        )
 
     async def delete_playlist(self, user_id: int, playlist_uuid: UUID) -> None:
         playlist = await self.playlists.get_for_user(user_id, playlist_uuid)
