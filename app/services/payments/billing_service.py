@@ -58,7 +58,7 @@ class BillingService:
             raise BadRequestException("No subscription to manage")
 
         provider = StripeProvider(cfg.STRIPE_API_KEY, cfg.STRIPE_WEBHOOK_SECRET)
-        return_url = settings.app.BASE_URL.rstrip("/") + "/app/index.html"
+        return_url = settings.app.BASE_URL.rstrip("/") + settings.payments.PORTAL_RETURN_PATH
         url = await provider.create_billing_portal_session(
             subscription_id=sub.provider_subscription_id, return_url=return_url
         )

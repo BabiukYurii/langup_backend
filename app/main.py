@@ -6,7 +6,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.core import settings
@@ -25,6 +25,7 @@ from app.core.exc import (
 )
 from app.middlewares.security_headers import SecurityHeadersMiddleware
 from app.routers import router
+from app.services.payments.return_page import assetlinks, is_known_outcome, render_return_page
 
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
@@ -149,6 +150,17 @@ def _register_flutter_app(app: FastAPI) -> None:
     async def flutter_root() -> RedirectResponse:
         return RedirectResponse("/app/")
 
+    # Where Stripe sends a customer back. Declared before the patterns below so
+    # the outcome is never mistaken for a legacy page or an asset path.
+    #
+    # On a verified Android install this URL never reaches us at all — the OS
+    # hands it to the app. The page is for everyone else.
+    @app.get("/app/checkout/{outcome}", include_in_schema=False)
+    async def checkout_return(outcome: str) -> HTMLResponse:
+        if not is_known_outcome(outcome):
+            raise ObjectNotFoundException(outcome, "Checkout outcome")
+        return HTMLResponse(render_return_page(outcome), headers=_NO_CACHE)
+
     # The old cabinet was a page per URL; the app routes on the fragment, which
     # a server never sees. So a bookmark can only be sent to the right screen by
     # mapping it here — otherwise every saved link lands on a 404.
@@ -202,6 +214,18 @@ def create_app() -> FastAPI:
     )
     app.include_router(router)
     _add_handlers(app)
+
+    # Android reads this to decide whether our https links may open the app.
+    # Registered for every deployment, not only the Flutter one, because the
+    # statement describes the site rather than what it serves.
+    @app.get("/.well-known/assetlinks.json", include_in_schema=False)
+    async def android_assetlinks() -> JSONResponse:
+        statement = assetlinks()
+        if not statement:
+            # A statement without a certificate is a verification that fails
+            # and gets cached; absent is better than wrong.
+            raise ObjectNotFoundException("assetlinks.json", "Asset links")
+        return JSONResponse(statement, headers=_NO_CACHE)
 
     # Serve the cabinet at /app (same origin as the API, so no CORS and no
     # second deployment). The Flutter build wins when it is present.

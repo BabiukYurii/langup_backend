@@ -34,8 +34,19 @@ class PaymentsConfig(BaseConfig):
 
     # Where Stripe Checkout sends the customer back. Relative paths are joined
     # onto BASE_URL by the billing service.
-    SUCCESS_PATH: str = Field("/app/index.html?checkout=success", alias="PAYMENTS_SUCCESS_PATH")
-    CANCEL_PATH: str = Field("/app/index.html?checkout=cancel", alias="PAYMENTS_CANCEL_PATH")
+    # Where Stripe sends the customer back. These are handed to Stripe per
+    # session rather than configured in its dashboard, so changing them needs
+    # no action on Stripe's side.
+    #
+    # They point at a page of ours rather than straight at the app because
+    # Stripe Checkout only accepts http(s) here — a "langup://" URL is refused.
+    # That page is an App Link, so Android opens the app and never renders it;
+    # when verification does not apply it renders and offers the scheme.
+    SUCCESS_PATH: str = Field("/app/checkout/success", alias="PAYMENTS_SUCCESS_PATH")
+    CANCEL_PATH: str = Field("/app/checkout/cancel", alias="PAYMENTS_CANCEL_PATH")
+    # The hosted portal sends the customer back the same way; this used to be
+    # hard-coded at the web cabinet, which stranded app users in a browser.
+    PORTAL_RETURN_PATH: str = Field("/app/checkout/portal", alias="PAYMENTS_PORTAL_RETURN_PATH")
 
     @property
     def stripe_enabled(self) -> bool:
