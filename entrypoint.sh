@@ -16,5 +16,11 @@ echo "Ensuring an administrator exists..."
 # serve the learners it already has.
 python -m scripts.bootstrap_admin || echo "bootstrap_admin: skipped"
 
+# Plans are configuration, not user data, so an emptied database loses them and
+# checkout breaks with nothing in the UI to explain why. Same shape, same
+# reason it is not a migration.
+echo "Ensuring a subscription plan exists..."
+python -m scripts.bootstrap_plan || echo "bootstrap_plan: skipped"
+
 echo "Starting FastAPI application..."
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
