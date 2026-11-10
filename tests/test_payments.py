@@ -316,3 +316,57 @@ async def test_webhook_cancel_at_marks_not_renewing(app, client, session, monkey
     assert body["is_active"] is True  # still active until the cancel date
     assert body["cancel_at_period_end"] is True  # but flagged as not renewing
     assert body["current_period_end"] is not None
+
+
+# --- is there anything to manage? ------------------------------------------
+
+
+async def test_a_self_granted_trial_is_not_managed(app, client, session):
+    """The free trial is ours, not Stripe's: it has no provider subscription
+    behind it, so the billing portal has nothing to open. The client used to
+    show "Manage" for it and the tap died on a 400."""
+    await _seed_plan(session)
+    reg = await client.post("/api/auth/register", json={"email": "trialist@x.com", "password": "supersecret123"})
+    headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+    body = (await client.get("/api/payments/subscription", headers=headers)).json()
+
+    assert body["is_active"] is True
+    assert body["is_managed"] is False
+
+
+async def test_a_paid_subscription_is_managed(app, client, session, monkeypatch):
+    from app.services.payments import webhook_service
+
+    monkeypatch.setattr(webhook_service, "StripeProvider", FakeStripeProvider)
+    plan = await _seed_plan(session)
+    headers = await _login(client, email="payer@x.com")
+    me = (await client.get("/api/auth/me", headers=headers)).json()
+
+    event = _checkout_event(me["id"], plan.uuid)
+    await client.post("/api/webhooks/stripe", content=json.dumps(event), headers={"Stripe-Signature": "x"})
+
+    body = (await client.get("/api/payments/subscription", headers=headers)).json()
+    assert body["is_managed"] is True
+
+
+async def test_no_subscription_is_not_managed(app, client):
+    headers = await _login(client, email="freeloader@x.com")
+    body = (await client.get("/api/payments/subscription", headers=headers)).json()
+    assert body["is_active"] is False
+    assert body["is_managed"] is False
+
+
+async def test_the_portal_refuses_an_unmanaged_trial(app, client, session, monkeypatch):
+    """is_managed and the portal must agree, or the client would be told to
+    show a button the server then rejects."""
+    from app.core import settings
+
+    monkeypatch.setattr(settings.payments, "STRIPE_API_KEY", "sk_test_x")
+    monkeypatch.setattr(settings.payments, "STRIPE_WEBHOOK_SECRET", "whsec_x")
+    await _seed_plan(session)
+    reg = await client.post("/api/auth/register", json={"email": "trialist2@x.com", "password": "supersecret123"})
+    headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+    assert (await client.get("/api/payments/subscription", headers=headers)).json()["is_managed"] is False
+    assert (await client.post("/api/payments/portal", headers=headers)).status_code == 400

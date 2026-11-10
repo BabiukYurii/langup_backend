@@ -38,3 +38,8 @@ class SubscriptionOut(BaseModel):
     is_active: bool
     current_period_end: datetime | None = None
     cancel_at_period_end: bool = False
+    # Whether there is anything at the payment provider to manage. A trial we
+    # granted ourselves is active but has no Stripe subscription behind it, so
+    # the billing portal has nothing to open — the client must offer "upgrade"
+    # for those, not "manage".
+    is_managed: bool = False

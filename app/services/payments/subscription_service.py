@@ -32,6 +32,7 @@ class SubscriptionService:
             is_active=is_active_subscription(sub),
             current_period_end=sub.current_period_end or sub.trial_end_at,
             cancel_at_period_end=sub.cancel_at_period_end,
+            is_managed=bool(sub.provider_subscription_id),
         )
 
     async def has_active(self, user_id: int) -> bool:
