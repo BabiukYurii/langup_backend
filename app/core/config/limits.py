@@ -9,6 +9,8 @@ class LimitsConfig(BaseConfig):
     # counter row. 0 disables the limit entirely.
     FREE_DAILY_AI_GENERATIONS: int = Field(40, alias="FREE_DAILY_AI_GENERATIONS")
     # New accounts get a free Premium trial of this many days (0 disables).
-    NEW_USER_TRIAL_DAYS: int = Field(30, alias="NEW_USER_TRIAL_DAYS")
+    # Short on purpose: the trial is a taste, not a free tier. At a month,
+    # registering again cost less than paying.
+    NEW_USER_TRIAL_DAYS: int = Field(3, alias="NEW_USER_TRIAL_DAYS")
     # Plan a granted trial points at (must exist in the plans table).
     TRIAL_PLAN_CODE: str = Field("premium_monthly", alias="TRIAL_PLAN_CODE")

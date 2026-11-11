@@ -117,6 +117,25 @@ async def test_new_user_gets_premium_trial(app, client, session):
     assert body["is_active"] is True
 
 
+async def test_the_trial_lasts_three_days(app, client, session):
+    """Pinned, because the length is the whole economics of the free tier: at a
+    month, registering a second account cost less than paying."""
+    from sqlalchemy import select
+
+    from app.core import settings
+    from app.models import Subscription
+
+    assert settings.limits.NEW_USER_TRIAL_DAYS == 3
+
+    await _seed_plan(session)
+    reg = await client.post("/api/auth/register", json={"email": "fresh@x.com", "password": "supersecret123"})
+    assert reg.status_code in (200, 201)
+
+    sub = (await session.execute(select(Subscription))).scalars().one()
+    granted = sub.trial_end_at - datetime.now(UTC).replace(tzinfo=None)
+    assert timedelta(days=2, hours=23) < granted <= timedelta(days=3)
+
+
 async def test_expired_trial_is_not_active(app, client, session):
     from datetime import UTC, datetime, timedelta
 
